@@ -43,6 +43,12 @@ dependencies:
               to-entropy:
                 charset: "a-z,A-Z,0-9"
                 len: 22
+      - rule: '''users.[first(item => ''item.name = "lnd")].allowed-calls.* = "getbestblockhash"'
+        description: 'RPC user "lnd" must have "getbestblockhash" enabled'
+        suggestions:
+          - PUSH:
+              to: 'users.[first(item => ''item.name = "lnd")].allowed-calls'
+              value: "getbestblockhash"
       - rule: '''users.[first(item => ''item.name = "lnd")].allowed-calls.* = "gettxout"'
         description: 'RPC user "lnd" must have "gettxout" enabled'
         suggestions:
