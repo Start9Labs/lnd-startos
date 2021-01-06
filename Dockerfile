@@ -7,7 +7,7 @@ ADD . /root
 
 WORKDIR /root/lnd
 
-RUN make install tags="signrpc walletrpc chainrpc invoicesrpc"
+RUN make -j24 install tags="signrpc walletrpc chainrpc invoicesrpc"
 
 FROM alpine:3.12 as runner
 

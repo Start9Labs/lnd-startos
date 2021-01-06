@@ -1,3 +1,22 @@
+alias:
+  type: string
+  name: Alias
+  description: The public, human-readable name of your Lightning node
+  nullable: true
+  pattern: ".{1,32}"
+  patternDescription: Must be at least 1 character and no more than 32 characters
+color:
+  type: string
+  name: Color
+  description: The public color dot of your Lightning node
+  nullable: false
+  pattern: "[0-9a-fA-F]{6}"
+  patternDescription: |
+    Must be a valid 6 digit hexadecimal RGB value. The first two digits are red, middle two are green, and final two are
+    blue
+  default:
+    charset: "a-f,0-9"
+    len: 6
 bitcoind:
   type: union
   name: Bitcoin Core
@@ -222,3 +241,74 @@ advanced:
       integral: true
       default: 30
       units: "seconds"
+    bitcoin:
+      type: object
+      name: Bitcoin Channel Configuration
+      description: Configuration options for lightning network channel management operating over the Bitcoin network
+      nullable: false
+      nullByDefault: false
+      spec:
+        default-channel-confirmations:
+          type: number
+          name: Default Channel Confirmations
+          description: |
+            The default number of confirmations a channel must have before it's considered
+            open. LND will require any incoming channel requests to wait this many
+            confirmations before it considers the channel active.
+          nullable: false
+          range: "[1,6]"
+          integral: true
+          default: 3
+          units: "blocks"
+        min-htlc:
+          type: number
+          name: Minimum Incoming HTLC Size
+          description: |
+            The smallest HTLC LND will to accept on your channels, in millisatoshis.
+          nullable: false
+          range: "[1,*)"
+          integral: true
+          default: 1
+          units: "millisatoshis"
+        min-htlc-out:
+          type: number
+          name: Minimum Outgoing HTLC Size
+          description: |
+            The smallest HTLC LND will send out on your channels, in millisatoshis.
+          nullable: false
+          range: "[1,*)"
+          integral: true
+          default: 1000
+          units: "millisatoshis"
+        base-fee:
+          type: number
+          name: Routing Base Fee
+          description: |
+            The base fee in millisatoshi you will charge for forwarding payments on your
+            channels.
+          nullable: false
+          range: "[0,*)"
+          integral: true
+          default: 1000
+          units: "millisatoshi"
+        fee-rate:
+          type: number
+          name: Routing Fee Rate
+          description: |
+            The fee rate used when forwarding payments on your channels. The total fee
+            charged is the Base Fee + (amount * Fee Rate / 1000000), where amount is the
+            forwarded amount. Measured in sats per million
+          nullable: false
+          range: "[1,1000000)"
+          integral: true
+          default: 1
+          units: "sats per million"
+        time-lock-delta:
+          type: number
+          name: Time Lock Delta
+          description: The CLTV delta we will subtract from a forwarded HTLC's timelock value.
+          nullable: false
+          range: "[6, 144]"
+          integral: true
+          default: 40
+          units: "blocks"

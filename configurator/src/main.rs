@@ -1,13 +1,16 @@
+use rand::Rng;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::net::{IpAddr, SocketAddr};
 use std::path::Path;
 
+use anyhow::anyhow;
 use http::Uri;
 use serde::{
     de::{Deserializer, Error as DeserializeError, Unexpected},
     Deserialize,
 };
+use x509_parser::pem;
 
 fn deserialize_parse<'de, D: Deserializer<'de>, T: std::str::FromStr>(
     deserializer: D,
@@ -36,11 +39,24 @@ fn parse_quick_connect_url(url: Uri) -> Result<(String, String, String, u16), an
 #[derive(Deserialize)]
 #[serde(rename_all = "kebab-case")]
 struct Config {
+    alias: Option<String>,
+    color: String,
     bitcoind: BitcoinCoreConfig,
     autopilot: AutoPilotConfig,
     watchtower_enabled: bool,
     watchtower_client_enabled: bool,
     advanced: AdvancedConfig,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+struct BitcoinChannelConfig {
+    default_channel_confirmations: usize,
+    min_htlc: u64,
+    min_htlc_out: u64,
+    base_fee: u64,
+    fee_rate: u64,
+    time_lock_delta: usize,
 }
 
 #[derive(serde::Deserialize)]
@@ -96,6 +112,7 @@ struct AutoPilotAdvancedConfig {
 #[serde(rename_all = "kebab-case")]
 struct AdvancedConfig {
     payments_expiration_grace_period: usize,
+    bitcoin: BitcoinChannelConfig,
 }
 
 #[derive(serde::Serialize)]
@@ -106,8 +123,10 @@ pub struct Properties {
 
 #[derive(serde::Serialize)]
 pub struct Data {
-    #[serde(rename = "LND Connect URL")]
-    lnd_connect: Property<String>,
+    #[serde(rename = "LND Connect gRPC URL")]
+    lnd_connect_grpc: Property<String>,
+    #[serde(rename = "LND Connect REST URL")]
+    lnd_connect_rest: Property<String>,
 }
 
 #[derive(serde::Serialize)]
@@ -128,18 +147,32 @@ pub struct CipherSeedMnemonic {
 
 fn main() -> Result<(), anyhow::Error> {
     let config: Config = serde_yaml::from_reader(File::open("/root/.lnd/start9/config.yaml")?)?;
+    let alias = match config.alias {
+        None => {
+            let alias_path = Path::new("/root/.lnd/start9/default_alias.txt");
+            if alias_path.exists() {
+                std::fs::read_to_string(alias_path)?
+            } else {
+                let mut rng = rand::thread_rng();
+                let default_alias = format!("start9-{:#010x}", rng.gen::<u64>());
+                std::fs::write(alias_path, &default_alias)?;
+                default_alias
+            }
+        }
+        Some(a) => a,
+    };
     let tor_address = std::env::var("TOR_ADDRESS")?;
     {
         let mut outfile = File::create("/root/.lnd/lnd.conf")?;
 
         let (
-            bitcoin_rpc_user,
-            bitcoin_rpc_pass,
-            bitcoin_rpc_host,
-            bitcoin_rpc_port,
-            bitcoin_zmq_host,
-            bitcoin_zmq_block_port,
-            bitcoin_zmq_tx_port,
+            bitcoind_rpc_user,
+            bitcoind_rpc_pass,
+            bitcoind_rpc_host,
+            bitcoind_rpc_port,
+            bitcoind_zmq_host,
+            bitcoind_zmq_block_port,
+            bitcoind_zmq_tx_port,
         ) = match config.bitcoind {
             BitcoinCoreConfig::Internal {
                 rpc_address,
@@ -194,13 +227,21 @@ fn main() -> Result<(), anyhow::Error> {
         write!(
             outfile,
             include_str!("lnd.conf.template"),
-            bitcoin_rpc_user = bitcoin_rpc_user,
-            bitcoin_rpc_pass = bitcoin_rpc_pass,
-            bitcoin_rpc_host = bitcoin_rpc_host,
-            bitcoin_rpc_port = bitcoin_rpc_port,
-            bitcoin_zmq_host = bitcoin_zmq_host,
-            bitcoin_zmq_block_port = bitcoin_zmq_block_port,
-            bitcoin_zmq_tx_port = bitcoin_zmq_tx_port,
+            alias = alias,
+            color = config.color,
+            bitcoin_default_chan_confs = config.advanced.bitcoin.default_channel_confirmations,
+            bitcoin_min_htlc = config.advanced.bitcoin.min_htlc,
+            bitcoin_min_htlc_out = config.advanced.bitcoin.min_htlc_out,
+            bitcoin_base_fee = config.advanced.bitcoin.base_fee,
+            bitcoin_fee_rate = config.advanced.bitcoin.fee_rate,
+            bitcoin_time_lock_delta = config.advanced.bitcoin.time_lock_delta,
+            bitcoind_rpc_user = bitcoind_rpc_user,
+            bitcoind_rpc_pass = bitcoind_rpc_pass,
+            bitcoind_rpc_host = bitcoind_rpc_host,
+            bitcoind_rpc_port = bitcoind_rpc_port,
+            bitcoind_zmq_host = bitcoind_zmq_host,
+            bitcoind_zmq_block_port = bitcoind_zmq_block_port,
+            bitcoind_zmq_tx_port = bitcoind_zmq_tx_port,
             tor_address = tor_address,
             tor_proxy = tor_proxy,
             payments_expiration_grace_period = config.advanced.payments_expiration_grace_period,
@@ -216,6 +257,35 @@ fn main() -> Result<(), anyhow::Error> {
             watchtower_client_enabled = config.watchtower_client_enabled,
         )?;
     }
+
+    // TLS Certificate migration from 0.11.0 -> 0.11.1 release (to include tor address)
+    let bs = std::fs::read(Path::new("/root/.lnd/tls.cert"))?;
+    let (_, pem) = pem::parse_x509_pem(&bs)?;
+    let cert = pem.parse_x509()?;
+    let subj_alt_name_oid = "2.5.29.17".parse().unwrap();
+    let ext = cert
+        .extensions()
+        .get(&subj_alt_name_oid)
+        .ok_or(anyhow!("No Alternative Names"))?
+        .parsed_extension(); // oid for subject alternative names
+    match ext {
+        x509_parser::extensions::ParsedExtension::SubjectAlternativeName(names) => {
+            if !(&names.general_names).into_iter().any(|a| match *a {
+                x509_parser::extensions::GeneralName::DNSName(host) => host == tor_address,
+                _ => false,
+            }) {
+                println!("Replacing Certificates");
+                // Delete the tls.key
+                std::fs::remove_file(Path::new("/root/.lnd/tls.key"))?;
+                // Delete the tls.cert
+                std::fs::remove_file(Path::new("/root/.lnd/tls.cert"))?;
+            } else {
+                println!("Certificate check complete. No changes required.");
+            }
+        }
+        _ => panic!("Type does not correspond with OID"),
+    }
+
     #[cfg(target_os = "linux")]
     nix::unistd::daemon(true, true)?;
     loop {
@@ -296,10 +366,36 @@ fn main() -> Result<(), anyhow::Error> {
         &Properties {
             version: 2,
             data: Data {
-                lnd_connect: Property {
+                lnd_connect_grpc: Property {
                     value_type: "string",
                     value: format!(
                         "lndconnect://{tor_address}:10009?cert={cert}&macaroon={macaroon}",
+                        tor_address = tor_address,
+                        cert = base64::encode_config(
+                            base64::decode(
+                                tls_cert
+                                    .lines()
+                                    .filter(|l| !l.is_empty())
+                                    .filter(|l| *l != "-----BEGIN CERTIFICATE-----")
+                                    .filter(|l| *l != "-----END CERTIFICATE-----")
+                                    .collect::<String>()
+                            )?,
+                            base64::Config::new(base64::CharacterSet::UrlSafe, false)
+                        ),
+                        macaroon = base64::encode_config(
+                            &macaroon_vec,
+                            base64::Config::new(base64::CharacterSet::UrlSafe, false)
+                        ),
+                    ),
+                    description: None,
+                    copyable: true,
+                    qr: true,
+                    masked: true,
+                },
+                lnd_connect_rest: Property {
+                    value_type: "string",
+                    value: format!(
+                        "lndconnect://{tor_address}:8080?cert={cert}&macaroon={macaroon}",
                         tor_address = tor_address,
                         cert = base64::encode_config(
                             base64::decode(

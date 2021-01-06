@@ -1,14 +1,14 @@
-# Wrapper for c-lightning
+# Wrapper for LND
 
-This project wraps [c-lightning](https://github.com/ElementsProject/lightning
-) for EmbassyOS. c-lightning is a lightweight, highly customizable and standard compliant implementation of the [Lightning Network](https://lightning.network/) protocol.
+This project wraps [LND](https://github.com/lightningnetwork/lnd
+) for EmbassyOS. The Lightning Network Daemon (lnd) - is a complete implementation of a Lightning Network node. 
 
 ## Dependencies
 
 - [docker](https://docs.docker.com/get-docker)
 - [docker-buildx](https://docs.docker.com/buildx/working-with-buildx/)
-- [yq](https://mikefarah.gitbook.io/yq)
-- [appmgr](https://github.com/Start9Labs/appmgr)
+- [yq (version 4)](https://mikefarah.gitbook.io/yq)
+- [appmgr](https://github.com/Start9Labs/embassy-os/tree/master/appmgr)
 - [make](https://www.gnu.org/software/make/)
 
 ## Cloning
@@ -16,8 +16,8 @@ This project wraps [c-lightning](https://github.com/ElementsProject/lightning
 Clone the project locally. Note the submodule link to the original project(s). 
 
 ```
-git clone git@github.com:Start9Labs/c-lightning-wrapper.git
-cd c-lightning-wrapper
+git clone git@github.com:Start9Labs/lnd-wrapper.git
+cd lnd-wrapper
 git submodule update --init
 
 ```
@@ -37,5 +37,5 @@ SSH into an Embassy device.
 Run the following command to determine successful install:
 
 ```
-appmgr install c-lightning.s9pk
+appmgr install lnd.s9pk
 ```

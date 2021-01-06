@@ -4,18 +4,27 @@ payments-expiration-grace-period={payments_expiration_grace_period}s
 listen=0.0.0.0:9735
 rpclisten=0.0.0.0:10009
 restlisten=0.0.0.0:8080
+tlsextradomain={tor_address}
+alias={alias}
+color=#{color}
 
 [Bitcoin]
 bitcoin.active=true
 bitcoin.mainnet=true
 bitcoin.node=bitcoind
+bitcoin.defaultchanconfs={bitcoin_default_chan_confs}
+bitcoin.minhtlc={bitcoin_min_htlc}
+bitcoin.minhtlcout={bitcoin_min_htlc_out}
+bitcoin.basefee={bitcoin_base_fee}
+bitcoin.feerate={bitcoin_fee_rate}
+bitcoin.timelockdelta={bitcoin_time_lock_delta}
 
 [Bitcoind]
-bitcoind.rpchost={bitcoin_rpc_host}:{bitcoin_rpc_port}
-bitcoind.rpcuser={bitcoin_rpc_user}
-bitcoind.rpcpass={bitcoin_rpc_pass}
-bitcoind.zmqpubrawblock=tcp://{bitcoin_zmq_host}:{bitcoin_zmq_block_port}
-bitcoind.zmqpubrawtx=tcp://{bitcoin_zmq_host}:{bitcoin_zmq_tx_port}
+bitcoind.rpchost={bitcoind_rpc_host}:{bitcoind_rpc_port}
+bitcoind.rpcuser={bitcoind_rpc_user}
+bitcoind.rpcpass={bitcoind_rpc_pass}
+bitcoind.zmqpubrawblock=tcp://{bitcoind_zmq_host}:{bitcoind_zmq_block_port}
+bitcoind.zmqpubrawtx=tcp://{bitcoind_zmq_host}:{bitcoind_zmq_tx_port}
 
 [autopilot]
 autopilot.active={autopilot_enabled}
