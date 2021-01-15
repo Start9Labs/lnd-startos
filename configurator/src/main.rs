@@ -287,9 +287,10 @@ fn main() -> Result<(), anyhow::Error> {
     }
     // write backup ignore to the root of the mounted volume
     std::fs::write(
-        Path::new("/root/.lnd/.backupignore"),
+        Path::new("/root/.lnd/.backupignore.tmp"),
         include_str!(".backupignore.template"),
     )?;
+    std::fs::rename("/root/.lnd/.backupignore.tmp", "/root/.lnd/.backupignore")?;
 
     #[cfg(target_os = "linux")]
     nix::unistd::daemon(true, true)?;
