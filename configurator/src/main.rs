@@ -285,6 +285,11 @@ fn main() -> Result<(), anyhow::Error> {
         }
         _ => panic!("Type does not correspond with OID"),
     }
+    // write backup ignore to the root of the mounted volume
+    std::fs::write(
+        Path::new("/root/.lnd/.backupignore"),
+        include_str!(".backupignore.template"),
+    )?;
 
     #[cfg(target_os = "linux")]
     nix::unistd::daemon(true, true)?;

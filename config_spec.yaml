@@ -139,7 +139,7 @@ autopilot:
         If the autopilot agent should be active or not. The autopilot agent will
         attempt to automatically open up channels to put your node in an advantageous
         position within the network graph.
-      default: true
+      default: false
     private:
       type: boolean
       name: Private
@@ -228,6 +228,14 @@ advanced:
   nullable: false
   nullByDefault: false
   spec:
+    recovery-window:
+      type: number
+      name: Recovery Window
+      description: Number of blocks in the past that LND should scan for unknown transactions
+      nullable: true
+      range: "[1,*)"
+      integral: true
+      units: "blocks"
     payments-expiration-grace-period:
       type: number
       name: Payments Expiration Grace Period
