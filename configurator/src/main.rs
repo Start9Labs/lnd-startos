@@ -149,7 +149,7 @@ fn main() -> Result<(), anyhow::Error> {
     let config: Config = serde_yaml::from_reader(File::open("/root/.lnd/start9/config.yaml")?)?;
     let alias = match config.alias {
         None => {
-            let alias_path = Path::new("/root/.lnd/start9/default_alias.txt");
+            let alias_path = Path::new("/root/.lnd/default_alias.txt");
             if alias_path.exists() {
                 std::fs::read_to_string(alias_path)?
             } else {
