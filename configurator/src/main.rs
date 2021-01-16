@@ -1,14 +1,16 @@
 use rand::Rng;
-use std::fs::File;
+use serde_json::Value;
 use std::io::{Read, Write};
 use std::net::{IpAddr, SocketAddr};
 use std::path::Path;
+use std::{fs::File, unimplemented};
 
 use anyhow::anyhow;
 use http::Uri;
 use serde::{
     de::{Deserializer, Error as DeserializeError, Unexpected},
-    Deserialize,
+    ser::SerializeMap,
+    Deserialize, Serialize, Serializer,
 };
 use x509_parser::pem;
 
@@ -34,6 +36,30 @@ fn parse_quick_connect_url(url: Uri) -> Result<(String, String, String, u16), an
     let host = url.host().unwrap();
     let port = url.port_u16().unwrap_or(8332);
     Ok((user.to_owned(), pass.to_owned(), host.to_owned(), port))
+}
+
+struct SkipNulls(Value);
+impl Serialize for SkipNulls {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match &self.0 {
+            serde_json::Value::Object(map) => {
+                let mut map_serializer = serializer.serialize_map(Some(map.len()))?;
+                for (k, v) in map.into_iter().filter(|(_, v)| v != &&Value::Null) {
+                    map_serializer.serialize_entry(k, v)?;
+                }
+                map_serializer.end()
+            }
+            other => Value::serialize(other, serializer),
+        }
+    }
+}
+impl std::fmt::Display for SkipNulls {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", serde_json::to_string(self).unwrap())
+    }
 }
 
 #[derive(Deserialize)]
@@ -111,6 +137,7 @@ struct AutoPilotAdvancedConfig {
 #[derive(Deserialize)]
 #[serde(rename_all = "kebab-case")]
 struct AdvancedConfig {
+    recovery_window: Option<usize>,
     payments_expiration_grace_period: usize,
     bitcoin: BitcoinChannelConfig,
 }
@@ -145,10 +172,18 @@ pub struct CipherSeedMnemonic {
     cipher_seed_mnemonic: Vec<String>,
 }
 
-fn main() -> Result<(), anyhow::Error> {
-    let config: Config = serde_yaml::from_reader(File::open("/root/.lnd/start9/config.yaml")?)?;
-    let alias = match config.alias {
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct RestoreInfo {
+    app_version: emver::Version,
+    os_version: emver::Version,
+}
+
+fn get_alias(config: &Config) -> Result<String, anyhow::Error> {
+    Ok(match &config.alias {
+        // if it isn't defined in the config
         None => {
+            // generate it and write it to a file
             let alias_path = Path::new("/root/.lnd/default_alias.txt");
             if alias_path.exists() {
                 std::fs::read_to_string(alias_path)?
@@ -159,8 +194,33 @@ fn main() -> Result<(), anyhow::Error> {
                 default_alias
             }
         }
-        Some(a) => a,
-    };
+        Some(a) => a.clone(),
+    })
+}
+
+fn restore_info(base_path: &Path) -> Result<Option<RestoreInfo>, anyhow::Error> {
+    println!("0");
+    let path = base_path.join("start9/restore.yaml");
+    println!("1");
+    if path.exists() {
+        println!("2");
+        Ok(serde_yaml::from_reader(File::open(path)?)?)
+    } else {
+        println!("3");
+        Ok(None)
+    }
+}
+
+fn reset_restore(base_path: &Path) -> Result<(), anyhow::Error> {
+    println!("4");
+    let path = base_path.join("start9/restore.yaml");
+    println!("5");
+    std::fs::remove_file(path).map_err(From::from)
+}
+
+fn main() -> Result<(), anyhow::Error> {
+    let config: Config = serde_yaml::from_reader(File::open("/root/.lnd/start9/config.yaml")?)?;
+    let alias = get_alias(&config)?;
     let tor_address = std::env::var("TOR_ADDRESS")?;
     {
         let mut outfile = File::create("/root/.lnd/lnd.conf")?;
@@ -301,6 +361,27 @@ fn main() -> Result<(), anyhow::Error> {
             std::thread::sleep(std::time::Duration::from_secs(1));
         }
     }
+
+    let use_channel_backup_data = match restore_info(Path::new("/root/.lnd"))? {
+        None => Ok(None::<serde_json::Value>),
+        Some(_) => {
+            println!("A");
+            let bs = std::fs::read(Path::new(
+                "/root/.lnd/data/chain/bitcoin/mainnet/channel.backup",
+            ))?;
+            println!("B");
+            std::fs::remove_dir_all("/root/.lnd/data/graph")?;
+            println!("C");
+            reset_restore(Path::new("/root/.lnd"))?;
+            println!("D");
+            let encoded = base64::encode(bs);
+            Ok::<Option<Value>, std::io::Error>(Some(serde_json::json!({
+                "multi_chan_backup": encoded
+            })))
+        }
+    }?;
+    println!("{:?}", use_channel_backup_data);
+
     let mut password_bytes = [0; 16];
     if Path::new("/root/.lnd/pwd.dat").exists() {
         let mut pass_file = File::open("/root/.lnd/pwd.dat")?;
@@ -312,12 +393,14 @@ fn main() -> Result<(), anyhow::Error> {
             .arg("/root/.lnd/tls.cert")
             .arg("https://localhost:8080/v1/unlockwallet")
             .arg("-d")
-            .arg(format!(
-                "{}",
-                serde_json::json!({
+            .arg({
+                let s = serde_json::to_string(&SkipNulls(serde_json::json!({
                     "wallet_password": base64::encode(&password_bytes),
-                })
-            ))
+                    "recovery_window": config.advanced.recovery_window,
+                    "channel_backups": use_channel_backup_data })))?;
+                println!("{}", s);
+                s
+            })
             .status()?;
         if !status.success() {
             return Err(anyhow::anyhow!("Error unlocking wallet. Exiting."));
@@ -427,6 +510,8 @@ fn main() -> Result<(), anyhow::Error> {
             },
         },
     )?;
+
+    // Create public directory to make accessible to dependents through the bindmounts interface
     std::fs::create_dir_all("/root/.lnd/public")?;
     for macaroon in std::fs::read_dir("/root/.lnd/data/chain/bitcoin/mainnet")? {
         let macaroon = macaroon?;
