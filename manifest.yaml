@@ -21,13 +21,13 @@ image:
 mount: /root/.lnd
 public: public
 has-instructions: true
-os-version-required: ">=0.2.5"
-os-version-recommended: ">=0.2.5"
+os-version-required: ">=0.2.8"
+os-version-recommended: ">=0.2.8"
 assets: []
 hidden-service-version: v3
 dependencies:
   btc-rpc-proxy:
-    version: "^0.2.0"
+    version: "^0.2.4"
     optional: Can alternatively configure an external bitcoin node.
     description: Used to fetch validated blocks.
     config:
@@ -111,7 +111,7 @@ dependencies:
               var: 'users.[first(item => ''item.name = "lnd")].fetch-blocks'
               to-value: true
   bitcoind:
-    version: "^0.20.1.1"
+    version: "^0.21.0"
     optional: Can alternatively configure an external bitcoin node.
     description: Used to subscribe to new block events.
     config:

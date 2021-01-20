@@ -1,4 +1,4 @@
-FROM arm32v7/golang:alpine AS builder
+FROM arm32v7/golang:alpine3.12 AS builder
 
 RUN apk update
 RUN apk add make git

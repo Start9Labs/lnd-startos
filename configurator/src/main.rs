@@ -1,9 +1,12 @@
 use rand::Rng;
 use serde_json::Value;
-use std::io::{Read, Write};
+use std::fs::File;
 use std::net::{IpAddr, SocketAddr};
 use std::path::Path;
-use std::{fs::File, unimplemented};
+use std::{
+    io::{Read, Write},
+    time::Duration,
+};
 
 use anyhow::anyhow;
 use http::Uri;
@@ -218,6 +221,19 @@ fn reset_restore(base_path: &Path) -> Result<(), anyhow::Error> {
     std::fs::remove_file(path).map_err(From::from)
 }
 
+pub fn local_port_available(port: u16) -> Result<bool, anyhow::Error> {
+    match std::net::TcpListener::bind(("127.0.0.1", port)) {
+        Ok(_) => Ok(true),
+        Err(e) => {
+            if e.kind() == std::io::ErrorKind::AddrInUse {
+                Ok(false)
+            } else {
+                Err(anyhow::anyhow!("Couldn't determine port use for {}", port))
+            }
+        }
+    }
+}
+
 fn main() -> Result<(), anyhow::Error> {
     let config: Config = serde_yaml::from_reader(File::open("/root/.lnd/start9/config.yaml")?)?;
     let alias = get_alias(&config)?;
@@ -396,14 +412,45 @@ fn main() -> Result<(), anyhow::Error> {
             .arg({
                 let s = serde_json::to_string(&SkipNulls(serde_json::json!({
                     "wallet_password": base64::encode(&password_bytes),
-                    "recovery_window": config.advanced.recovery_window,
-                    "channel_backups": use_channel_backup_data })))?;
+                    "recovery_window": config.advanced.recovery_window,})))?;
                 println!("{}", s);
                 s
             })
             .status()?;
         if !status.success() {
             return Err(anyhow::anyhow!("Error unlocking wallet. Exiting."));
+        } else {
+            match use_channel_backup_data {
+                None => (),
+                Some(backups) => {
+                    while local_port_available(8080)? {
+                        std::thread::sleep(Duration::from_secs(10))
+                    }
+                    let mac = std::fs::read(Path::new(
+                        "/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon",
+                    ))?;
+                    let mac_encoded = hex::encode_upper(mac);
+                    println!("{}", mac_encoded);
+                    let status = std::process::Command::new("curl")
+                        .arg("-X")
+                        .arg("POST")
+                        .arg("--cacert")
+                        .arg("/root/.lnd/tls.cert")
+                        .arg("--header")
+                        .arg(format!("Grpc-Metadata-macaroon: {}", mac_encoded))
+                        .arg("https://localhost:8080/v1/channels/backup/restore")
+                        .arg("-d")
+                        .arg({
+                            let s = serde_json::to_string(&backups)?;
+                            println!("{}", s);
+                            s
+                        })
+                        .status()?;
+                    if !status.success() {
+                        return Err(anyhow::anyhow!("Error restoring wallet. Exiting."));
+                    }
+                }
+            }
         }
     } else {
         let mut dev_random = File::open("/dev/random")?;
