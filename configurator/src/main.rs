@@ -202,22 +202,16 @@ fn get_alias(config: &Config) -> Result<String, anyhow::Error> {
 }
 
 fn restore_info(base_path: &Path) -> Result<Option<RestoreInfo>, anyhow::Error> {
-    println!("0");
     let path = base_path.join("start9/restore.yaml");
-    println!("1");
     if path.exists() {
-        println!("2");
         Ok(serde_yaml::from_reader(File::open(path)?)?)
     } else {
-        println!("3");
         Ok(None)
     }
 }
 
 fn reset_restore(base_path: &Path) -> Result<(), anyhow::Error> {
-    println!("4");
     let path = base_path.join("start9/restore.yaml");
-    println!("5");
     std::fs::remove_file(path).map_err(From::from)
 }
 
@@ -381,22 +375,19 @@ fn main() -> Result<(), anyhow::Error> {
     let use_channel_backup_data = match restore_info(Path::new("/root/.lnd"))? {
         None => Ok(None::<serde_json::Value>),
         Some(_) => {
-            println!("A");
+            println!(
+                "Detected Embassy Restore. Conducting precautionary channel backup restoration."
+            );
             let bs = std::fs::read(Path::new(
                 "/root/.lnd/data/chain/bitcoin/mainnet/channel.backup",
             ))?;
-            println!("B");
             std::fs::remove_dir_all("/root/.lnd/data/graph")?;
-            println!("C");
-            reset_restore(Path::new("/root/.lnd"))?;
-            println!("D");
             let encoded = base64::encode(bs);
             Ok::<Option<Value>, std::io::Error>(Some(serde_json::json!({
                 "multi_chan_backup": encoded
             })))
         }
     }?;
-    println!("{:?}", use_channel_backup_data);
 
     let mut password_bytes = [0; 16];
     if Path::new("/root/.lnd/pwd.dat").exists() {
@@ -409,13 +400,9 @@ fn main() -> Result<(), anyhow::Error> {
             .arg("/root/.lnd/tls.cert")
             .arg("https://localhost:8080/v1/unlockwallet")
             .arg("-d")
-            .arg({
-                let s = serde_json::to_string(&SkipNulls(serde_json::json!({
+            .arg(serde_json::to_string(&SkipNulls(serde_json::json!({
                     "wallet_password": base64::encode(&password_bytes),
-                    "recovery_window": config.advanced.recovery_window,})))?;
-                println!("{}", s);
-                s
-            })
+                    "recovery_window": config.advanced.recovery_window,})))?)
             .status()?;
         if !status.success() {
             return Err(anyhow::anyhow!("Error unlocking wallet. Exiting."));
@@ -430,7 +417,6 @@ fn main() -> Result<(), anyhow::Error> {
                         "/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon",
                     ))?;
                     let mac_encoded = hex::encode_upper(mac);
-                    println!("{}", mac_encoded);
                     let status = std::process::Command::new("curl")
                         .arg("-X")
                         .arg("POST")
@@ -440,14 +426,12 @@ fn main() -> Result<(), anyhow::Error> {
                         .arg(format!("Grpc-Metadata-macaroon: {}", mac_encoded))
                         .arg("https://localhost:8080/v1/channels/backup/restore")
                         .arg("-d")
-                        .arg({
-                            let s = serde_json::to_string(&backups)?;
-                            println!("{}", s);
-                            s
-                        })
+                        .arg(serde_json::to_string(&backups)?)
                         .status()?;
                     if !status.success() {
                         return Err(anyhow::anyhow!("Error restoring wallet. Exiting."));
+                    } else {
+                        reset_restore(Path::new("/root/.lnd"))?;
                     }
                 }
             }
