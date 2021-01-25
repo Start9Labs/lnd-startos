@@ -157,6 +157,8 @@ pub struct Data {
     lnd_connect_grpc: Property<String>,
     #[serde(rename = "LND Connect REST URL")]
     lnd_connect_rest: Property<String>,
+    #[serde(rename = "NODE URI")]
+    node_uri: Property<String>,
 }
 
 #[derive(serde::Serialize)]
@@ -180,6 +182,11 @@ pub struct CipherSeedMnemonic {
 pub struct RestoreInfo {
     app_version: emver::Version,
     os_version: emver::Version,
+}
+
+#[derive(serde::Deserialize)]
+pub struct LndGetInfoRes {
+    identity_pubkey: String,
 }
 
 fn get_alias(config: &Config) -> Result<String, anyhow::Error> {
@@ -390,6 +397,10 @@ fn main() -> Result<(), anyhow::Error> {
     }?;
 
     let mut password_bytes = [0; 16];
+    let mac = std::fs::read(Path::new(
+        "/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon",
+    ))?;
+    let mac_encoded = hex::encode_upper(mac);
     if Path::new("/root/.lnd/pwd.dat").exists() {
         let mut pass_file = File::open("/root/.lnd/pwd.dat")?;
         pass_file.read_exact(&mut password_bytes)?;
@@ -413,10 +424,6 @@ fn main() -> Result<(), anyhow::Error> {
                     while local_port_available(8080)? {
                         std::thread::sleep(Duration::from_secs(10))
                     }
-                    let mac = std::fs::read(Path::new(
-                        "/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon",
-                    ))?;
-                    let mac_encoded = hex::encode_upper(mac);
                     let status = std::process::Command::new("curl")
                         .arg("-X")
                         .arg("POST")
@@ -481,6 +488,19 @@ fn main() -> Result<(), anyhow::Error> {
     let mut macaroon_vec = Vec::with_capacity(macaroon_file.metadata()?.len() as usize);
     let tls_cert = std::fs::read_to_string("/root/.lnd/tls.cert")?;
     macaroon_file.read_to_end(&mut macaroon_vec)?;
+    while local_port_available(8080)? {
+        std::thread::sleep(Duration::from_secs(10))
+    }
+    let node_info: LndGetInfoRes = serde_json::from_slice(
+        &std::process::Command::new("curl")
+            .arg("--cacert")
+            .arg("/root/.lnd/tls.cert")
+            .arg("--header")
+            .arg(format!("Grpc-Metadata-macaroon: {}", mac_encoded))
+            .arg("https://localhost:8080/v1/getinfo")
+            .output()?
+            .stdout,
+    )?;
     serde_yaml::to_writer(
         File::create("/root/.lnd/start9/stats.yaml")?,
         &Properties {
@@ -537,6 +557,21 @@ fn main() -> Result<(), anyhow::Error> {
                     copyable: true,
                     qr: true,
                     masked: true,
+                },
+                node_uri: Property {
+                    value_type: "string",
+                    value: format!(
+                        "{pubkey}@{tor_address}",
+                        pubkey = node_info.identity_pubkey,
+                        tor_address = tor_address
+                    ),
+                    description: Some(
+                        "Give this to others to allow them to add your LND node as a peer"
+                            .to_owned(),
+                    ),
+                    copyable: true,
+                    qr: true,
+                    masked: false,
                 },
             },
         },
