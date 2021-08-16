@@ -1,0 +1,6 @@
+- rule: "zmq-enabled?"
+  description: "Must have an ZeroMQ enabled"
+  suggestions:
+    - SET:
+        var: "zmq-enabled"
+        to-value: true
