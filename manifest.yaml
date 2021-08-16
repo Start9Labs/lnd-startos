@@ -137,7 +137,11 @@ volumes:
     volume-id: main
     path: "/root"
     readonly: false
-  certificates: {} #TODO
+  # TODO - update configurator to not gen cert
+  certificates:
+    type: certificate
+    # id of the volume you want the cert for
+    interface-id: main
 alerts:
   install: |
     READ CAREFULLY! LND and the Lightning Network are considered beta software. Please use with caution and do not risk more money than you are willing to lose. We encourage frequent backups. If for any reason, you need to restore LND from a backup, your on-chain wallet will be restored, but all your channels will be closed and their funds returned to your on-chain wallet, minus fees. It may also take some time for this process to occur.
