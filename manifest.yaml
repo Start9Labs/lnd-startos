@@ -140,8 +140,8 @@ volumes:
   # TODO - update configurator to not gen cert
   certificates:
     type: certificate
-    # id of the volume you want the cert for
-    interface-id: main
+    # id of the interface you want the cert for
+    interface-id: control
 alerts:
   install: |
     READ CAREFULLY! LND and the Lightning Network are considered beta software. Please use with caution and do not risk more money than you are willing to lose. We encourage frequent backups. If for any reason, you need to restore LND from a backup, your on-chain wallet will be restored, but all your channels will be closed and their funds returned to your on-chain wallet, minus fees. It may also take some time for this process to occur.
@@ -149,32 +149,24 @@ alerts:
   restore: |
     Restoring LND will overwrite its current data, including its on-chain wallet and channels. Any channels opened since the last backup will be forgotten and may linger indefinitely, and channels contained in the backup will be closed and their funds returned to your on-chain wallet, minus fees.
 interfaces:
-  rest:
-    name: REST Interface
-    description: Specifies the interfaces to listen on for REST connections.
+  control:
+    name: Control Interface
+    description: Specifies the interfaces to listen on for RPC and REST connections.
     tor-config:
       port-mapping:
         8080: "8080"
+        10009: "10009"
     ui: false
     protocols:
       - tcp
       - http
+      - grpc
   watchtower:
     name: Watchtower Interface
     description: Specifies the interfaces to listen on for watchtower client connections.
     tor-config:
         port-mapping:
           9911: "9911"
-    ui: false
-    protocols:
-      - tcp
-      - http
-  grpc:
-    name: gRPC Interface
-    description: Specifies the interfaces to listen on for gRPC connections.
-    tor-config:
-        port-mapping:
-          10009: "10009"
     ui: false
     protocols:
       - tcp
@@ -193,15 +185,17 @@ backup:
   create:
     type: docker
     # default backup process is duplicity - EOS will have access to this image
-    image: duplicity
+    image: compat
     system: true
     # command to run the backup executable, in this case, duplicity
-    entrypoint: duplicity
+    entrypoint: compat
     # arguments to pass into the entrypoint ie. duplicity in this case
-    # thus, the full commamnd run will be: `duplicity /root file:///mnt/backup`
+    # thus, the full commamnd run will be: `duplicity lnd file:///mnt/backup /root/.lnd`
     args:
-      - /root
+      - duplicity
+      - lnd
       - file:///mnt/backup
+      - /root/.lnd
     mounts:
       # BACKUP is the default volume that is used for backups - this is whatever backup drive is mounted to the device, or a network filesystem
       # the value here denotes where the data mount point will be
@@ -210,12 +204,14 @@ backup:
       main: "/root/.lnd"
   restore:
     type: docker
-    image: duplicity
+    image: compat
     system: true
-    entrypoint: duplicity
+    entrypoint: /mnt/assets/backup-restore.sh
     args:
+      - lnd
+      - /root/.lnd
       - file:///mnt/backup
-      - /root
     mounts:
       BACKUP: "/mnt/backup"
       main: "/root/.lnd"
+      compat: "/mnt/assets"
