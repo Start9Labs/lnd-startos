@@ -202,8 +202,9 @@ autopilot:
       name: Enabled
       description: |
         If the autopilot agent should be active or not. The autopilot agent will
-        attempt to automatically open up channels to put your node in an advantageous
-        position within the network graph.
+        attempt to AUTOMATICALLY OPEN CHANNELS to put your node in an advantageous
+        position within the network graph.  DO NOT ENABLE THIS IF YOU WANT TO MANAGE 
+        CHANNELS MANUALLY OR DO NOT UNDERSTAND IT.
       default: false
     private:
       type: boolean
