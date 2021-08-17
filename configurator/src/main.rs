@@ -457,6 +457,9 @@ fn main() -> Result<(), anyhow::Error> {
                 Path::new("/root/.lnd/data/chain/bitcoin/mainnet/channel.backup");
             if channel_backup_path.exists() {
                 let bs = std::fs::read(channel_backup_path)?;
+                // backup all except graph db
+                // also delete graph db always
+                // happen in backup action not in entrypoint
                 std::fs::remove_dir_all("/root/.lnd/data/graph")?;
                 let encoded = base64::encode(bs);
                 Ok::<Option<Value>, std::io::Error>(Some(serde_json::json!({
@@ -536,6 +539,7 @@ fn main() -> Result<(), anyhow::Error> {
                 println!("{}", e);
                 return Err(anyhow::anyhow!("Error unlocking wallet. Exiting."));
             }
+            // wallet unlocking has to happen while LND running (encrypted on disk) creds are stored in separate place on disk (pwd.dat in our case - in data volume)
             Ok(_) => match use_channel_backup_data {
                 None => (),
                 Some(backups) => {
