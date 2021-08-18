@@ -55,68 +55,6 @@ config:
     mounts:
       main: "/root"
     io-format: yaml
-dependencies:
-  btc-rpc-proxy:
-    version: ">=0.3.2.1 <0.4.0"
-    recommended: true
-    critical: false
-    optional: Can alternatively configure an external bitcoin node.
-    description: Used to fetch validated blocks.
-    config:
-      check: 
-        type: docker
-        image: compat
-        system: true
-        # the compat image will contain a tool to check the config rules against the specified dependency
-        entrypoint: compat
-        args:
-          - "dependency"
-          - "check"
-          - "/mnt/assets/btc-rpc-proxy.rules.yaml"
-        mounts:
-          compat: "/mnt/assets"  
-      auto-configure:
-        type: docker
-        image: compat
-        # if true, the denoted image is prebuilt and comes stock with EOS
-        # uncommon: if you want something not prebuilt with EOS, you can bundle multiple docker images into the `image.tar` during the `make` build process
-        system: true
-        entrypoint: compat
-        args:
-          - "dependency"
-          - "auto-configure"
-          - "/mnt/assets/btc-rpc-proxy.rules.yaml"
-        mounts:
-          compat: "/mnt/assets"          
-  bitcoind:
-    version: "^0.21.1.2"
-    recommended: true
-    critical: true
-    optional: Can alternatively configure an external bitcoin node.
-    description: Used to subscribe to new block events.
-    config:
-      check: 
-        type: docker
-        image: compat
-        system: true
-        entrypoint: compat
-        args:
-          - "dependency"
-          - "check"
-          - "/mnt/assets/bitcoind.rules.yaml"
-        mounts:
-          compat: "/mnt/assets"  
-      auto-configure:
-        type: docker
-        image: compat
-        system: true
-        entrypoint: compat
-        args:
-          - "dependency"
-          - "check"
-          - "/mnt/assets/bitcoind.rules.yaml"
-        mounts:
-          compat: "/mnt/assets"  
 volumes:
   # this is the image where data will go from 0.2.x
   main:
@@ -181,6 +119,68 @@ interfaces:
     protocols:
       - tcp
       - http
+dependencies:
+  btc-rpc-proxy:
+    version: ">=0.3.2.1 <0.4.0"
+    recommended: true
+    critical: false
+    optional: Can alternatively configure an external bitcoin node.
+    description: Used to fetch validated blocks.
+    config:
+      check: 
+        type: docker
+        image: compat
+        system: true
+        # the compat image will contain a tool to check the config rules against the specified dependency
+        entrypoint: compat
+        args:
+          - "dependency"
+          - "check"
+          - "/mnt/assets/btc-rpc-proxy.rules.yaml"
+        mounts:
+          compat: "/mnt/assets"  
+      auto-configure:
+        type: docker
+        image: compat
+        # if true, the denoted image is prebuilt and comes stock with EOS
+        # uncommon: if you want something not prebuilt with EOS, you can bundle multiple docker images into the `image.tar` during the `make` build process
+        system: true
+        entrypoint: compat
+        args:
+          - "dependency"
+          - "auto-configure"
+          - "/mnt/assets/btc-rpc-proxy.rules.yaml"
+        mounts:
+          compat: "/mnt/assets"          
+  bitcoind:
+    version: "^0.21.1.2"
+    recommended: true
+    critical: true
+    optional: Can alternatively configure an external bitcoin node.
+    description: Used to subscribe to new block events.
+    config:
+      check: 
+        type: docker
+        image: compat
+        system: true
+        entrypoint: compat
+        args:
+          - "dependency"
+          - "check"
+          - "/mnt/assets/bitcoind.rules.yaml"
+        mounts:
+          compat: "/mnt/assets"  
+      auto-configure:
+        type: docker
+        image: compat
+        system: true
+        entrypoint: compat
+        args:
+          - "dependency"
+          - "check"
+          - "/mnt/assets/bitcoind.rules.yaml"
+        mounts:
+          compat: "/mnt/assets"  
 backup:
   create:
     type: docker
