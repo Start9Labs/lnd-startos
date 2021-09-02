@@ -14,11 +14,10 @@ description:
   long: |
    LND fully conforms to the Lightning Network specification (BOLTs). BOLT stands for: Basis of Lightning Technology. In the current state lnd is capable of: creating channels, closing channels, managing all channel states (including the exceptional ones!), maintaining a fully authenticated+validated channel graph, performing path finding within the network, passively forwarding incoming payments, sending outgoing onion-encrypted payments through the network, updating advertised fee schedules, and automatic channel management (autopilot).
 assets:
-  license: LICENSE
-  icon: icon.png
-  instructions: instructions.md
-  docker-images: image.tar
-  icon-type: png
+  license: LICENSE # default = LICENSE.md
+  icon: icon.png # default
+  instructions: instructions.md # default = INSTRUCTIONS.md
+  docker-images: image.tar # default
 main:
   type: docker
   image: main
@@ -193,14 +192,15 @@ backup:
     # thus, the full commamnd run will be: `duplicity lnd file:///mnt/backup /root/.lnd`
     args:
       - duplicity
+      - create
       - lnd
-      - file:///mnt/backup
+      - /mnt/backup
       - /root/.lnd
     mounts:
       # BACKUP is the default volume that is used for backups - this is whatever backup drive is mounted to the device, or a network filesystem
       # the value here denotes where the data mount point will be
       # mounts backup drive to this location, which contains previous backups
-      BACKUP: "/mnt/backup"
+      backup: "/mnt/backup"
       main: "/root/.lnd"
   restore:
     type: docker
@@ -208,10 +208,11 @@ backup:
     system: true
     entrypoint: /mnt/assets/backup-restore.sh
     args:
+      - restore
       - lnd
       - /root/.lnd
-      - file:///mnt/backup
+      - /mnt/backup
     mounts:
-      BACKUP: "/mnt/backup"
+      backup: "/mnt/backup"
       main: "/root/.lnd"
       compat: "/mnt/assets"
