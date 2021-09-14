@@ -1,2 +1,2 @@
-compat duplicity lnd /root/.lnd file:///mnt/backup
+compat duplicity lnd mnt/backup /root/.lnd
 touch /root/.lnd/start9/restore.yaml
