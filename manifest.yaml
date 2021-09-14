@@ -120,6 +120,10 @@ interfaces:
       port-mapping:
         8080: "8080"
         10009: "10009"
+    lan-config:
+      80:
+        ssl: true
+        mapping: 80
     ui: false
     protocols:
       - tcp

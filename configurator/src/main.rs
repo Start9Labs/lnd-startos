@@ -273,7 +273,10 @@ pub fn local_port_available(port: u16) -> Result<bool, anyhow::Error> {
 fn main() -> Result<(), anyhow::Error> {
     let config: Config = serde_yaml::from_reader(File::open("/root/.lnd/start9/config.yaml")?)?;
     let alias = get_alias(&config)?;
-    let tor_address = std::env::var("TOR_ADDRESS")?;
+    let control_tor_address: String = config.control_tor_address;
+    let control_lan_address: String = config.control_lan_address;
+    let watchtower_tor_address: String = config.watchtower_tor_address;
+    let peer_tor_address: String = config.peer_tor_address;
     {
         let mut outfile = File::create("/root/.lnd/lnd.conf")?;
 
@@ -340,12 +343,13 @@ fn main() -> Result<(), anyhow::Error> {
                 )
             }
         };
-        let tor_proxy: SocketAddr = (std::env::var("HOST_IP")?.parse::<IpAddr>()?, 9050).into();
+        let tor_proxy: SocketAddr = (control_lan_address.parse::<IpAddr>()?, 9050).into();
 
         write!(
             outfile,
             include_str!("lnd.conf.template"),
-            tor_address = tor_address,
+            control_tor_address = control_tor_address,
+            watchtower_tor_address = watchtower_tor_address,
             payments_expiration_grace_period = config.advanced.payments_expiration_grace_period,
             debug_level = config.advanced.debug_level,
             min_chan_size_row = match config.min_chan_size {
@@ -414,7 +418,7 @@ fn main() -> Result<(), anyhow::Error> {
         match ext {
             x509_parser::extensions::ParsedExtension::SubjectAlternativeName(names) => {
                 if !(&names.general_names).into_iter().any(|a| match *a {
-                    x509_parser::extensions::GeneralName::DNSName(host) => host == tor_address,
+                    x509_parser::extensions::GeneralName::DNSName(host) => host == control_tor_address,
                     _ => false,
                 }) {
                     println!("Replacing Certificates");
@@ -639,8 +643,8 @@ fn main() -> Result<(), anyhow::Error> {
     let lnd_connect_grpc = Property {
         value_type: "string",
         value: format!(
-            "lndconnect://{tor_address}:10009?cert={cert}&macaroon={macaroon}",
-            tor_address = tor_address,
+            "lndconnect://{control_tor_address}:10009?cert={cert}&macaroon={macaroon}",
+            control_tor_address = control_tor_address,
             cert = base64::encode_config(
                 base64::decode(
                     tls_cert
@@ -665,8 +669,8 @@ fn main() -> Result<(), anyhow::Error> {
     let lnd_connect_rest = Property {
         value_type: "string",
         value: format!(
-            "lndconnect://{tor_address}:8080?cert={cert}&macaroon={macaroon}",
-            tor_address = tor_address,
+            "lndconnect://{control_tor_address}:8080?cert={cert}&macaroon={macaroon}",
+            control_tor_address = control_tor_address,
             cert = base64::encode_config(
                 base64::decode(
                     tls_cert
@@ -691,9 +695,9 @@ fn main() -> Result<(), anyhow::Error> {
     let node_uri = Property {
         value_type: "string",
         value: format!(
-            "{pubkey}@{tor_address}:9735",
+            "{pubkey}@{peer_tor_address}:9735",
             pubkey = node_info.identity_pubkey,
-            tor_address = tor_address
+            peer_tor_address = peer_tor_address
         ),
         description: Some(
             "Give this to others to allow them to add your LND node as a peer".to_owned(),

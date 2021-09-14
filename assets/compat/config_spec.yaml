@@ -1,3 +1,35 @@
+control-tor-address:
+  name: Control Tor Address
+  description: The Tor address for the control interface. 
+  type: pointer
+  subtype: package
+  package-id: lnd
+  target: tor-address
+  interface: control
+control-lan-address:
+  name: Control LAN Address
+  description: The Local Area Network address for the control interface. 
+  type: pointer
+  subtype: package
+  package-id: lnd
+  target: lan-address
+  interface: control
+peer-tor-address:
+  name: Peer Tor Address
+  description: The Tor address for the peer interface. 
+  type: pointer
+  subtype: package
+  package-id: lnd
+  target: tor-address
+  interface: peer
+watchtower-tor-address:
+  name: Watchtower Tor Address
+  description: The Tor address for the watchtower interface. 
+  type: pointer
+  subtype: package
+  package-id: lnd
+  target: tor-address
+  interface: watchtower
 alias:
   type: string
   name: Alias
