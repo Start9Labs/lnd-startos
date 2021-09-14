@@ -16,7 +16,7 @@ fn main() -> Result<(), anyhow::Error> {
         "/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon",
     ))?;
 
-    // TODO capture std in to read time elapsed since service start
+    // TODO capture std in to read time elapsed since service start (ms)
 
     let mac_encoded = hex::encode_upper(mac);
     let node_info: LndGetInfoRes = retry::<_, _, anyhow::Error>(
