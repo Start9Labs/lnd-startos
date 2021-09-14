@@ -5,7 +5,7 @@ release-notes: "Upgrade to EmbassyOS v0.3.0"
 license: mit
 wrapper-repo: "https://github.com/Start9Labs/lnd-wrapper"
 upstream-repo: "https://github.com/lightningnetwork/lnd"
-support-site: "https://github.com/lightningnetwork/lnd/issues"
+support-site: "https://lightning.engineering/slack.html"
 marketing-site: "https://lightning.engineering/"
 build: ["make"]
 min-os-version: "0.3.0"
@@ -15,7 +15,7 @@ description:
    LND fully conforms to the Lightning Network specification (BOLTs). BOLT stands for: Basis of Lightning Technology. In the current state lnd is capable of: creating channels, closing channels, managing all channel states (including the exceptional ones!), maintaining a fully authenticated+validated channel graph, performing path finding within the network, passively forwarding incoming payments, sending outgoing onion-encrypted payments through the network, updating advertised fee schedules, and automatic channel management (autopilot).
 assets:
   license: LICENSE # default = LICENSE.md
-  icon: icon.png # default
+  icon: icon.png # default = icon.png - assumes icon.png if this field does not exist
   instructions: instructions.md # default = INSTRUCTIONS.md
   docker-images: image.tar # default
 main:
@@ -23,37 +23,63 @@ main:
   image: main
   entrypoint: "docker_entrypoint.sh"
   args: []
-  # specifices where to put the volumes
+  # specifices where to put the volumes in the main image
   mounts:
-    bitcoind: "/mnt/bitcoind"
+    main: /root/.lnd
+    bitcoind: /mnt/bitcoind
     btc-rpc-proxy: "/mnt/btc-rpc-proxy"
   io-format: yaml
-health-checks: {}
-config:
+health-checks:
+  synced: 
+    type: docker
+    image: main
+    system: false
+    entrypoint: "health-check"
+    args: []
+    mounts: { main: /root/.lnd }
+    io-format: yaml
+    critical: true
+config: # if you dont provide an io format in cases like config where its necessarily developer defined, functionality will not work
   get:
     type: docker
     image: compat
+    system: true
     entrypoint: compat
     args: 
-      - "config"
-      - "get"
-      - "/root/.lnd/start9/config.yaml"
+      - config
+      - get
+      - /root/.lnd
       - "/mnt/assets/config_spec.yaml"
-    mounts:
-      compat: "/mnt/assets"
-      main: "/root"
-    io-format: yaml
+    mounts: # a volume is a filesystem, when a volume needs to be mounted to another filesystem, the mount path needs to be specified. here, the key is the volume that needs to be mounted and the value is the path at which to mount the volume. two volumes cannot be mounted at the same path, or at a path that is needed by the base filesystem - default is typically under `/mnt/<something>`
+      compat: /mnt/assets
+      main: /root/.lnd
+    io-format: yaml # necessary in this case
   set:
     type: docker
     image: compat
+    system: true
     entrypoint: compat
     args:
-      - "config"
-      - "set"
-      - "/root/.lnd/start9/config.yaml"
+      - config
+      - set
+      - lnd
+      - /root/.lnd
+      - "/mnt/assets/config_rules.yaml"
     mounts:
-      main: "/root"
-    io-format: yaml
+      compat: /mnt/assets
+      main: /root/.lnd
+    io-format: yaml # necessary in this case 
+properties:
+  type: docker
+  image: compat
+  system: true
+  entrypoint: compat
+  args:
+    - properties
+    - /root
+  mounts:
+    main: /root/.lnd
+  io-format: yaml
 volumes:
   # this is the image where data will go from 0.2.x
   main:
@@ -66,13 +92,13 @@ volumes:
     type: pointer
     package-id: bitcoind
     volume-id: main
-    path: "/root"
+    path: /root
     readonly: true
   btc-rpc-proxy:
     type: pointer
-    package-id: btc-rpc-proxy
+    package-id: "btc-rpc-proxy"
     volume-id: main
-    path: "/root"
+    path: /root
     readonly: false
   # TODO - update configurator to not gen cert
   certificates:
@@ -133,11 +159,14 @@ dependencies:
         # the compat image will contain a tool to check the config rules against the specified dependency
         entrypoint: compat
         args:
-          - "dependency"
-          - "check"
-          - "/mnt/assets/btc-rpc-proxy.rules.yaml"
+          - dependency
+          - check
+          - "btc-rpc-proxy"
+          - /root/.lnd
+          - "/mnt/assets/btc-rpc-proxy_config_rules.yaml"
         mounts:
-          compat: "/mnt/assets"  
+          compat: /mnt/assets  
+          main: /root/.lnd
       auto-configure:
         type: docker
         image: compat
@@ -146,11 +175,12 @@ dependencies:
         system: true
         entrypoint: compat
         args:
-          - "dependency"
+          - dependency
           - "auto-configure"
+          - "btc-rpc-proxy"
           - "/mnt/assets/btc-rpc-proxy.rules.yaml"
         mounts:
-          compat: "/mnt/assets"          
+          compat: /mnt/assets          
   bitcoind:
     version: "^0.21.1.2"
     recommended: true
@@ -164,22 +194,27 @@ dependencies:
         system: true
         entrypoint: compat
         args:
-          - "dependency"
-          - "check"
-          - "/mnt/assets/bitcoind.rules.yaml"
+          - dependency
+          - check
+          - bitcoind
+          - /root/.lnd
+          - "/mnt/assets/bitcoind_config_rules.yaml"
         mounts:
-          compat: "/mnt/assets"  
+          compat: /mnt/assets
+          main: /root/.lnd
       auto-configure:
         type: docker
         image: compat
         system: true
         entrypoint: compat
         args:
-          - "dependency"
-          - "check"
-          - "/mnt/assets/bitcoind.rules.yaml"
+          - dependency
+          - "auto-configure"
+          - bitcoind
+          - /root/.lnd
+          - "/mnt/assets/bitcoind_config_rules.yaml"
         mounts:
-          compat: "/mnt/assets"  
+          compat: /mnt/assets
 backup:
   create:
     type: docker
@@ -200,8 +235,8 @@ backup:
       # BACKUP is the default volume that is used for backups - this is whatever backup drive is mounted to the device, or a network filesystem
       # the value here denotes where the data mount point will be
       # mounts backup drive to this location, which contains previous backups
-      backup: "/mnt/backup"
-      main: "/root/.lnd"
+      backup: /mnt/backup
+      main: /root/.lnd
   restore:
     type: docker
     image: compat
@@ -213,6 +248,6 @@ backup:
       - /root/.lnd
       - /mnt/backup
     mounts:
-      backup: "/mnt/backup"
-      main: "/root/.lnd"
-      compat: "/mnt/assets"
+      backup: /mnt/backup
+      main: /root/.lnd
+      compat: /mnt/assets

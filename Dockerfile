@@ -16,7 +16,8 @@ RUN apk add tini
 RUN apk add curl
 
 COPY --from=builder /go/bin /usr/local/bin
-ADD ./configurator/target/armv7-unknown-linux-musleabihf/release/configurator /usr/local/bin/configurator
+ADD ./configurator/target/aarch64-unknown-linux-musl/release/configurator /usr/local/bin/configurator
+ADD ./health-check/target/aarch64-unknown-linux-musl/release/health-check /usr/local/bin/health-check
 ADD ./docker_entrypoint.sh /usr/local/bin/docker_entrypoint.sh
 RUN chmod a+x /usr/local/bin/docker_entrypoint.sh
 
