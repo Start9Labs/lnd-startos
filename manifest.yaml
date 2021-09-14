@@ -36,7 +36,8 @@ health-checks:
     system: false
     entrypoint: "health-check"
     args: []
-    mounts: { main: /root/.lnd }
+    mounts:
+      main: /root/.lnd
     io-format: yaml
     critical: true
 config: # if you dont provide an io format in cases like config where its necessarily developer defined, functionality will not work
