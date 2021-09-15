@@ -68,6 +68,10 @@ impl std::fmt::Display for SkipNulls {
 #[derive(Deserialize)]
 #[serde(rename_all = "kebab-case")]
 struct Config {
+    control_tor_address: String,
+    control_lan_address: String,
+    watchtower_tor_address: String,
+    peer_tor_address: String,
     alias: Option<String>,
     color: String,
     accept_keysend: bool,
