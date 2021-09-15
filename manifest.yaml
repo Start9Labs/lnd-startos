@@ -184,7 +184,7 @@ dependencies:
           - dependency
           - "auto-configure"
           - "btc-rpc-proxy"
-          - "/mnt/assets/btc-rpc-proxy.rules.yaml"
+          - "/mnt/assets/btc-rpc-proxy_config_rules.yaml"
         mounts:
           compat: /mnt/assets          
   bitcoind:
