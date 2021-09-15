@@ -249,6 +249,7 @@ backup:
     system: true
     entrypoint: /mnt/assets/backup-restore.sh
     args:
+      - duplicity
       - restore
       - lnd
       - /root/.lnd
