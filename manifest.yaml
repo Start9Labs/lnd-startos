@@ -25,6 +25,7 @@ main:
   args: []
   # specifices where to put the volumes in the main image
   mounts:
+    # main data directory - also needed to preserve data in 0.2.x migration
     main: /root/.lnd
     bitcoind: /mnt/bitcoind
     btc-rpc-proxy: "/mnt/btc-rpc-proxy"
