@@ -2,6 +2,7 @@ ASSET_PATHS := $(shell find ./assets/*)
 VERSION_TAG := $(shell git --git-dir=lnd/.git describe --abbrev=0)
 VERSION := $(VERSION_TAG:v%=%)
 VERSION_SIMPLE := $(shell echo $(VERSION) | sed -E 's/([0-9]+\.[0-9]+\.[0-9]+).*/\1/g')
+EMVER := $(shell yq e ".version" manifest.yaml)
 LND_GIT_REF := $(shell cat .git/modules/lnd/HEAD)
 LND_GIT_FILE := $(addprefix .git/modules/lnd/,$(if $(filter ref:%,$(LND_GIT_REF)),$(lastword $(LND_GIT_REF)),HEAD))
 CONFIGURATOR_SRC := $(shell find ./configurator/src) configurator/Cargo.toml configurator/Cargo.lock
@@ -22,7 +23,7 @@ lnd.s9pk: manifest.yaml image.tar instructions.md LICENSE icon.png $(ASSET_PATHS
 	embassy-sdk pack
 
 image.tar: Dockerfile docker_entrypoint.sh configurator/target/aarch64-unknown-linux-musl/release/configurator health-check/target/aarch64-unknown-linux-musl/release/health-check $(LND_GIT_FILE)
-	DOCKER_CLI_EXPERIMENTAL=enabled docker buildx build --tag start9/lnd/main:${VERSION} --platform=linux/arm64/v8 -o type=docker,dest=image.tar .
+	DOCKER_CLI_EXPERIMENTAL=enabled docker buildx build --tag start9/lnd/main:${EMVER} --platform=linux/arm64/v8 -o type=docker,dest=image.tar .
 
 configurator/target/aarch64-unknown-linux-musl/release/configurator: $(CONFIGURATOR_SRC)
 	docker run --rm -it -v ~/.cargo/registry:/root/.cargo/registry -v "$(shell pwd)"/configurator:/home/rust/src start9/rust-musl-cross:aarch64-musl cargo +beta build --release
