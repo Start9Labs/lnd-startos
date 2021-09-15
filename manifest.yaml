@@ -252,8 +252,8 @@ backup:
       - duplicity
       - restore
       - lnd
-      - /root/.lnd
       - /mnt/backup
+      - /root/.lnd
     mounts:
       BACKUP: /mnt/backup
       main: /root/.lnd
