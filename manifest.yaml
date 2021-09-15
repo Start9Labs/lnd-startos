@@ -240,7 +240,7 @@ backup:
       # BACKUP is the default volume that is used for backups - this is whatever backup drive is mounted to the device, or a network filesystem
       # the value here denotes where the data mount point will be
       # mounts backup drive to this location, which contains previous backups
-      backup: /mnt/backup
+      BACKUP: /mnt/backup
       main: /root/.lnd
   restore:
     type: docker
@@ -253,6 +253,6 @@ backup:
       - /root/.lnd
       - /mnt/backup
     mounts:
-      backup: /mnt/backup
+      BACKUP: /mnt/backup
       main: /root/.lnd
       compat: /mnt/assets
