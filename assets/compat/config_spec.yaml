@@ -110,20 +110,6 @@ bitcoind:
   default: internal
   variants:
     internal:
-      rpc-address:
-        type: pointer
-        name: Local RPC Address
-        description: The LAN IP address of your Bitcoin Proxy service
-        subtype: app
-        app-id: btc-rpc-proxy
-        target: lan-address
-      zmq-address:
-        type: pointer
-        name: Local ZeroMQ Address
-        description: The LAN IP address of your Bitcoin Core service
-        subtype: app
-        app-id: bitcoind
-        target: lan-address
       user:
         type: pointer
         name: RPC Username
@@ -131,7 +117,9 @@ bitcoind:
         subtype: app
         app-id: btc-rpc-proxy
         target: config
-        index: 'users.[first(item => ''item.name = "lnd")].name'
+        multi: false
+        selector: '$.users[?(@.name == "lnd")].name'
+        # index: 'users.[first(item => ''item.name = "lnd")].name'
       password:
         type: pointer
         name: RPC Password
@@ -139,7 +127,9 @@ bitcoind:
         subtype: app
         app-id: btc-rpc-proxy
         target: config
-        index: 'users.[first(item => ''item.name = "lnd")].password'
+        multi: false
+        selector: '$.users[?(@.name == "lnd")].password'
+        # index: 'users.[first(item => ''item.name = "lnd")].password'
     external:
       connection-settings:
         type: union
