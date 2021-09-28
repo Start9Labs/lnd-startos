@@ -184,9 +184,11 @@ dependencies:
           - dependency
           - "auto-configure"
           - "btc-rpc-proxy"
+          - /root/.lnd
           - "/mnt/assets/btc-rpc-proxy_config_rules.yaml"
         mounts:
-          compat: /mnt/assets          
+          compat: /mnt/assets
+          main: /root/.lnd
   bitcoind:
     version: "^0.21.1.2"
     recommended: true
