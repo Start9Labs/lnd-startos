@@ -6,14 +6,6 @@ control-tor-address:
   package-id: lnd
   target: tor-address
   interface: control
-control-lan-address:
-  name: Control LAN Address
-  description: The Local Area Network address for the control interface. 
-  type: pointer
-  subtype: package
-  package-id: lnd
-  target: lan-address
-  interface: control
 peer-tor-address:
   name: Peer Tor Address
   description: The Tor address for the peer interface. 
@@ -100,7 +92,7 @@ bitcoind:
   tag:
     id: type
     name: Type
-    variantNames:
+    variant-names:
       internal: Internal
       external: External
     description: |
@@ -114,8 +106,8 @@ bitcoind:
         type: pointer
         name: RPC Username
         description: The username for the RPC user allocated to lnd
-        subtype: app
-        app-id: btc-rpc-proxy
+        subtype: package
+        package-id: btc-rpc-proxy
         target: config
         multi: false
         selector: '$.users[?(@.name == "lnd")].name'
@@ -124,8 +116,8 @@ bitcoind:
         type: pointer
         name: RPC Password
         description: The password for the RPC user allocated to lnd
-        subtype: app
-        app-id: btc-rpc-proxy
+        subtype: package
+        package-id: btc-rpc-proxy
         target: config
         multi: false
         selector: '$.users[?(@.name == "lnd")].password'
@@ -141,7 +133,7 @@ bitcoind:
           description: |
             - Manual: Raw information for finding a Bitcoin Core node
             - Quick Connect: A Quick Connect URL for a Bitcoin Core node
-          variantNames:
+          variant-names:
             manual: Manual
             quick-connect: Quick Connect
         default: quick-connect
@@ -217,7 +209,6 @@ autopilot:
   name: Autopilot
   description: Autopilot Settings
   nullable: false
-  nullByDefault: false
   spec:
     enabled:
       type: boolean
@@ -279,7 +270,6 @@ autopilot:
       name: Advanced
       description: Advanced Options
       nullable: false
-      nullByDefault: false
       spec:
         min-confirmations:
           type: number
@@ -316,7 +306,6 @@ advanced:
   name: Advanced
   description: Advanced Options
   nullable: false
-  nullByDefault: false
   spec:
     debug-level:
       type: enum
@@ -442,7 +431,6 @@ advanced:
       name: Bitcoin Channel Configuration
       description: Configuration options for lightning network channel management operating over the Bitcoin network
       nullable: false
-      nullByDefault: false
       spec:
         default-channel-confirmations:
           type: number
