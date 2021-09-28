@@ -153,9 +153,10 @@ interfaces:
 dependencies:
   btc-rpc-proxy:
     version: ">=0.3.2.1 <0.4.0"
-    recommended: true
     critical: false
-    optional: Can alternatively configure an external bitcoin node.
+    requirement:
+      type: "opt-out"
+      how: Can alternatively configure an external bitcoin node.
     description: Used to fetch validated blocks.
     config:
       check: 
@@ -191,9 +192,10 @@ dependencies:
           main: /root/.lnd
   bitcoind:
     version: "^0.21.1.2"
-    recommended: true
     critical: true
-    optional: Can alternatively configure an external bitcoin node.
+    requirement:
+      type: "opt-out"
+      how: Can alternatively configure an external bitcoin node.
     description: Used to subscribe to new block events.
     config:
       check: 
