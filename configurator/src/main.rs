@@ -1,5 +1,6 @@
 use rand::Rng;
 use serde_json::Value;
+use std::env::var;
 use std::fs::File;
 use std::net::{IpAddr, SocketAddr};
 use std::path::Path;
@@ -69,9 +70,8 @@ impl std::fmt::Display for SkipNulls {
 #[serde(rename_all = "kebab-case")]
 struct Config {
     control_tor_address: String,
-    control_lan_address: String,
-    watchtower_tor_address: String,
     peer_tor_address: String,
+    watchtower_tor_address: String,
     alias: Option<String>,
     color: String,
     accept_keysend: bool,
@@ -102,10 +102,7 @@ struct BitcoinChannelConfig {
 #[serde(rename_all = "kebab-case")]
 enum BitcoinCoreConfig {
     #[serde(rename_all = "kebab-case")]
-    Internal {
-        user: String,
-        password: String,
-    },
+    Internal { user: String, password: String },
     #[serde(rename_all = "kebab-case")]
     External {
         connection_settings: ExternalBitcoinCoreConfig,
@@ -273,10 +270,18 @@ pub fn local_port_available(port: u16) -> Result<bool, anyhow::Error> {
 }
 
 fn main() -> Result<(), anyhow::Error> {
+    println!("here we are in main!");
+    while !Path::new("/root/.lnd/start9/config.yaml").exists() {
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    }
     let config: Config = serde_yaml::from_reader(File::open("/root/.lnd/start9/config.yaml")?)?;
+    println!(
+        "config fetched. alias = {:?}",
+        config.alias.clone().unwrap_or("No alias found".to_owned())
+    );
     let alias = get_alias(&config)?;
+    println!("alias = {:?}", alias);
     let control_tor_address: String = config.control_tor_address;
-    let control_lan_address: String = config.control_lan_address;
     let watchtower_tor_address: String = config.watchtower_tor_address;
     let peer_tor_address: String = config.peer_tor_address;
     {
@@ -291,10 +296,7 @@ fn main() -> Result<(), anyhow::Error> {
             bitcoind_zmq_block_port,
             bitcoind_zmq_tx_port,
         ) = match config.bitcoind {
-            BitcoinCoreConfig::Internal {
-                user,
-                password,
-            } => (
+            BitcoinCoreConfig::Internal { user, password } => (
                 user,
                 password,
                 format!("btc-prc-proxy.embassy"),
@@ -343,8 +345,8 @@ fn main() -> Result<(), anyhow::Error> {
                 )
             }
         };
-        let tor_proxy: SocketAddr = (control_lan_address.parse::<IpAddr>()?, 9050).into();
-
+        let tor_proxy: SocketAddr = (var("HOST_IP").unwrap().parse::<IpAddr>()?, 9050).into();
+        println!("tor_proxy={}", tor_proxy);
         write!(
             outfile,
             include_str!("lnd.conf.template"),
@@ -401,6 +403,7 @@ fn main() -> Result<(), anyhow::Error> {
             db_bolt_auto_compact_min_age = config.advanced.db_bolt_auto_compact_min_age,
             db_bolt_db_timeout = config.advanced.db_bolt_db_timeout
         )?;
+        println!("all done!");
     }
 
     // TLS Certificate migration from 0.11.0 -> 0.11.1 release (to include tor address)
@@ -418,7 +421,9 @@ fn main() -> Result<(), anyhow::Error> {
         match ext {
             x509_parser::extensions::ParsedExtension::SubjectAlternativeName(names) => {
                 if !(&names.general_names).into_iter().any(|a| match *a {
-                    x509_parser::extensions::GeneralName::DNSName(host) => host == control_tor_address,
+                    x509_parser::extensions::GeneralName::DNSName(host) => {
+                        host == control_tor_address
+                    }
                     _ => false,
                 }) {
                     println!("Replacing Certificates");
