@@ -156,7 +156,7 @@ dependencies:
     critical: false
     requirement:
       type: "opt-out"
-      how: Can alternatively configure an external bitcoin node.
+      how: Can alternatively use the internal full archival bitcoind node or configure an external bitcoin node.
     description: Used to fetch validated blocks.
     config:
       check: 
