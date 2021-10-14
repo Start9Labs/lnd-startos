@@ -165,6 +165,7 @@ dependencies:
         system: true
         # the compat image will contain a tool to check the config rules against the specified dependency
         entrypoint: compat
+        io-format: yaml
         args:
           - dependency
           - check
@@ -182,6 +183,7 @@ dependencies:
         # uncommon: if you want something not prebuilt with EOS, you can bundle multiple docker images into the `image.tar` during the `make` build process
         system: true
         entrypoint: compat
+        io-format: yaml
         args:
           - dependency
           - "auto-configure"
