@@ -34,13 +34,11 @@ health-checks:
   synced: 
     type: docker
     image: main
-    system: false
     entrypoint: "health-check"
     args: []
-    mounts:
-      main: /root/.lnd
-    io-format: yaml
     critical: true
+    inject: true
+    io-format: yaml
 config: # if you dont provide an io format in cases like config where its necessarily developer defined, functionality will not work
   get:
     type: docker
@@ -124,7 +122,7 @@ interfaces:
     lan-config:
       80:
         ssl: true
-        mapping: 80
+        mapping: 443
     ui: false
     protocols:
       - tcp
@@ -165,7 +163,6 @@ dependencies:
         system: true
         # the compat image will contain a tool to check the config rules against the specified dependency
         entrypoint: compat
-        io-format: yaml
         args:
           - dependency
           - check
@@ -176,6 +173,7 @@ dependencies:
         mounts:
           compat: /mnt/assets  
           main: /root/.lnd
+        io-format: yaml
       auto-configure:
         type: docker
         image: compat
@@ -183,7 +181,6 @@ dependencies:
         # uncommon: if you want something not prebuilt with EOS, you can bundle multiple docker images into the `image.tar` during the `make` build process
         system: true
         entrypoint: compat
-        io-format: yaml
         args:
           - dependency
           - "auto-configure"
@@ -194,6 +191,7 @@ dependencies:
         mounts:
           compat: /mnt/assets
           main: /root/.lnd
+        io-format: yaml
   bitcoind:
     version: "^0.21.1.2"
     critical: true
@@ -244,7 +242,6 @@ backup:
     args:
       - duplicity
       - create
-      - lnd
       - /mnt/backup
       - /root/.lnd
     mounts:
@@ -253,6 +250,7 @@ backup:
       # mounts backup drive to this location, which contains previous backups
       BACKUP: /mnt/backup
       main: /root/.lnd
+    io-format: yaml
   restore:
     type: docker
     image: compat
@@ -261,10 +259,10 @@ backup:
     args:
       - duplicity
       - restore
-      - lnd
       - /mnt/backup
       - /root/.lnd
     mounts:
       BACKUP: /mnt/backup
       main: /root/.lnd
       compat: /mnt/assets
+    io-format: yaml
