@@ -299,7 +299,7 @@ fn main() -> Result<(), anyhow::Error> {
             BitcoinCoreConfig::Internal { user, password } => (
                 user,
                 password,
-                format!("btc-prc-proxy.embassy"),
+                format!("btc-rpc-proxy.embassy"),
                 8332,
                 format!("bitcoind.embassy"),
                 28332,
