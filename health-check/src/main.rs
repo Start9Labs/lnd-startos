@@ -27,7 +27,7 @@ fn main() -> Result<(), anyhow::Error> {
                     .arg("/root/.lnd/tls.cert")
                     .arg("--header")
                     .arg(format!("Grpc-Metadata-macaroon: {}", mac_encoded))
-                    .arg("https://localhost:8080/v1/getinfo")
+                    .arg("lnd.embassy:8080/v1/getinfo")
                     .output()?
                     .stdout,
             )
