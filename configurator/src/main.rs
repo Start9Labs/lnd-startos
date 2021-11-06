@@ -345,8 +345,8 @@ fn main() -> Result<(), anyhow::Error> {
                 )
             }
         };
-        let tor_proxy: SocketAddr = (var("HOST_IP").unwrap().parse::<IpAddr>()?, 9050).into();
-        println!("tor_proxy={}", tor_proxy);
+        // let tor_proxy: SocketAddr = (var("HOST_IP").unwrap().parse::<IpAddr>()?, 9050).into();
+        // println!("tor_proxy={}", tor_proxy);
         write!(
             outfile,
             include_str!("lnd.conf.template"),
@@ -393,7 +393,7 @@ fn main() -> Result<(), anyhow::Error> {
             autopilot_private = config.autopilot.private,
             autopilot_min_confirmations = config.autopilot.advanced.min_confirmations,
             autopilot_confirmation_target = config.autopilot.advanced.confirmation_target,
-            tor_proxy = tor_proxy,
+            tor_proxy = 9050,
             watchtower_enabled = config.watchtower_enabled,
             watchtower_client_enabled = config.watchtower_client_enabled,
             protocol_wumbo_channels = config.advanced.protocol_wumbo_channels,
@@ -409,7 +409,7 @@ fn main() -> Result<(), anyhow::Error> {
     // TLS Certificate migration from 0.11.0 -> 0.11.1 release (to include tor address)
     let cert_path = Path::new("/root/.lnd/tls.cert");
     if cert_path.exists() {
-        let bs = std::fs::read(cert_path)?;
+        let bs = std::fs::read(dbg!(cert_path))?;
         let (_, pem) = pem::parse_x509_pem(&bs)?;
         let cert = pem.parse_x509()?;
         let subj_alt_name_oid = "2.5.29.17".parse().unwrap();
@@ -465,7 +465,7 @@ fn main() -> Result<(), anyhow::Error> {
             let channel_backup_path =
                 Path::new("/root/.lnd/data/chain/bitcoin/mainnet/channel.backup");
             if channel_backup_path.exists() {
-                let bs = std::fs::read(channel_backup_path)?;
+                let bs = std::fs::read(dbg!(channel_backup_path))?;
                 // backup all except graph db
                 // also delete graph db always
                 // happen in backup action not in entrypoint
@@ -555,9 +555,9 @@ fn main() -> Result<(), anyhow::Error> {
                     while local_port_available(8080)? {
                         std::thread::sleep(Duration::from_secs(10))
                     }
-                    let mac = std::fs::read(Path::new(
+                    let mac = std::fs::read(dbg!(Path::new(
                         "/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon",
-                    ))?;
+                    )))?;
                     let mac_encoded = hex::encode_upper(mac);
                     let status = std::process::Command::new("curl")
                         .arg("-X")
@@ -566,7 +566,7 @@ fn main() -> Result<(), anyhow::Error> {
                         .arg("/root/.lnd/tls.cert")
                         .arg("--header")
                         .arg(format!("Grpc-Metadata-macaroon: {}", mac_encoded))
-                        .arg("https://localhost:8080/v1/channels/backup/restore")
+                        .arg("lnd.embassy:8080/v1/channels/backup/restore")
                         .arg("-d")
                         .arg(serde_json::to_string(&backups)?)
                         .status()?;
@@ -636,7 +636,7 @@ fn main() -> Result<(), anyhow::Error> {
                     .arg("/root/.lnd/tls.cert")
                     .arg("--header")
                     .arg(format!("Grpc-Metadata-macaroon: {}", mac_encoded))
-                    .arg("https://localhost:8080/v1/getinfo")
+                    .arg("lnd.embassy/v1/getinfo")
                     .output()?
                     .stdout,
             )
