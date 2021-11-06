@@ -345,8 +345,8 @@ fn main() -> Result<(), anyhow::Error> {
                 )
             }
         };
-        // let tor_proxy: SocketAddr = (var("HOST_IP").unwrap().parse::<IpAddr>()?, 9050).into();
-        // println!("tor_proxy={}", tor_proxy);
+        let tor_proxy: SocketAddr = dbg!((var("HOST_IP").unwrap().parse::<IpAddr>()?, 9050).into());
+        println!("tor_proxy={}", tor_proxy);
         write!(
             outfile,
             include_str!("lnd.conf.template"),
@@ -393,7 +393,7 @@ fn main() -> Result<(), anyhow::Error> {
             autopilot_private = config.autopilot.private,
             autopilot_min_confirmations = config.autopilot.advanced.min_confirmations,
             autopilot_confirmation_target = config.autopilot.advanced.confirmation_target,
-            tor_proxy = 9050,
+            tor_proxy = tor_proxy,
             watchtower_enabled = config.watchtower_enabled,
             watchtower_client_enabled = config.watchtower_client_enabled,
             protocol_wumbo_channels = config.advanced.protocol_wumbo_channels,
@@ -409,7 +409,7 @@ fn main() -> Result<(), anyhow::Error> {
     // TLS Certificate migration from 0.11.0 -> 0.11.1 release (to include tor address)
     let cert_path = Path::new("/root/.lnd/tls.cert");
     if cert_path.exists() {
-        let bs = std::fs::read(dbg!(cert_path))?;
+        let bs = dbg!(std::fs::read(cert_path))?;
         let (_, pem) = pem::parse_x509_pem(&bs)?;
         let cert = pem.parse_x509()?;
         let subj_alt_name_oid = "2.5.29.17".parse().unwrap();
@@ -465,7 +465,7 @@ fn main() -> Result<(), anyhow::Error> {
             let channel_backup_path =
                 Path::new("/root/.lnd/data/chain/bitcoin/mainnet/channel.backup");
             if channel_backup_path.exists() {
-                let bs = std::fs::read(dbg!(channel_backup_path))?;
+                let bs = dbg!(std::fs::read(channel_backup_path))?;
                 // backup all except graph db
                 // also delete graph db always
                 // happen in backup action not in entrypoint
@@ -482,7 +482,7 @@ fn main() -> Result<(), anyhow::Error> {
     }?;
 
     if Path::new("/root/.lnd/pwd.dat").exists() {
-        let pass_file = File::open("/root/.lnd/pwd.dat")?;
+        let pass_file = dbg!(File::open("/root/.lnd/pwd.dat"))?;
         let pass_size = pass_file.metadata().unwrap().len();
         let mut password_bytes = Vec::with_capacity(pass_size as usize);
         pass_file.take(pass_size).read_to_end(&mut password_bytes)?;
@@ -496,7 +496,7 @@ fn main() -> Result<(), anyhow::Error> {
                     .arg("POST")
                     .arg("--cacert")
                     .arg("/root/.lnd/tls.cert")
-                    .arg("https://localhost:8080/v1/unlockwallet")
+                    .arg("lnd.embassy:8080/v1/unlockwallet")
                     .arg("-d")
                     .arg(serde_json::to_string(&SkipNulls(serde_json::json!({
                         "wallet_password": base64::encode(&password_bytes),
@@ -555,7 +555,7 @@ fn main() -> Result<(), anyhow::Error> {
                     while local_port_available(8080)? {
                         std::thread::sleep(Duration::from_secs(10))
                     }
-                    let mac = std::fs::read(dbg!(Path::new(
+                    let mac = dbg!(std::fs::read(Path::new(
                         "/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon",
                     )))?;
                     let mac_encoded = hex::encode_upper(mac);
@@ -587,7 +587,7 @@ fn main() -> Result<(), anyhow::Error> {
             .arg("POST")
             .arg("--cacert")
             .arg("/root/.lnd/tls.cert")
-            .arg("https://localhost:8080/v1/genseed")
+            .arg("lnd.embassy:8080/v1/genseed")
             .arg("-d")
             .arg(format!("{}", serde_json::json!({})))
             .output()?;
@@ -600,7 +600,7 @@ fn main() -> Result<(), anyhow::Error> {
             .arg("POST")
             .arg("--cacert")
             .arg("/root/.lnd/tls.cert")
-            .arg("https://localhost:8080/v1/initwallet")
+            .arg("lnd.embassy:8080/v1/initwallet")
             .arg("-d")
             .arg(format!(
                 "{}",
@@ -620,7 +620,9 @@ fn main() -> Result<(), anyhow::Error> {
     while !Path::new("/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon").exists() {
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
-    let mut macaroon_file = File::open("/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon")?;
+    let mut macaroon_file = dbg!(File::open(
+        "/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon"
+    ))?;
     let mut macaroon_vec = Vec::with_capacity(macaroon_file.metadata()?.len() as usize);
     let tls_cert = std::fs::read_to_string("/root/.lnd/tls.cert")?;
     macaroon_file.read_to_end(&mut macaroon_vec)?;
@@ -636,7 +638,7 @@ fn main() -> Result<(), anyhow::Error> {
                     .arg("/root/.lnd/tls.cert")
                     .arg("--header")
                     .arg(format!("Grpc-Metadata-macaroon: {}", mac_encoded))
-                    .arg("lnd.embassy/v1/getinfo")
+                    .arg("lnd.embassy:8080/v1/getinfo")
                     .output()?
                     .stdout,
             )
@@ -776,7 +778,7 @@ fn main() -> Result<(), anyhow::Error> {
                 .arg("/root/.lnd/tls.cert")
                 .arg("--header")
                 .arg(format!("Grpc-Metadata-macaroon: {}", mac_encoded))
-                .arg("https://localhost:8080/v1/getinfo")
+                .arg("lnd.embassy:8080/v1/getinfo")
                 .output()?
                 .stdout,
         )
