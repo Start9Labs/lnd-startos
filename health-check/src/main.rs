@@ -18,9 +18,7 @@ fn main() -> Result<(), anyhow::Error> {
     let mac = std::fs::read(Path::new(
         "/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon",
     ))?;
-    // let container_ip = var("CONTAINER_IP").unwrap().parse::<IpAddr>()?;
-
-    // TODO capture std in to read time elapsed since service start (ms)
+    let container_ip = var("CONTAINER_IP").unwrap().parse::<IpAddr>()?;
 
     let mac_encoded = hex::encode_upper(mac);
     let node_info: LndGetInfoRes = retry::<_, _, anyhow::Error>(
@@ -31,7 +29,7 @@ fn main() -> Result<(), anyhow::Error> {
                     .arg("/root/.lnd/tls.cert")
                     .arg("--header")
                     .arg(format!("Grpc-Metadata-macaroon: {}", mac_encoded))
-                    .arg("https://127.0.0.1:8080/v1/getinfo")
+                    .arg(format!("https://{}:8080/v1/getinfo", container_ip))
                     .output()?
                     .stdout,
             )
