@@ -76,7 +76,7 @@ properties:
   entrypoint: compat
   args:
     - properties
-    - /root
+    - /root/.lnd
   mounts:
     main: /root/.lnd
   io-format: yaml
