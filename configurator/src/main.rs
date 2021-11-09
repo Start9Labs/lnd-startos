@@ -556,9 +556,9 @@ fn main() -> Result<(), anyhow::Error> {
                     while local_port_available(8080)? {
                         std::thread::sleep(Duration::from_secs(10))
                     }
-                    let mac = std::fs::read(Path::new(
+                    let mac = dbg!(std::fs::read(Path::new(
                         "/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon",
-                    ))?;
+                    ))?);
                     let mac_encoded = hex::encode_upper(mac);
                     let status = std::process::Command::new("curl")
                         .arg("-X")
@@ -626,8 +626,8 @@ fn main() -> Result<(), anyhow::Error> {
     }
     let mut macaroon_file = File::open("/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon")?;
     let mut macaroon_vec = Vec::with_capacity(macaroon_file.metadata()?.len() as usize);
-    let tls_cert = std::fs::read_to_string("/root/.lnd/tls.cert")?;
-    macaroon_file.read_to_end(&mut macaroon_vec)?;
+    let tls_cert = dbg!(std::fs::read_to_string("/root/.lnd/tls.cert")?);
+    dbg!(macaroon_file.read_to_end(&mut macaroon_vec)?);
     let mac_encoded = hex::encode_upper(&macaroon_vec);
     while local_port_available(8080)? {
         std::thread::sleep(Duration::from_secs(10))
