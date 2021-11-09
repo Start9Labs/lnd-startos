@@ -284,6 +284,7 @@ fn main() -> Result<(), anyhow::Error> {
     let control_tor_address: String = config.control_tor_address;
     let watchtower_tor_address: String = config.watchtower_tor_address;
     let peer_tor_address: String = config.peer_tor_address;
+    let container_ip = var("CONTAINER_IP").unwrap().parse::<IpAddr>()?;
     {
         let mut outfile = File::create("/root/.lnd/lnd.conf")?;
 
@@ -345,7 +346,7 @@ fn main() -> Result<(), anyhow::Error> {
                 )
             }
         };
-        let tor_proxy: SocketAddr = dbg!((var("HOST_IP").unwrap().parse::<IpAddr>()?, 9050).into());
+        let tor_proxy: SocketAddr = (var("HOST_IP").unwrap().parse::<IpAddr>()?, 9050).into();
         println!("tor_proxy={}", tor_proxy);
         write!(
             outfile,
@@ -409,7 +410,7 @@ fn main() -> Result<(), anyhow::Error> {
     // TLS Certificate migration from 0.11.0 -> 0.11.1 release (to include tor address)
     let cert_path = Path::new("/root/.lnd/tls.cert");
     if cert_path.exists() {
-        let bs = dbg!(std::fs::read(cert_path))?;
+        let bs = std::fs::read(cert_path)?;
         let (_, pem) = pem::parse_x509_pem(&bs)?;
         let cert = pem.parse_x509()?;
         let subj_alt_name_oid = "2.5.29.17".parse().unwrap();
@@ -465,7 +466,7 @@ fn main() -> Result<(), anyhow::Error> {
             let channel_backup_path =
                 Path::new("/root/.lnd/data/chain/bitcoin/mainnet/channel.backup");
             if channel_backup_path.exists() {
-                let bs = dbg!(std::fs::read(channel_backup_path))?;
+                let bs = std::fs::read(channel_backup_path)?;
                 // backup all except graph db
                 // also delete graph db always
                 // happen in backup action not in entrypoint
@@ -482,7 +483,7 @@ fn main() -> Result<(), anyhow::Error> {
     }?;
 
     if Path::new("/root/.lnd/pwd.dat").exists() {
-        let pass_file = dbg!(File::open("/root/.lnd/pwd.dat"))?;
+        let pass_file = File::open("/root/.lnd/pwd.dat")?;
         let pass_size = pass_file.metadata().unwrap().len();
         let mut password_bytes = Vec::with_capacity(pass_size as usize);
         pass_file.take(pass_size).read_to_end(&mut password_bytes)?;
@@ -496,7 +497,7 @@ fn main() -> Result<(), anyhow::Error> {
                     .arg("POST")
                     .arg("--cacert")
                     .arg("/root/.lnd/tls.cert")
-                    .arg("lnd.embassy:8080/v1/unlockwallet")
+                    .arg(format!("https://{}:8080/v1/unlockwallet", container_ip))
                     .arg("-d")
                     .arg(serde_json::to_string(&SkipNulls(serde_json::json!({
                         "wallet_password": base64::encode(&password_bytes),
@@ -555,9 +556,9 @@ fn main() -> Result<(), anyhow::Error> {
                     while local_port_available(8080)? {
                         std::thread::sleep(Duration::from_secs(10))
                     }
-                    let mac = dbg!(std::fs::read(Path::new(
+                    let mac = std::fs::read(Path::new(
                         "/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon",
-                    )))?;
+                    ))?;
                     let mac_encoded = hex::encode_upper(mac);
                     let status = std::process::Command::new("curl")
                         .arg("-X")
@@ -566,7 +567,10 @@ fn main() -> Result<(), anyhow::Error> {
                         .arg("/root/.lnd/tls.cert")
                         .arg("--header")
                         .arg(format!("Grpc-Metadata-macaroon: {}", mac_encoded))
-                        .arg("lnd.embassy:8080/v1/channels/backup/restore")
+                        .arg(format!(
+                            "https://{}:8080/v1/channels/backup/restore",
+                            container_ip
+                        ))
                         .arg("-d")
                         .arg(serde_json::to_string(&backups)?)
                         .status()?;
@@ -587,7 +591,7 @@ fn main() -> Result<(), anyhow::Error> {
             .arg("POST")
             .arg("--cacert")
             .arg("/root/.lnd/tls.cert")
-            .arg("lnd.embassy:8080/v1/genseed")
+            .arg(format!("https://{}:8080/v1/genseed", container_ip))
             .arg("-d")
             .arg(format!("{}", serde_json::json!({})))
             .output()?;
@@ -600,7 +604,7 @@ fn main() -> Result<(), anyhow::Error> {
             .arg("POST")
             .arg("--cacert")
             .arg("/root/.lnd/tls.cert")
-            .arg("lnd.embassy:8080/v1/initwallet")
+            .arg(format!("https://{}:8080/v1/initwallet", container_ip))
             .arg("-d")
             .arg(format!(
                 "{}",
@@ -620,9 +624,7 @@ fn main() -> Result<(), anyhow::Error> {
     while !Path::new("/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon").exists() {
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
-    let mut macaroon_file = dbg!(File::open(
-        "/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon"
-    ))?;
+    let mut macaroon_file = File::open("/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon")?;
     let mut macaroon_vec = Vec::with_capacity(macaroon_file.metadata()?.len() as usize);
     let tls_cert = std::fs::read_to_string("/root/.lnd/tls.cert")?;
     macaroon_file.read_to_end(&mut macaroon_vec)?;
@@ -638,7 +640,7 @@ fn main() -> Result<(), anyhow::Error> {
                     .arg("/root/.lnd/tls.cert")
                     .arg("--header")
                     .arg(format!("Grpc-Metadata-macaroon: {}", mac_encoded))
-                    .arg("lnd.embassy:8080/v1/getinfo")
+                    .arg(format!("https://{}:8080/v1/getinfo", container_ip))
                     .output()?
                     .stdout,
             )
@@ -778,7 +780,7 @@ fn main() -> Result<(), anyhow::Error> {
                 .arg("/root/.lnd/tls.cert")
                 .arg("--header")
                 .arg(format!("Grpc-Metadata-macaroon: {}", mac_encoded))
-                .arg("lnd.embassy:8080/v1/getinfo")
+                .arg(format!("https://{}:8080/v1/getinfo", container_ip))
                 .output()?
                 .stdout,
         )
