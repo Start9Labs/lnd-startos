@@ -8,6 +8,14 @@ pub struct LndGetInfoRes {
     synced_to_graph: bool,
 }
 
+pub enum HealthCheckResult {
+    Success,
+    Disabled,
+    Starting,
+    Loading { message: String },
+    Failure { error: String },
+}
+
 // preform health check as normal, when deciding on health check status to return compare it to the time
 
 fn main() -> Result<(), anyhow::Error> {
@@ -40,19 +48,16 @@ fn main() -> Result<(), anyhow::Error> {
     match () {
         () if !node_info.synced_to_graph && !node_info.synced_to_chain => Ok(()),
         () if !node_info.synced_to_chain => {
-            serde_yaml::to_writer(stdout(), &(61, "node not synced to chain".to_string()))?;
-            Ok(())
+            serde_yaml::to_writer(stdout(), &"node syncing to chain".to_string())?;
+            std::process::exit(61);
         }
         () if !node_info.synced_to_graph => {
-            serde_yaml::to_writer(stdout(), &(61, "node not synced to graph".to_string()))?;
-            Ok(())
+            serde_yaml::to_writer(stdout(), &"node syncing to graph".to_string())?;
+            std::process::exit(61);
         }
         () => {
-            serde_yaml::to_writer(
-                stdout(),
-                &(61, "node not synced to chain and graph".to_string()),
-            )?;
-            Ok(())
+            serde_yaml::to_writer(stdout(), &"node syncing to graph and chain".to_string())?;
+            std::process::exit(61);
         }
     }
 }
