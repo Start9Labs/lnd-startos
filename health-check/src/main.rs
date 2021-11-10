@@ -1,4 +1,4 @@
-use std::{path::Path, time::Duration};
+use std::{io::stdout, path::Path, time::Duration};
 
 #[derive(serde::Deserialize, Debug)]
 pub struct LndGetInfoRes {
@@ -39,9 +39,21 @@ fn main() -> Result<(), anyhow::Error> {
     )?;
     match () {
         () if !node_info.synced_to_graph && !node_info.synced_to_chain => Ok(()),
-        () if !node_info.synced_to_chain => Err(anyhow::anyhow!("node not synced to chain")),
-        () if !node_info.synced_to_graph => Err(anyhow::anyhow!("node not synced to graph")),
-        () => Err(anyhow::anyhow!("node not synced to chain and graph")),
+        () if !node_info.synced_to_chain => {
+            serde_yaml::to_writer(stdout(), &(61, "node not synced to chain".to_string()))?;
+            Ok(())
+        }
+        () if !node_info.synced_to_graph => {
+            serde_yaml::to_writer(stdout(), &(61, "node not synced to graph".to_string()))?;
+            Ok(())
+        }
+        () => {
+            serde_yaml::to_writer(
+                stdout(),
+                &(61, "node not synced to chain and graph".to_string()),
+            )?;
+            Ok(())
+        }
     }
 }
 
