@@ -270,7 +270,6 @@ pub fn local_port_available(port: u16) -> Result<bool, anyhow::Error> {
 }
 
 fn main() -> Result<(), anyhow::Error> {
-    println!("here we are in main!");
     while !Path::new("/root/.lnd/start9/config.yaml").exists() {
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
@@ -404,7 +403,6 @@ fn main() -> Result<(), anyhow::Error> {
             db_bolt_auto_compact_min_age = config.advanced.db_bolt_auto_compact_min_age,
             db_bolt_db_timeout = config.advanced.db_bolt_db_timeout
         )?;
-        println!("all done!");
     }
 
     // TLS Certificate migration from 0.11.0 -> 0.11.1 release (to include tor address)
