@@ -284,7 +284,7 @@ fn main() -> Result<(), anyhow::Error> {
     let control_tor_address: String = config.control_tor_address;
     let watchtower_tor_address: String = config.watchtower_tor_address;
     let peer_tor_address: String = config.peer_tor_address;
-    let container_ip = dbg!(var("CONTAINER_IP").unwrap().parse::<IpAddr>()?);
+    let container_ip = var("CONTAINER_IP").unwrap().parse::<IpAddr>()?;
     {
         let mut outfile = File::create("/root/.lnd/lnd.conf")?;
 
@@ -483,7 +483,7 @@ fn main() -> Result<(), anyhow::Error> {
     }?;
 
     if Path::new("/root/.lnd/pwd.dat").exists() {
-        let pass_file = dbg!(File::open("/root/.lnd/pwd.dat")?);
+        let pass_file = File::open("/root/.lnd/pwd.dat")?;
         let pass_size = pass_file.metadata().unwrap().len();
         let mut password_bytes = Vec::with_capacity(pass_size as usize);
         pass_file.take(pass_size).read_to_end(&mut password_bytes)?;
@@ -556,9 +556,9 @@ fn main() -> Result<(), anyhow::Error> {
                     while local_port_available(8080)? {
                         std::thread::sleep(Duration::from_secs(10))
                     }
-                    let mac = dbg!(std::fs::read(Path::new(
+                    let mac = std::fs::read(Path::new(
                         "/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon",
-                    ))?);
+                    ))?;
                     let mac_encoded = hex::encode_upper(mac);
                     let status = std::process::Command::new("curl")
                         .arg("-X")
@@ -600,7 +600,7 @@ fn main() -> Result<(), anyhow::Error> {
         let CipherSeedMnemonic {
             cipher_seed_mnemonic,
         } = serde_json::from_slice(&output.stdout)?;
-        let status = dbg!(std::process::Command::new("curl")
+        let status = std::process::Command::new("curl")
             .arg("-X")
             .arg("POST")
             .arg("--cacert")
@@ -614,7 +614,7 @@ fn main() -> Result<(), anyhow::Error> {
                     "cipher_seed_mnemonic": cipher_seed_mnemonic,
                 })
             ))
-            .status()?);
+            .status()?;
         if status.success() {
             let mut pass_file = File::create("/root/.lnd/pwd.dat")?;
             pass_file.write_all(&password_bytes)?;
@@ -625,12 +625,10 @@ fn main() -> Result<(), anyhow::Error> {
     while !Path::new("/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon").exists() {
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
-    let mut macaroon_file = dbg!(File::open(
-        "/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon"
-    )?);
+    let mut macaroon_file = File::open("/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon")?;
     let mut macaroon_vec = Vec::with_capacity(macaroon_file.metadata()?.len() as usize);
-    let tls_cert = dbg!(std::fs::read_to_string("/root/.lnd/tls.cert")?);
-    dbg!(macaroon_file.read_to_end(&mut macaroon_vec)?);
+    let tls_cert = std::fs::read_to_string("/root/.lnd/tls.cert")?;
+    macaroon_file.read_to_end(&mut macaroon_vec)?;
     let mac_encoded = hex::encode_upper(&macaroon_vec);
     while local_port_available(8080)? {
         std::thread::sleep(Duration::from_secs(10))
@@ -729,7 +727,7 @@ fn main() -> Result<(), anyhow::Error> {
             )?;
         }
     }
-    dbg!(File::create("/root/.lnd/public/tls.cert")?.write_all(tls_cert.as_bytes())?);
+    File::create("/root/.lnd/public/tls.cert")?.write_all(tls_cert.as_bytes())?;
     loop {
         serde_yaml::to_writer(
             File::create("/root/.lnd/start9/stats.yaml")?,
