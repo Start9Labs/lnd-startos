@@ -283,7 +283,6 @@ fn main() -> Result<(), anyhow::Error> {
     let control_tor_address: String = config.control_tor_address;
     let watchtower_tor_address: String = config.watchtower_tor_address;
     let peer_tor_address: String = config.peer_tor_address;
-    let container_ip = var("CONTAINER_IP").unwrap().parse::<IpAddr>()?;
     {
         let mut outfile = File::create("/root/.lnd/lnd.conf")?;
 
@@ -491,11 +490,12 @@ fn main() -> Result<(), anyhow::Error> {
             let stat;
             loop {
                 let cmd = process::Command::new("curl")
+                    .arg("--no-progress-meter")
                     .arg("-X")
                     .arg("POST")
                     .arg("--cacert")
                     .arg("/root/.lnd/tls.cert")
-                    .arg(format!("https://{}:8080/v1/unlockwallet", container_ip))
+                    .arg("https://127.0.0.1:8080/v1/unlockwallet")
                     .arg("-d")
                     .arg(serde_json::to_string(&SkipNulls(serde_json::json!({
                         "wallet_password": base64::encode(&password_bytes),
@@ -559,16 +559,14 @@ fn main() -> Result<(), anyhow::Error> {
                     ))?;
                     let mac_encoded = hex::encode_upper(mac);
                     let status = std::process::Command::new("curl")
+                        .arg("--no-progress-meter")
                         .arg("-X")
                         .arg("POST")
                         .arg("--cacert")
                         .arg("/root/.lnd/tls.cert")
                         .arg("--header")
                         .arg(format!("Grpc-Metadata-macaroon: {}", mac_encoded))
-                        .arg(format!(
-                            "https://{}:8080/v1/channels/backup/restore",
-                            container_ip
-                        ))
+                        .arg("https://127.0.0.1:8080/v1/channels/backup/restore")
                         .arg("-d")
                         .arg(serde_json::to_string(&backups)?)
                         .status()?;
@@ -586,11 +584,12 @@ fn main() -> Result<(), anyhow::Error> {
         let mut dev_random = File::open("/dev/random")?;
         dev_random.read_exact(&mut password_bytes)?;
         let output = std::process::Command::new("curl")
+            .arg("--no-progress-meter")
             .arg("-X")
             .arg("POST")
             .arg("--cacert")
             .arg("/root/.lnd/tls.cert")
-            .arg(format!("https://{}:8080/v1/genseed", container_ip))
+            .arg("https://127.0.0.1:8080/v1/genseed")
             .arg("-d")
             .arg(format!("{}", serde_json::json!({})))
             .output()?;
@@ -599,11 +598,12 @@ fn main() -> Result<(), anyhow::Error> {
             cipher_seed_mnemonic,
         } = serde_json::from_slice(&output.stdout)?;
         let status = std::process::Command::new("curl")
+            .arg("--no-progress-meter")
             .arg("-X")
             .arg("POST")
             .arg("--cacert")
             .arg("/root/.lnd/tls.cert")
-            .arg(format!("https://{}:8080/v1/initwallet", container_ip))
+            .arg("https://127.0.0.1:8080/v1/initwallet")
             .arg("-d")
             .arg(format!(
                 "{}",
@@ -635,11 +635,12 @@ fn main() -> Result<(), anyhow::Error> {
         || {
             serde_json::from_slice(
                 &std::process::Command::new("curl")
+                    .arg("--no-progress-meter")
                     .arg("--cacert")
                     .arg("/root/.lnd/tls.cert")
                     .arg("--header")
                     .arg(format!("Grpc-Metadata-macaroon: {}", mac_encoded))
-                    .arg(format!("https://{}:8080/v1/getinfo", container_ip))
+                    .arg("https://127.0.0.1:8080/v1/getinfo")
                     .output()?
                     .stdout,
             )
@@ -669,7 +670,9 @@ fn main() -> Result<(), anyhow::Error> {
                 base64::Config::new(base64::CharacterSet::UrlSafe, false)
             ),
         ),
-        description: None,
+        description: Some(
+            "Use this for other applications that require a gRPC connection".to_owned(),
+        ),
         copyable: true,
         qr: true,
         masked: true,
@@ -695,7 +698,9 @@ fn main() -> Result<(), anyhow::Error> {
                 base64::Config::new(base64::CharacterSet::UrlSafe, false)
             ),
         ),
-        description: None,
+        description: Some(
+            "Use this for other applications that require a REST connection".to_owned(),
+        ),
         copyable: true,
         qr: true,
         masked: true,
@@ -775,11 +780,12 @@ fn main() -> Result<(), anyhow::Error> {
         std::thread::sleep(Duration::from_secs(10));
         node_info = serde_json::from_slice(
             &std::process::Command::new("curl")
+                .arg("--no-progress-meter")
                 .arg("--cacert")
                 .arg("/root/.lnd/tls.cert")
                 .arg("--header")
                 .arg(format!("Grpc-Metadata-macaroon: {}", mac_encoded))
-                .arg(format!("https://{}:8080/v1/getinfo", container_ip))
+                .arg("https://127.0.0.1:8080/v1/getinfo")
                 .output()?
                 .stdout,
         )
