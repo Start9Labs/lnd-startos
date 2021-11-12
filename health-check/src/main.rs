@@ -1,4 +1,4 @@
-use std::{io::stdout, path::Path, time::Duration};
+use std::{path::Path, time::Duration};
 
 #[derive(serde::Deserialize, Debug)]
 pub struct LndGetInfoRes {
@@ -16,9 +16,17 @@ pub enum HealthCheckResult {
     Failure { error: String },
 }
 
-// preform health check as normal, when deciding on health check status to return compare it to the time
+fn main() {
+    std::process::exit(match run_health_checks() {
+        Ok(_) => 0,
+        Err(err) => {
+            eprintln!("{:?}", err);
+            61
+        }
+    });
+}
 
-fn main() -> Result<(), anyhow::Error> {
+fn run_health_checks() -> Result<(), anyhow::Error> {
     while !Path::new("/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon").exists() {
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
@@ -32,6 +40,7 @@ fn main() -> Result<(), anyhow::Error> {
         || {
             serde_json::from_slice(
                 &std::process::Command::new("curl")
+                    .arg("--no-progress-meter")
                     .arg("--cacert")
                     .arg("/root/.lnd/tls.cert")
                     .arg("--header")
@@ -46,19 +55,16 @@ fn main() -> Result<(), anyhow::Error> {
         Duration::from_secs(1),
     )?;
     match () {
-        () if !node_info.synced_to_graph && !node_info.synced_to_chain => Ok(()),
-        () if !node_info.synced_to_chain => {
-            serde_yaml::to_writer(stdout(), &"node syncing to chain".to_string())?;
-            std::process::exit(61);
+        () if node_info.synced_to_graph && node_info.synced_to_chain => Ok(()),
+        () if !node_info.synced_to_chain && node_info.synced_to_graph => {
+            Err(anyhow::anyhow!("node syncing to chain".to_string()))
         }
-        () if !node_info.synced_to_graph => {
-            serde_yaml::to_writer(stdout(), &"node syncing to graph".to_string())?;
-            std::process::exit(61);
+        () if !node_info.synced_to_graph && node_info.synced_to_chain => {
+            Err(anyhow::anyhow!("node syncing to graph".to_string()))
         }
-        () => {
-            serde_yaml::to_writer(stdout(), &"node syncing to graph and chain".to_string())?;
-            std::process::exit(61);
-        }
+        () => Err(anyhow::anyhow!(
+            "node syncing to graph and chain".to_string()
+        )),
     }
 }
 
