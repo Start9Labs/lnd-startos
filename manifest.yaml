@@ -36,7 +36,7 @@ health-checks:
     image: main
     entrypoint: "health-check"
     args: []
-    critical: true
+    severity: warning
     inject: true
     io-format: yaml
 config: # if you dont provide an io format in cases like config where its necessarily developer defined, functionality will not work
