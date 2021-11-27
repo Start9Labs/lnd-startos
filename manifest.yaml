@@ -31,7 +31,9 @@ main:
     btc-rpc-proxy: "/mnt/btc-rpc-proxy"
   io-format: yaml
 health-checks:
-  synced: 
+  synced:
+    name: Synced
+    description: Ensures the node is synced to both the network graph and Bitcoin blockchain.
     type: docker
     image: main
     entrypoint: "health-check"
