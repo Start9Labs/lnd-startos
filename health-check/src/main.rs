@@ -1,4 +1,5 @@
-use std::{path::Path, time::Duration};
+use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 #[derive(serde::Deserialize, Debug)]
 pub struct LndGetInfoRes {
@@ -18,17 +19,29 @@ pub enum HealthCheckResult {
 
 fn main() {
     std::process::exit(match run_health_checks() {
-        Ok(_) => 0,
+        Ok(result) => {
+            eprintln!("{}", result.message.unwrap_or_default());
+            result.code
+        }
         Err(err) => {
-            eprintln!("{:?}", err);
-            61
+            eprintln!("{}", err);
+            1
         }
     });
 }
 
-fn run_health_checks() -> Result<(), anyhow::Error> {
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct HealthCheckRes {
+    pub code: i32,
+    pub message: Option<String>,
+}
+
+fn run_health_checks() -> Result<HealthCheckRes, anyhow::Error> {
     while !Path::new("/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon").exists() {
-        std::thread::sleep(std::time::Duration::from_secs(1));
+        return Ok(HealthCheckRes {
+            code: 60,
+            message: None,
+        });
     }
 
     let mac = std::fs::read(Path::new(
@@ -36,49 +49,46 @@ fn run_health_checks() -> Result<(), anyhow::Error> {
     ))?;
 
     let mac_encoded = hex::encode_upper(mac);
-    let node_info: LndGetInfoRes = retry::<_, _, anyhow::Error>(
-        || {
-            serde_json::from_slice(
-                &std::process::Command::new("curl")
-                    .arg("--no-progress-meter")
-                    .arg("--cacert")
-                    .arg("/root/.lnd/tls.cert")
-                    .arg("--header")
-                    .arg(format!("Grpc-Metadata-macaroon: {}", mac_encoded))
-                    .arg("https://127.0.0.1:8080/v1/getinfo")
-                    .output()?
-                    .stdout,
-            )
-            .map_err(|e| e.into())
-        },
-        5,
-        Duration::from_secs(1),
-    )?;
-    match () {
-        () if node_info.synced_to_graph && node_info.synced_to_chain => Ok(()),
-        () if !node_info.synced_to_chain && node_info.synced_to_graph => {
-            Err(anyhow::anyhow!("node syncing to chain".to_string()))
-        }
-        () if !node_info.synced_to_graph && node_info.synced_to_chain => {
-            Err(anyhow::anyhow!("node syncing to graph".to_string()))
-        }
-        () => Err(anyhow::anyhow!(
-            "node syncing to graph and chain".to_string()
-        )),
-    }
-}
+    let node_info: Result<LndGetInfoRes, anyhow::Error> = {
+        serde_json::from_slice(
+            &std::process::Command::new("curl")
+                .arg("--no-progress-meter")
+                .arg("--cacert")
+                .arg("/root/.lnd/tls.cert")
+                .arg("--header")
+                .arg(format!("Grpc-Metadata-macaroon: {}", mac_encoded))
+                .arg("https://127.0.0.1:8080/v1/getinfo")
+                .output()?
+                .stdout,
+        )
+        .map_err(|e| e.into())
+    };
 
-fn retry<F: FnMut() -> Result<A, E>, A, E>(
-    mut action: F,
-    retries: usize,
-    duration: Duration,
-) -> Result<A, E> {
-    action().or_else(|e| {
-        if retries == 0 {
-            Err(e)
-        } else {
-            std::thread::sleep(duration);
-            retry(action, retries - 1, duration)
+    match node_info {
+        Ok(r) => match () {
+            () if r.synced_to_graph && r.synced_to_chain => Ok(HealthCheckRes {
+                code: 0,
+                message: None,
+            }),
+            () if !r.synced_to_chain && r.synced_to_graph => Ok(HealthCheckRes {
+                code: 61,
+                message: Some("Syncing to chain".to_string()),
+            }),
+            () if !r.synced_to_graph && r.synced_to_chain => Ok(HealthCheckRes {
+                code: 61,
+                message: Some("Syncing to graph".to_string()),
+            }),
+            () => Ok(HealthCheckRes {
+                code: 61,
+                message: Some("Syncing to graph and chain".to_string()),
+            }),
+        },
+        Err(e) => {
+            // this will error if assets are unavailble while booting up, so use exit code for Starting
+            Ok(HealthCheckRes {
+                code: 60,
+                message: Some(e.to_string()),
+            })
         }
-    })
+    }
 }
