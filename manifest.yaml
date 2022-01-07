@@ -115,7 +115,7 @@ alerts:
 interfaces:
   control:
     name: Control Interface
-    description: Specifies the interfaces to listen on for RPC and REST connections.
+    description: Specifies the interfaces to listen on for gRPC and REST connections.
     tor-config:
       port-mapping:
         8080: "8080"
