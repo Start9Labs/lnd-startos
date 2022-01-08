@@ -54,7 +54,7 @@ fn run_health_checks() -> Result<HealthCheckRes, anyhow::Error> {
             &std::process::Command::new("curl")
                 .arg("--no-progress-meter")
                 .arg("--cacert")
-                .arg("/root/.lnd/tls.cert")
+                .arg("/mnt/cert/main.cert.pem")
                 .arg("--header")
                 .arg(format!("Grpc-Metadata-macaroon: {}", mac_encoded))
                 .arg("https://127.0.0.1:8080/v1/getinfo")

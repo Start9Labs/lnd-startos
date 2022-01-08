@@ -404,39 +404,6 @@ fn main() -> Result<(), anyhow::Error> {
         )?;
     }
 
-    // TLS Certificate migration from 0.11.0 -> 0.11.1 release (to include tor address)
-    let cert_path = Path::new("/root/.lnd/tls.cert");
-    if cert_path.exists() {
-        let bs = std::fs::read(cert_path)?;
-        let (_, pem) = pem::parse_x509_pem(&bs)?;
-        let cert = pem.parse_x509()?;
-        let subj_alt_name_oid = "2.5.29.17".parse().unwrap();
-        let ext = cert
-            .extensions()
-            .get(&subj_alt_name_oid)
-            .ok_or(anyhow!("No Alternative Names"))?
-            .parsed_extension(); // oid for subject alternative names
-        match ext {
-            x509_parser::extensions::ParsedExtension::SubjectAlternativeName(names) => {
-                if !(&names.general_names).into_iter().any(|a| match *a {
-                    x509_parser::extensions::GeneralName::DNSName(host) => {
-                        host == control_tor_address
-                    }
-                    _ => false,
-                }) {
-                    println!("Replacing Certificates");
-                    // Delete the tls.key
-                    std::fs::remove_file(Path::new("/root/.lnd/tls.key"))?;
-                    // Delete the tls.cert
-                    std::fs::remove_file(Path::new("/root/.lnd/tls.cert"))?;
-                } else {
-                    println!("Certificate check complete. No changes required.");
-                }
-            }
-            _ => panic!("Type does not correspond with OID"),
-        }
-    } // if it doesn't exist, LND will correctly create it this time.
-
     // write backup ignore to the root of the mounted volume
     std::fs::write(
         Path::new("/root/.lnd/.backupignore.tmp"),
@@ -494,7 +461,7 @@ fn main() -> Result<(), anyhow::Error> {
                     .arg("-X")
                     .arg("POST")
                     .arg("--cacert")
-                    .arg("/root/.lnd/tls.cert")
+                    .arg("/mnt/cert/main.cert.pem")
                     .arg("https://127.0.0.1:8080/v1/unlockwallet")
                     .arg("-d")
                     .arg(serde_json::to_string(&SkipNulls(serde_json::json!({
@@ -563,7 +530,7 @@ fn main() -> Result<(), anyhow::Error> {
                         .arg("-X")
                         .arg("POST")
                         .arg("--cacert")
-                        .arg("/root/.lnd/tls.cert")
+                        .arg("/mnt/cert/main.cert.pem")
                         .arg("--header")
                         .arg(format!("Grpc-Metadata-macaroon: {}", mac_encoded))
                         .arg("https://127.0.0.1:8080/v1/channels/backup/restore")
@@ -588,7 +555,7 @@ fn main() -> Result<(), anyhow::Error> {
             .arg("-X")
             .arg("POST")
             .arg("--cacert")
-            .arg("/root/.lnd/tls.cert")
+            .arg("/mnt/cert/main.cert.pem")
             .arg("https://127.0.0.1:8080/v1/genseed")
             .arg("-d")
             .arg(format!("{}", serde_json::json!({})))
@@ -602,7 +569,7 @@ fn main() -> Result<(), anyhow::Error> {
             .arg("-X")
             .arg("POST")
             .arg("--cacert")
-            .arg("/root/.lnd/tls.cert")
+            .arg("/mnt/cert/main.cert.pem")
             .arg("https://127.0.0.1:8080/v1/initwallet")
             .arg("-d")
             .arg(format!(
@@ -625,7 +592,7 @@ fn main() -> Result<(), anyhow::Error> {
     }
     let mut macaroon_file = File::open("/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon")?;
     let mut macaroon_vec = Vec::with_capacity(macaroon_file.metadata()?.len() as usize);
-    let tls_cert = std::fs::read_to_string("/root/.lnd/tls.cert")?;
+    let tls_cert = std::fs::read_to_string("/mnt/cert/main.cert.pem")?;
     macaroon_file.read_to_end(&mut macaroon_vec)?;
     let mac_encoded = hex::encode_upper(&macaroon_vec);
     while local_port_available(8080)? {
@@ -637,7 +604,7 @@ fn main() -> Result<(), anyhow::Error> {
                 &std::process::Command::new("curl")
                     .arg("--no-progress-meter")
                     .arg("--cacert")
-                    .arg("/root/.lnd/tls.cert")
+                    .arg("/mnt/cert/main.cert.pem")
                     .arg("--header")
                     .arg(format!("Grpc-Metadata-macaroon: {}", mac_encoded))
                     .arg("https://127.0.0.1:8080/v1/getinfo")
@@ -782,7 +749,7 @@ fn main() -> Result<(), anyhow::Error> {
             &std::process::Command::new("curl")
                 .arg("--no-progress-meter")
                 .arg("--cacert")
-                .arg("/root/.lnd/tls.cert")
+                .arg("/mnt/cert/main.cert.pem")
                 .arg("--header")
                 .arg(format!("Grpc-Metadata-macaroon: {}", mac_encoded))
                 .arg("https://127.0.0.1:8080/v1/getinfo")

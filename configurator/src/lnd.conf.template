@@ -1,5 +1,6 @@
 [Application Options]
-tlsextradomain={control_tor_address}
+tlscertpath=/mnt/cert/main.cert.pem
+tlskeypath=/mnt/cert/main.key.pem
 externalhosts={control_tor_address}
 payments-expiration-grace-period={payments_expiration_grace_period}s
 listen=0.0.0.0:9735

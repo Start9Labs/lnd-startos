@@ -29,6 +29,7 @@ main:
     main: /root/.lnd
     bitcoind: /mnt/bitcoind
     btc-rpc-proxy: "/mnt/btc-rpc-proxy"
+    cert: /mnt/cert
   io-format: yaml
 health-checks:
   synced:
@@ -101,9 +102,8 @@ volumes:
     volume-id: main
     path: /root
     readonly: false
-  # TODO - update configurator to not gen cert
   certificates:
-    type: certificate
+    type: certificate 
     # id of the interface you want the cert for
     interface-id: control
 alerts:
