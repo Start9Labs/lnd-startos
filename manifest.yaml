@@ -99,7 +99,7 @@ volumes:
     type: pointer
     package-id: "btc-rpc-proxy"
     volume-id: main
-    path: /root
+    path: /
     readonly: false
   # TODO - update configurator to not gen cert
   certificates:
