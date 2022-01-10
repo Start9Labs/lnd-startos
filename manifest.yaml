@@ -27,8 +27,6 @@ main:
   mounts:
     # main data directory - also needed to preserve data in 0.2.x migration
     main: /root/.lnd
-    bitcoind: /mnt/bitcoind
-    btc-rpc-proxy: "/mnt/btc-rpc-proxy"
   io-format: yaml
 health-checks:
   synced:
@@ -88,19 +86,6 @@ volumes:
   # this is the image where files from the project asset directory will go
   compat:
     type: assets
-  # this is a pointer volume, where the image is specified in `<pointer-id>.volume-id` and the mount point is specificed in `main.mounts.<pointer-id>`
-  bitcoind:
-    type: pointer
-    package-id: bitcoind
-    volume-id: main
-    path: /root
-    readonly: true
-  btc-rpc-proxy:
-    type: pointer
-    package-id: "btc-rpc-proxy"
-    volume-id: main
-    path: /
-    readonly: false
   # TODO - update configurator to not gen cert
   certificates:
     type: certificate
