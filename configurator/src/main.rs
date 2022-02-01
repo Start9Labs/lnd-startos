@@ -437,6 +437,16 @@ fn main() -> Result<(), anyhow::Error> {
         }
     } // if it doesn't exist, LND will correctly create it this time.
 
+    let public_path = Path::new("/root/.lnd/public");
+    // Create public directory to make accessible to dependents through the bindmounts interface
+    println!("creating public directory... ");
+    std::fs::create_dir_all(public_path)?;
+
+    let cert_link = public_path.join("tls.cert");
+    if cert_link.exists() {
+        std::fs::remove_file(&cert_link)?;
+    }
+
     // write backup ignore to the root of the mounted volume
     std::fs::write(
         Path::new("/root/.lnd/.backupignore.tmp"),
@@ -444,6 +454,7 @@ fn main() -> Result<(), anyhow::Error> {
     )?;
     std::fs::rename("/root/.lnd/.backupignore.tmp", "/root/.lnd/.backupignore")?;
 
+    // background configurator so lnd can start
     #[cfg(target_os = "linux")]
     nix::unistd::daemon(true, true)?;
     loop {
@@ -453,6 +464,13 @@ fn main() -> Result<(), anyhow::Error> {
             std::thread::sleep(std::time::Duration::from_secs(1));
         }
     }
+
+    while !cert_path.exists() {
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    }
+    std::fs::hard_link(cert_path, &cert_link)?;
+    // println!("creating cert file... ");
+    // File::create("/root/.lnd/public/tls.cert")?.write_all(tls_cert.as_bytes())?;
 
     let use_channel_backup_data = match restore_info(Path::new("/root/.lnd"))? {
         None => Ok(None::<serde_json::Value>),
@@ -489,6 +507,7 @@ fn main() -> Result<(), anyhow::Error> {
             let mut res;
             let stat;
             loop {
+                std::thread::sleep(Duration::from_secs(5));
                 let cmd = process::Command::new("curl")
                     .arg("--no-progress-meter")
                     .arg("-X")
@@ -623,6 +642,17 @@ fn main() -> Result<(), anyhow::Error> {
     while !Path::new("/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon").exists() {
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
+    for macaroon in std::fs::read_dir("/root/.lnd/data/chain/bitcoin/mainnet")? {
+        let macaroon = macaroon?;
+        if macaroon.path().extension().and_then(|s| s.to_str()) == Some("macaroon") {
+            std::fs::copy(
+                macaroon.path(),
+                public_path.join(macaroon.path().file_name().unwrap()),
+            )?;
+        }
+    }
+
+    // ----- stats.yaml
     let mut macaroon_file = File::open("/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon")?;
     let mut macaroon_vec = Vec::with_capacity(macaroon_file.metadata()?.len() as usize);
     let tls_cert = std::fs::read_to_string("/root/.lnd/tls.cert")?;
@@ -631,6 +661,7 @@ fn main() -> Result<(), anyhow::Error> {
     while local_port_available(8080)? {
         std::thread::sleep(Duration::from_secs(10))
     }
+    println!("calling getinfo...");
     let mut node_info: LndGetInfoRes = retry::<_, _, anyhow::Error>(
         || {
             serde_json::from_slice(
@@ -646,9 +677,10 @@ fn main() -> Result<(), anyhow::Error> {
             )
             .map_err(|e| e.into())
         },
-        5,
+        1,
         Duration::from_secs(1),
     )?;
+    println!("getinfo returned successfully");
     let lnd_connect_grpc = Property {
         value_type: "string",
         value: format!(
@@ -719,18 +751,7 @@ fn main() -> Result<(), anyhow::Error> {
         qr: true,
         masked: false,
     };
-    // Create public directory to make accessible to dependents through the bindmounts interface
-    std::fs::create_dir_all("/root/.lnd/public")?;
-    for macaroon in std::fs::read_dir("/root/.lnd/data/chain/bitcoin/mainnet")? {
-        let macaroon = macaroon?;
-        if macaroon.path().extension().and_then(|s| s.to_str()) == Some("macaroon") {
-            std::fs::copy(
-                macaroon.path(),
-                Path::new("/root/.lnd/public").join(macaroon.path().file_name().unwrap()),
-            )?;
-        }
-    }
-    File::create("/root/.lnd/public/tls.cert")?.write_all(tls_cert.as_bytes())?;
+
     loop {
         serde_yaml::to_writer(
             File::create("/root/.lnd/start9/stats.yaml")?,
