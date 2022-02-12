@@ -70,15 +70,15 @@ config: # if you dont provide an io format in cases like config where its necess
     io-format: yaml # necessary in this case 
 properties:
   type: docker
-  image: compat
-  system: true
-  entrypoint: compat
+  image: main
+  system: false
+  entrypoint: configurator
   args:
     - properties
-    - /root/.lnd
   mounts:
     main: /root/.lnd
   io-format: yaml
+  inject: false
 volumes:
   # this is the image where data will go from 0.2.x
   main:
