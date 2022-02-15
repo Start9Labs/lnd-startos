@@ -14,7 +14,8 @@ emver = { version = "0.1.0", features = ["serde"] }
 hex = "0.4.2"
 http = "0.2.1"
 nix = "0.19.0"
-rand = "0.8.0"
+rand = "0.8.5"
+reqwest = { version = "0.11.9", features = ["json", "blocking"] }
 serde = { version = "1.0.117", features = ["derive"] }
 serde_json = "1.0.59"
 serde_yaml = "0.8.13"

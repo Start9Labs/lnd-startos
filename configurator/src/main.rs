@@ -1,5 +1,5 @@
 use rand::Rng;
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::env::{self, var};
 use std::fs::File;
 use std::net::{IpAddr, SocketAddr};
@@ -357,6 +357,20 @@ fn main() -> Result<(), anyhow::Error> {
                 )
             }
         };
+
+        loop {
+            if bitcoin_rpc_is_ready(&BitcoindRpcInfo {
+                host: &bitcoind_rpc_host,
+                port: bitcoind_rpc_port,
+                user: &bitcoind_rpc_user,
+                pass: &bitcoind_rpc_pass,
+            }) {
+                break;
+            }
+            println!("Waiting for bitcoin RPC...");
+            std::thread::sleep(std::time::Duration::from_secs(1));
+        }
+
         let tor_proxy: SocketAddr = (var("HOST_IP").unwrap().parse::<IpAddr>()?, 9050).into();
         println!("tor_proxy={}", tor_proxy);
         write!(
@@ -847,4 +861,60 @@ fn properties(control_tor_address: String, peer_tor_address: String) -> () {
     if let Err(e) = serde_yaml::to_writer(stdout(), &stats) {
         println!("Warn: {:?}", e);
     }
+}
+
+#[derive(Serialize, Deserialize)]
+struct JsonRpc1Res {
+    result: serde_json::Value,
+    error: Option<BitcoindError>,
+    id: serde_json::Value,
+}
+#[derive(Serialize, Deserialize)]
+struct BitcoindError {
+    code: i32,
+    message: String,
+}
+struct BitcoindRpcInfo<'a> {
+    host: &'a str,
+    port: u16,
+    user: &'a str,
+    pass: &'a str,
+}
+fn bitcoin_rpc_is_ready(rpc_info: &BitcoindRpcInfo) -> bool {
+    let body = json!({"jsonrpc": "1.0", "id": null, "method": "getblockcount", "params": []});
+    let client = reqwest::blocking::Client::new();
+    let res = client
+        .post(format!("http://{}:{}/", rpc_info.host, rpc_info.port))
+        .basic_auth(rpc_info.user, Some(rpc_info.pass))
+        .json(&body)
+        .send();
+    match res {
+        Err(_) => {
+            return false;
+        }
+        Ok(o) => {
+            if o.status().as_u16() == 401 {
+                panic!("Invalid credentials for bitcoind");
+            } else {
+                match o.json() {
+                    Ok(JsonRpc1Res {
+                        result: _,
+                        error,
+                        id: _,
+                    }) => error.is_none(),
+                    Err(_) => false,
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn test() {
+    assert!(bitcoin_rpc_is_ready(&BitcoindRpcInfo {
+        host: "localhost",
+        port: 8332,
+        user: "bitcoin",
+        pass: "testhere"
+    }))
 }
