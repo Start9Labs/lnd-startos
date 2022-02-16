@@ -282,12 +282,11 @@ fn main() -> Result<(), anyhow::Error> {
     }
     let config: Config = serde_yaml::from_reader(File::open("/root/.lnd/start9/config.yaml")?)?;
     let alias = get_alias(&config)?;
-    let control_tor_address: String = config.control_tor_address;
-    let watchtower_tor_address: String = config.watchtower_tor_address;
-    let peer_tor_address: String = config.peer_tor_address;
-    let args: Vec<String> = env::args().collect();
-    if args.len() > 1 {
-        if args[1] == "properties" {
+    let control_tor_address = config.control_tor_address;
+    let watchtower_tor_address = config.watchtower_tor_address;
+    let peer_tor_address = config.peer_tor_address;
+    if let Some(cmd) = env::args().skip(1).next() {
+        if cmd == "properties" {
             properties(control_tor_address, peer_tor_address);
             return Ok(());
         }
@@ -483,8 +482,6 @@ fn main() -> Result<(), anyhow::Error> {
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
     std::fs::hard_link(cert_path, &cert_link)?;
-    // println!("creating cert file... ");
-    // File::create("/root/.lnd/public/tls.cert")?.write_all(tls_cert.as_bytes())?;
 
     let use_channel_backup_data = match restore_info(Path::new("/root/.lnd"))? {
         None => Ok(None::<serde_json::Value>),
