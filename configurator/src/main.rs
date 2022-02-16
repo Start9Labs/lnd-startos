@@ -1,5 +1,5 @@
 use rand::Rng;
-use serde_json::{json, Value};
+use serde_json::Value;
 use std::env::{self, var};
 use std::fs::File;
 use std::net::{IpAddr, SocketAddr};
@@ -218,8 +218,8 @@ pub struct CipherSeedMnemonic {
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct RestoreInfo {
-    app_version: emver::Version,
-    os_version: emver::Version,
+    _app_version: emver::Version,
+    _os_version: emver::Version,
 }
 
 #[derive(serde::Deserialize, Debug)]
@@ -677,9 +677,6 @@ fn get_stats(
     let tls_cert = std::fs::read_to_string("/root/.lnd/tls.cert")?;
     macaroon_file.read_to_end(&mut macaroon_vec)?;
     let mac_encoded = hex::encode_upper(&macaroon_vec);
-    while local_port_available(8080)? {
-        std::thread::sleep(Duration::from_secs(10))
-    }
     let node_info: Option<LndGetInfoRes> = serde_json::from_slice(
         &std::process::Command::new("curl")
             .arg("--no-progress-meter")
@@ -687,7 +684,7 @@ fn get_stats(
             .arg("/root/.lnd/tls.cert")
             .arg("--header")
             .arg(format!("Grpc-Metadata-macaroon: {}", mac_encoded))
-            .arg("https://127.0.0.1:8080/v1/getinfo")
+            .arg("https://lnd.embassy:8080/v1/getinfo")
             .output()?
             .stdout,
     )
@@ -853,19 +850,4 @@ fn properties(control_tor_address: String, peer_tor_address: String) -> () {
     if let Err(e) = serde_yaml::to_writer(stdout(), &stats) {
         println!("Warn: {:?}", e);
     }
-}
-
-fn retry<F: FnMut() -> Result<A, E>, A, E>(
-    mut action: F,
-    retries: usize,
-    duration: Duration,
-) -> Result<A, E> {
-    action().or_else(|e| {
-        if retries == 0 {
-            Err(e)
-        } else {
-            std::thread::sleep(duration);
-            retry(action, retries - 1, duration)
-        }
-    })
 }
