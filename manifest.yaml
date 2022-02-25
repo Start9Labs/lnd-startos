@@ -8,11 +8,10 @@ upstream-repo: "https://github.com/lightningnetwork/lnd"
 support-site: "https://lightning.engineering/slack.html"
 marketing-site: "https://lightning.engineering/"
 build: ["make"]
-min-os-version: "0.3.0"
 description:
   short: A complete implementation of a Lightning Network node by Lightning Labs
   long: |
-   LND fully conforms to the Lightning Network specification (BOLTs). BOLT stands for: Basis of Lightning Technology. In the current state lnd is capable of: creating channels, closing channels, managing all channel states (including the exceptional ones!), maintaining a fully authenticated+validated channel graph, performing path finding within the network, passively forwarding incoming payments, sending outgoing onion-encrypted payments through the network, updating advertised fee schedules, and automatic channel management (autopilot).
+    LND fully conforms to the Lightning Network specification (BOLTs). BOLT stands for: Basis of Lightning Technology. In the current state lnd is capable of: creating channels, closing channels, managing all channel states (including the exceptional ones!), maintaining a fully authenticated+validated channel graph, performing path finding within the network, passively forwarding incoming payments, sending outgoing onion-encrypted payments through the network, updating advertised fee schedules, and automatic channel management (autopilot).
 assets:
   license: LICENSE # default = LICENSE.md
   icon: icon.png # default = icon.png - assumes icon.png if this field does not exist
@@ -31,7 +30,7 @@ main:
 health-checks:
   synced:
     name: Synced
-    description: Ensures the node is synced to both the network graph and Bitcoin blockchain.
+    success-message: Synced to chain and graph
     type: docker
     image: main
     entrypoint: "health-check"
@@ -44,7 +43,7 @@ config: # if you dont provide an io format in cases like config where its necess
     image: compat
     system: true
     entrypoint: compat
-    args: 
+    args:
       - config
       - get
       - /root/.lnd
@@ -67,7 +66,7 @@ config: # if you dont provide an io format in cases like config where its necess
     mounts:
       compat: /mnt/assets
       main: /root/.lnd
-    io-format: yaml # necessary in this case 
+    io-format: yaml # necessary in this case
 properties:
   type: docker
   image: main
@@ -114,8 +113,8 @@ interfaces:
     name: Watchtower Interface
     description: Specifies the interfaces to listen on for watchtower client connections.
     tor-config:
-        port-mapping:
-          9911: "9911"
+      port-mapping:
+        9911: "9911"
     ui: false
     protocols:
       - tcp
@@ -124,8 +123,8 @@ interfaces:
     name: Peer Interface
     description: Specifies the interfaces to listen on for p2p connections.
     tor-config:
-        port-mapping:
-          9735: "9735"
+      port-mapping:
+        9735: "9735"
     ui: false
     protocols:
       - tcp
@@ -133,13 +132,12 @@ interfaces:
 dependencies:
   btc-rpc-proxy:
     version: ">=0.3.2.1 <0.4.0"
-    critical: false
     requirement:
       type: "opt-out"
       how: Can alternatively use the internal full archival bitcoind node or configure an external bitcoin node.
     description: Used to fetch validated blocks.
     config:
-      check: 
+      check:
         type: docker
         image: compat
         system: true
@@ -153,7 +151,7 @@ dependencies:
           - /root/.lnd
           - "/mnt/assets/btc-rpc-proxy_config_rules.yaml"
         mounts:
-          compat: /mnt/assets  
+          compat: /mnt/assets
           main: /root/.lnd
         io-format: yaml
       auto-configure:
@@ -176,13 +174,12 @@ dependencies:
         io-format: yaml
   bitcoind:
     version: "^0.21.1.2"
-    critical: true
     requirement:
       type: "opt-out"
       how: Can alternatively configure an external bitcoin node.
     description: Used to subscribe to new block events.
     config:
-      check: 
+      check:
         type: docker
         image: compat
         system: true

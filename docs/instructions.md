@@ -2,7 +2,7 @@
 
 ## Dependencies
 
-LND on the Embassy requires a full archival Bitcoin node to function. Since your Embassy Bitcoin node is pruned by default, an additional service, Bitcoin Proxy, is also required.
+LND on the Embassy requires a full archival Bitcoin node to function. If you have enabled pruning for your bitcoin node, an additional service, Bitcoin Proxy, is also required.
 
 ## LND Config
 
@@ -32,7 +32,7 @@ Once your LND node is synced, it's time to open a channel. Opening a channel wit
 
 If you are looking for destinations for your first channel, we suggest you open a channel with the [Start9 HQ](025d28dc4c4f5ce4194c31c3109129cd741fafc1ff2f6ea53f97de2f58877b2295@64.225.19.231:9735) node, which is already very well connected.
 
-It is not recommended to open a channel less than 100,000 satoshi, or .001 BTC, or $50 USD in today's prices. Anything less, and it's possible that the cost to open and close the channel might approach the size of the channel itself. The bigger the channel you open, the more outbound liquidity you will have, which means you have more spending power on the network. In this tutorial, we are going to open a channel of 2,000,000 satoshi. When opening a channel with Start9 HQ, we ask that you make it a private channel, meaning it will not display publicly on network graph. The reason for this is that unless you plan to be a very active Lightning Node Operator, having public channels decreases not only the reliability of your node but also hurts Start9's ability to route payments for you. If you do intend to be a serious node operator, we require that your channel be for a minimum of 5,000,000 sats. Please contact us in one of our community channels for further details.
+It is not recommended to open a channel less than 100,000 satoshi, or .001 BTC. Anything less, and it's possible that the cost to open and close the channel might approach the size of the channel itself. The bigger the channel you open, the more outbound liquidity you will have, which means you have more spending power on the network. In this tutorial, we are going to open a channel of 2,000,000 satoshi. When opening a channel with Start9 HQ, we ask that you make it a private channel, meaning it will not display publicly on network graph. The reason for this is that unless you plan to be a very active Lightning Node Operator, having public channels decreases not only the reliability of your node but also hurts Start9's ability to route payments for you. If you do intend to be a serious node operator, we require that your channel be for a minimum of 5,000,000 sats. Please contact us in one of our community channels for further details.
 
 ## Getting Inbound Liquidity
 
@@ -40,7 +40,7 @@ If you want to receive payments, you will need some inbound liquidity.
 
 The first, easiest, and best way to get inbound liquidity is to use your outbound liquidity to buy something. Any Bitcoin you spend using your outbound liquidity is Bitcoin you can now receive back. So if there is something you want to buy, like a Start9 Embassy or a t-shirt from the Start9 store, simply make the purchase, and you will then have inbound liquidity equal to the amount of Satoshis you spend.
 
-Option 2 is to personally ask Start9 for an invoice for however much inbound liquity you want. Then you send Bitcoin to the invoice, and in turn we will transfer fiat currency to you equal to the amount of the Bitcoin you send us. In other words, Start9 will buy some Bitcoin from you at market rate, such that you then have inbound liquidity. In either case, you are spending or selling some Bitcoin.
+Option 2 is to personally ask Start9 for an invoice for however much inbound liquidity you want. Then you send Bitcoin to the invoice, and in turn we will transfer fiat currency to you equal to the amount of the Bitcoin you send us. In other words, Start9 will buy some Bitcoin from you at market rate, such that you then have inbound liquidity. In either case, you are spending or selling some Bitcoin.
 
 The only way to get inbound liquidity without spending or selling Bitcoin is to convince someone to open a channel with you, just as you opened a channel with Start9 HQ. This may be a difficult task, since there is not much incentive for someone to open a channel with you unless you are also very well connected. Also, you will need to make sure that they too, are well connected with plenty of inbound liquidity, or else your inbound liquidity with them will not really matter. In other words, they might be the only person capable of paying you.
 
@@ -49,4 +49,3 @@ So options 1 or 2 are best. Use your Lightning node's outbound liquidity to eith
 ## Sending payments over Lightning
 
 Once you have open channels and are ready to transact on the Lightning Network, it is important to note that until "Synced to Graph" in the Properties page is reporting ✅, you may experience problems finding routes to your destination.
-
