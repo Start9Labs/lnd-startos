@@ -51,7 +51,9 @@ autopilot.conftarget={autopilot_confirmation_target}
 
 [tor]
 tor.active=true
-tor.socks={tor_proxy}
+tor.socks=embassy:9050
+tor.skip-proxy-for-clearnet-targets={tor_enable_clearnet}
+tor.streamisolation={tor_stream_isolation}
 
 [watchtower]
 watchtower.active={watchtower_enabled}
@@ -67,6 +69,7 @@ healthcheck.chainbackend.attempts=5
 [protocol]
 protocol.wumbo-channels={protocol_wumbo_channels}
 protocol.no-anchors={protocol_no_anchors}
+protocol.no-script-enforced-lease={protocol_disable_script_enforced_lease}
 
 [bolt]
 db.bolt.nofreelistsync={db_bolt_no_freelist_sync}

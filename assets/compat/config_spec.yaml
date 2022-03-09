@@ -1,6 +1,6 @@
 control-tor-address:
   name: Control Tor Address
-  description: The Tor address for the control interface. 
+  description: The Tor address for the control interface.
   type: pointer
   subtype: package
   package-id: lnd
@@ -8,7 +8,7 @@ control-tor-address:
   interface: control
 peer-tor-address:
   name: Peer Tor Address
-  description: The Tor address for the peer interface. 
+  description: The Tor address for the peer interface.
   type: pointer
   subtype: package
   package-id: lnd
@@ -16,7 +16,7 @@ peer-tor-address:
   interface: peer
 watchtower-tor-address:
   name: Watchtower Tor Address
-  description: The Tor address for the watchtower interface. 
+  description: The Tor address for the watchtower interface.
   type: pointer
   subtype: package
   package-id: lnd
@@ -82,6 +82,32 @@ max-chan-size:
   range: "[1,1000000000]"
   integral: true
   units: satoshis
+tor:
+  type: object
+  name: Tor Config
+  nullable: false
+  spec:
+    use-tor-only:
+      type: boolean
+      name: Use Tor for all traffic
+      description: >-
+        Use the tor proxy even for connections that are reachable on clearnet. This will hide your node's public IP
+        address, but will slow down your node's performance
+      nullable: false
+      default: false
+    stream-isolation:
+      type: boolean
+      name: Stream Isolation
+      description: >-
+        Enable Tor stream isolation by randomizing user credentials for each
+        connection. With this mode active, each connection will use a new circuit.
+        This means that multiple applications (other than lnd) using Tor won't be mixed
+        in with lnd's traffic.
+
+        This option may not be used when 'Use Tor for all traffic' is disabled, since direct
+        connections compromise source IP privacy by default.
+      nullable: false
+      default: false
 bitcoind:
   type: union
   name: Bitcoin Core
@@ -417,6 +443,18 @@ advanced:
       description: |
         Set to disable support for anchor commitments. Anchor channels allow you to determine your fees at close time by
         using a Child Pays For Parent transaction.
+      nullable: false
+      default: false
+    protocol-disable-script-enforced-leases:
+      type: boolean
+      name: Disable Script Enforced Channel Leases
+      description: >-
+        Set to disable support for script enforced lease channel commitments. If not
+        set, lnd will accept these channels by default if the remote channel party
+        proposes them. Note that lnd will require 1 UTXO to be reserved for this
+        channel type if it is enabled.
+
+        Note: This may cause you to be unable to close a channel and your wallets may not understand why
       nullable: false
       default: false
     gc-canceled-invoices-on-startup:

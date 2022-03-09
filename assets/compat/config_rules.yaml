@@ -1,3 +1,5 @@
 ---
-- rule: '!(max-chan-size?) OR !(min-chan-size?) OR (#max-chan-size > #min-chan-size)'
+- rule: "!(max-chan-size?) OR !(min-chan-size?) OR (#max-chan-size > #min-chan-size)"
   description: "Maximum Channel Size must exceed Minimum Channel Size"
+- rule: "!(tor.stream-isolation?) OR (tor.use-tor-only?)"
+  description: "'Tor Config > Use Tor Only' must be enabled to enable 'Tor Config > Stream Isolation'"

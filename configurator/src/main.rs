@@ -1,8 +1,8 @@
 use rand::Rng;
 use serde_json::{json, Value};
-use std::env::{self, var};
+use std::env;
 use std::fs::File;
-use std::net::{IpAddr, SocketAddr};
+use std::net::SocketAddr;
 use std::path::Path;
 use std::{
     io::{Read, Write},
@@ -84,6 +84,14 @@ struct Config {
     watchtower_enabled: bool,
     watchtower_client_enabled: bool,
     advanced: AdvancedConfig,
+    tor: TorConfig,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "kebab-case")]
+struct TorConfig {
+    use_tor_only: bool,
+    stream_isolation: bool,
 }
 
 #[derive(serde::Deserialize)]
@@ -166,6 +174,7 @@ struct AdvancedConfig {
     max_commit_fee_rate_anchors: usize,
     protocol_wumbo_channels: bool,
     protocol_no_anchors: bool,
+    protocol_disable_script_enforced_lease: bool,
     gc_canceled_invoices_on_startup: bool,
     bitcoin: BitcoinChannelConfig,
 }
@@ -371,8 +380,6 @@ fn main() -> Result<(), anyhow::Error> {
             std::thread::sleep(std::time::Duration::from_secs(1));
         }
 
-        let tor_proxy: SocketAddr = (var("HOST_IP").unwrap().parse::<IpAddr>()?, 9050).into();
-        println!("tor_proxy={}", tor_proxy);
         write!(
             outfile,
             include_str!("lnd.conf.template"),
@@ -419,15 +426,18 @@ fn main() -> Result<(), anyhow::Error> {
             autopilot_private = config.autopilot.private,
             autopilot_min_confirmations = config.autopilot.advanced.min_confirmations,
             autopilot_confirmation_target = config.autopilot.advanced.confirmation_target,
-            tor_proxy = tor_proxy,
             watchtower_enabled = config.watchtower_enabled,
             watchtower_client_enabled = config.watchtower_client_enabled,
             protocol_wumbo_channels = config.advanced.protocol_wumbo_channels,
             protocol_no_anchors = config.advanced.protocol_no_anchors,
+            protocol_disable_script_enforced_lease =
+                config.advanced.protocol_disable_script_enforced_lease,
             db_bolt_no_freelist_sync = config.advanced.db_bolt_no_freelist_sync,
             db_bolt_auto_compact = config.advanced.db_bolt_auto_compact,
             db_bolt_auto_compact_min_age = config.advanced.db_bolt_auto_compact_min_age,
-            db_bolt_db_timeout = config.advanced.db_bolt_db_timeout
+            db_bolt_db_timeout = config.advanced.db_bolt_db_timeout,
+            tor_enable_clearnet = !config.tor.use_tor_only,
+            tor_stream_isolation = config.tor.stream_isolation
         )?;
     }
 
