@@ -119,7 +119,8 @@ bitcoind:
     id: type
     name: Type
     variant-names:
-      internal: Internal
+      internal: Internal (Bitcoin Core)
+      internal-proxy: Internal (Bitcoin Proxy)
       external: External
     description: |
       The Bitcoin Core node to connect to:
@@ -128,6 +129,25 @@ bitcoind:
   default: internal
   variants:
     internal:
+      user:
+        type: pointer
+        name: RPC Username
+        description: The username for Bitcoin Core's RPC interface
+        subtype: package
+        package-id: bitcoind
+        target: config
+        multi: false
+        index: "rpc.username"
+      password:
+        type: pointer
+        name: RPC Password
+        description: The password for Bitcoin Core's RPC interface
+        subtype: package
+        package-id: bitcoind
+        target: config
+        multi: false
+        index: "rpc.password"
+    internal-proxy:
       user:
         type: pointer
         name: RPC Username
