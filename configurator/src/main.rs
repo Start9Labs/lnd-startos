@@ -201,6 +201,8 @@ pub enum Data {
         lnd_connect_rest: Property<String>,
         #[serde(rename = "NODE URI")]
         node_uri: Property<String>,
+        #[serde(rename = "Alias")]
+        alias: Property<String>,
     },
     NotReady {
         #[serde(rename = "Not Ready")]
@@ -296,7 +298,7 @@ fn main() -> Result<(), anyhow::Error> {
     let peer_tor_address = config.peer_tor_address;
     if let Some(cmd) = env::args().skip(1).next() {
         if cmd == "properties" {
-            properties(control_tor_address, peer_tor_address);
+            properties(control_tor_address, peer_tor_address, alias);
             return Ok(());
         }
     }
@@ -692,6 +694,7 @@ fn main() -> Result<(), anyhow::Error> {
 fn get_stats(
     control_tor_address: String,
     peer_tor_address: String,
+    alias: String,
 ) -> Result<Properties, anyhow::Error> {
     let mut macaroon_file = File::open("/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon")?;
     let mut macaroon_vec = Vec::with_capacity(macaroon_file.metadata()?.len() as usize);
@@ -819,9 +822,17 @@ fn get_stats(
                         qr: false,
                         masked: false,
                     },
-                    lnd_connect_grpc: lnd_connect_grpc.clone(),
-                    lnd_connect_rest: lnd_connect_rest.clone(),
-                    node_uri: node_uri.clone(),
+                    lnd_connect_grpc,
+                    lnd_connect_rest,
+                    node_uri,
+                    alias: Property {
+                        value_type: "string".to_owned(),
+                        value: alias,
+                        description: Some("The human readable name your node can identify as on the Lightning Network".to_owned()),
+                        copyable: false,
+                        qr: false,
+                        masked: false,
+                    }
                 },
             };
             serde_yaml::to_writer(File::create("/root/.lnd/start9/stats.yaml")?, &stats)?;
@@ -858,8 +869,8 @@ fn get_stats(
     Ok(stats)
 }
 
-fn properties(control_tor_address: String, peer_tor_address: String) -> () {
-    let stats = match get_stats(control_tor_address, peer_tor_address) {
+fn properties(control_tor_address: String, peer_tor_address: String, alias: String) -> () {
+    let stats = match get_stats(control_tor_address, peer_tor_address, alias) {
         Err(e) => {
             println!("Warn: {:?}", e);
             return;
