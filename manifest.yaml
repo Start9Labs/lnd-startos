@@ -63,6 +63,7 @@ config: # if you dont provide an io format in cases like config where its necess
       - lnd
       - /root/.lnd
       - "/mnt/assets/config_rules.yaml"
+      - "/mnt/assets/dependencies.yaml"
     mounts:
       compat: /mnt/assets
       main: /root/.lnd
@@ -173,7 +174,7 @@ dependencies:
           main: /root/.lnd
         io-format: yaml
   bitcoind:
-    version: "^0.21.1.2"
+    version: ">=0.21.1.2 <23.0.0"
     requirement:
       type: "opt-out"
       how: Can alternatively configure an external bitcoin node.

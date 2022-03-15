@@ -137,7 +137,7 @@ bitcoind:
         package-id: bitcoind
         target: config
         multi: false
-        index: "rpc.username"
+        selector: "$.rpc.username"
       password:
         type: pointer
         name: RPC Password
@@ -146,7 +146,7 @@ bitcoind:
         package-id: bitcoind
         target: config
         multi: false
-        index: "rpc.password"
+        selector: "$.rpc.password"
     internal-proxy:
       user:
         type: pointer
