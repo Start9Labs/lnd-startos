@@ -195,6 +195,7 @@ dependencies:
         mounts:
           compat: /mnt/assets
           main: /root/.lnd
+        io-format: yaml
       auto-configure:
         type: docker
         image: compat
@@ -209,6 +210,8 @@ dependencies:
           - "/mnt/assets/bitcoind_config_rules.yaml"
         mounts:
           compat: /mnt/assets
+          main: /root/.lnd
+        io-format: yaml
 backup:
   create:
     type: docker
