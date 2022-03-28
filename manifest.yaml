@@ -1,7 +1,9 @@
 id: lnd
 title: Lightning Network Daemon
-version: 0.13.3.1
-release-notes: "Upgrade to EmbassyOS v0.3.0"
+version: 0.13.3.2
+release-notes: >-
+  - Upgrade to EmbassyOS v0.3.0
+  - Fix bug where Embassy <-> Embassy peer relationships were unreliable
 license: mit
 wrapper-repo: "https://github.com/Start9Labs/lnd-wrapper"
 upstream-repo: "https://github.com/lightningnetwork/lnd"
