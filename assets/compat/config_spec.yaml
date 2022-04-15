@@ -465,7 +465,7 @@ advanced:
         using a Child Pays For Parent transaction.
       nullable: false
       default: false
-    protocol-disable-script-enforced-leases:
+    protocol-disable-script-enforced-lease:
       type: boolean
       name: Disable Script Enforced Channel Leases
       description: >-
