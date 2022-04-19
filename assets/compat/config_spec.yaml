@@ -337,16 +337,6 @@ autopilot:
           integral: true
           default: 1
           units: blocks
-watchtower-enabled:
-  type: boolean
-  name: Watchtower
-  description: Enable integrated watchtower.
-  default: true
-watchtower-client-enabled:
-  type: boolean
-  name: Watchtower Client
-  description: Activate Watchtower Client.
-  default: true
 advanced:
   type: object
   name: Advanced

@@ -81,8 +81,6 @@ struct Config {
     max_chan_size: Option<u64>,
     bitcoind: BitcoinCoreConfig,
     autopilot: AutoPilotConfig,
-    watchtower_enabled: bool,
-    watchtower_client_enabled: bool,
     advanced: AdvancedConfig,
     tor: TorConfig,
 }
@@ -439,8 +437,6 @@ fn main() -> Result<(), anyhow::Error> {
             autopilot_private = config.autopilot.private,
             autopilot_min_confirmations = config.autopilot.advanced.min_confirmations,
             autopilot_confirmation_target = config.autopilot.advanced.confirmation_target,
-            watchtower_enabled = config.watchtower_enabled,
-            watchtower_client_enabled = config.watchtower_client_enabled,
             protocol_wumbo_channels = config.advanced.protocol_wumbo_channels,
             protocol_no_anchors = config.advanced.protocol_no_anchors,
             protocol_disable_script_enforced_lease =
