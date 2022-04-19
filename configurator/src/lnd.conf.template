@@ -56,12 +56,12 @@ tor.skip-proxy-for-clearnet-targets={tor_enable_clearnet}
 tor.streamisolation={tor_stream_isolation}
 
 [watchtower]
-watchtower.active={watchtower_enabled}
+watchtower.active=false
 watchtower.listen=0.0.0.0:9911
 watchtower.externalip={watchtower_tor_address}:9911
 
 [wtclient]
-wtclient.active={watchtower_client_enabled}
+wtclient.active=false
 
 [healthcheck]
 healthcheck.chainbackend.attempts=5
