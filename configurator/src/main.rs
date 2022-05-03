@@ -568,8 +568,12 @@ fn main() -> Result<(), anyhow::Error> {
                     .stdout(process::Stdio::piped())
                     .stderr(process::Stdio::piped())
                     .spawn()?;
-                res = cmd.wait_with_output()?;
-                let output = String::from_utf8(res.stdout)?.parse::<Value>()?;
+                println!("CMD");
+                res = dbg!(cmd.wait_with_output())?;
+                println!("STDOUT");
+                let stdout = dbg!(res.stdout);
+                println!("UTF8");
+                let output = dbg!(String::from_utf8(stdout)?).parse::<Value>()?;
                 match output.as_object() {
                     None => {
                         stat = Err(anyhow::anyhow!(
