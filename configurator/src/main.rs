@@ -582,7 +582,7 @@ fn main() -> Result<(), anyhow::Error> {
                         ));
                         break;
                     }
-                    Some(o) => match o.get("error") {
+                    Some(o) => match o.get("message") {
                         None => {
                             stat = Ok(output);
                             break;
