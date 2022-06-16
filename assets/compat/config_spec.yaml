@@ -46,7 +46,7 @@ accept-keysend:
   name: Accept Keysend
   description: |
     Allow others to send payments directly to your public key through keysend instead of having to get a new invoice
-  default: false
+  default: true
 accept-amp:
   type: boolean
   name: Accept Spontaneous AMPs
