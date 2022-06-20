@@ -85,6 +85,8 @@ max-chan-size:
 tor:
   type: object
   name: Tor Config
+  description: |
+    Advanced options for increasing privacy (at the cost of performance) using Tor
   nullable: false
   spec:
     use-tor-only:
