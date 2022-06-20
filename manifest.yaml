@@ -1,6 +1,6 @@
 id: lnd
 title: Lightning Network Daemon
-version: 0.14.2.1
+version: 0.14.2.2
 release-notes: "https://github.com/lightningnetwork/lnd/blob/v0.14.2-beta/docs/release-notes/release-notes-0.14.2.md"
 license: mit
 wrapper-repo: "https://github.com/Start9Labs/lnd-wrapper"
@@ -174,7 +174,7 @@ dependencies:
           main: /root/.lnd
         io-format: yaml
   bitcoind:
-    version: ">=0.21.1.2 <23.0.0"
+    version: ">=0.21.1.2 <24.0.0"
     requirement:
       type: "opt-out"
       how: Can alternatively configure an external bitcoin node.
@@ -249,3 +249,22 @@ backup:
       main: /root/.lnd
       compat: /mnt/assets
     io-format: yaml
+migrations:
+  from:
+    "<=0.14.2.1":
+      type: docker
+      image: main
+      system: false
+      entrypoint: "/bin/echo"
+      args: ['{"configured": true}']
+      io-format: json
+      inject: false
+  to:
+    ">=0.14.2.2":
+      type: docker
+      image: main
+      system: false
+      entrypoint: "/bin/echo"
+      args: ['{"configured": true}']
+      io-format: json
+      inject: false
