@@ -268,3 +268,36 @@ migrations:
       args: ['{"configured": true}']
       io-format: json
       inject: false
+actions:
+  import-umbrel:
+    name: "Import from Umbrel (0.4)"
+    description: "Imports wallet and channel data from Umbrel 0.4"
+    warning: "This will destroy existing channel data, please make sure you have no funds on this node before running this action"
+    allowed-statuses:
+      - stopped
+    implementation:
+      type: docker
+      image: main
+      system: false
+      entrypoint: import-umbrel.sh
+      args: []
+      io-format: json
+      mounts:
+        main: /root/.lnd
+    input-spec:
+      umbrel-password:
+        type: string
+        name: Umbrel Password
+        description: "The password you use to log into your Umbrel dashboard or SSH"
+        masked: true
+        placeholder: password
+        nullable: false
+        default: ""
+      umbrel-ip:
+        type: string
+        name: Umbrel IP Address
+        description: "The IP address of your Umbrel Node"
+        masked: false
+        placeholder: IP Address
+        nullable: false
+        default: ""
