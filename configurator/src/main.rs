@@ -686,6 +686,7 @@ fn main() -> Result<(), anyhow::Error> {
             .arg(format!("{}", serde_json::json!({})))
             .output()?;
         if !output.status.success() {
+            eprintln!("{}", std::str::from_utf8(&output.stderr)?);
             return Err(anyhow::anyhow!("Error generating seed. Exiting."));
         }
         let CipherSeedMnemonic {
