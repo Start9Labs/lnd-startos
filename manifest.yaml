@@ -293,11 +293,3 @@ actions:
         placeholder: password
         nullable: false
         default: ""
-      umbrel-ip:
-        type: string
-        name: Umbrel IP Address
-        description: "The IP address of your Umbrel Node"
-        masked: false
-        placeholder: IP Address
-        nullable: false
-        default: ""
