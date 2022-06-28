@@ -1,3 +1,4 @@
+use bitcoin_rpc::Error;
 use rand::Rng;
 use serde_json::{json, Value};
 use std::env;
@@ -103,41 +104,16 @@ struct BitcoinChannelConfig {
     time_lock_delta: usize,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, PartialEq, Eq)]
 #[serde(tag = "type")]
 #[serde(rename_all = "kebab-case")]
 enum BitcoinCoreConfig {
     #[serde(rename_all = "kebab-case")]
+    None,
+    #[serde(rename_all = "kebab-case")]
     Internal { user: String, password: String },
     #[serde(rename_all = "kebab-case")]
     InternalProxy { user: String, password: String },
-    #[serde(rename_all = "kebab-case")]
-    External {
-        connection_settings: ExternalBitcoinCoreConfig,
-    },
-}
-
-#[derive(serde::Deserialize)]
-#[serde(tag = "type")]
-#[serde(rename_all = "kebab-case")]
-enum ExternalBitcoinCoreConfig {
-    #[serde(rename_all = "kebab-case")]
-    Manual {
-        #[serde(deserialize_with = "deserialize_parse")]
-        host: Uri,
-        rpc_user: String,
-        rpc_password: String,
-        rpc_port: u16,
-        zmq_block_port: u16,
-        zmq_tx_port: u16,
-    },
-    #[serde(rename_all = "kebab-case")]
-    QuickConnect {
-        #[serde(deserialize_with = "deserialize_parse")]
-        quick_connect_url: Uri,
-        zmq_block_port: u16,
-        zmq_tx_port: u16,
-    },
 }
 
 #[derive(Deserialize)]
@@ -296,148 +272,126 @@ fn main() -> Result<(), anyhow::Error> {
         config.alias.clone().unwrap_or("No alias found".to_owned())
     );
     println!("alias = {:?}", alias);
-    {
-        let mut outfile = File::create("/root/.lnd/lnd.conf")?;
+    let mut outfile = File::create("/root/.lnd/lnd.conf")?;
 
-        let (
-            bitcoind_rpc_user,
-            bitcoind_rpc_pass,
-            bitcoind_rpc_host,
-            bitcoind_rpc_port,
-            bitcoind_zmq_host,
-            bitcoind_zmq_block_port,
-            bitcoind_zmq_tx_port,
-        ) = match config.bitcoind {
-            BitcoinCoreConfig::Internal { user, password } => (
-                user,
-                password,
-                format!("bitcoind.embassy"),
-                8332,
-                format!("bitcoind.embassy"),
-                28332,
-                28333,
-            ),
-            BitcoinCoreConfig::InternalProxy { user, password } => (
-                user,
-                password,
-                format!("btc-rpc-proxy.embassy"),
-                8332,
-                format!("bitcoind.embassy"),
-                28332,
-                28333,
-            ),
-            BitcoinCoreConfig::External {
-                connection_settings:
-                    ExternalBitcoinCoreConfig::Manual {
-                        host,
-                        rpc_user,
-                        rpc_password,
-                        rpc_port,
-                        zmq_block_port,
-                        zmq_tx_port,
-                    },
-            } => (
-                rpc_user,
-                rpc_password,
-                format!("{}", host.host().unwrap()),
-                rpc_port,
-                format!("{}", host.host().unwrap()),
-                zmq_block_port,
-                zmq_tx_port,
-            ),
-            BitcoinCoreConfig::External {
-                connection_settings:
-                    ExternalBitcoinCoreConfig::QuickConnect {
-                        quick_connect_url,
-                        zmq_block_port,
-                        zmq_tx_port,
-                    },
-            } => {
-                let (bitcoin_rpc_user, bitcoin_rpc_pass, bitcoin_rpc_host, bitcoin_rpc_port) =
-                    parse_quick_connect_url(quick_connect_url)?;
-                (
-                    bitcoin_rpc_user,
-                    bitcoin_rpc_pass,
-                    bitcoin_rpc_host.clone(),
-                    bitcoin_rpc_port,
-                    bitcoin_rpc_host,
-                    zmq_block_port,
-                    zmq_tx_port,
-                )
-            }
-        };
+    let bitcoind_selected = match &config.bitcoind {
+        BitcoinCoreConfig::None => false,
+        _ => true,
+    };
 
+    let (
+        bitcoind_rpc_user,
+        bitcoind_rpc_pass,
+        bitcoind_rpc_host,
+        bitcoind_rpc_port,
+        bitcoind_zmq_host,
+        bitcoind_zmq_block_port,
+        bitcoind_zmq_tx_port,
+    ) = match config.bitcoind {
+        BitcoinCoreConfig::None => (String::new(), String::new(), "", 0, "", 0, 0),
+        BitcoinCoreConfig::Internal { user, password } => (
+            user,
+            password,
+            "bitcoind.embassy",
+            8332,
+            "bitcoind.embassy",
+            28332,
+            28333,
+        ),
+        BitcoinCoreConfig::InternalProxy { user, password } => (
+            user,
+            password,
+            "btc-rpc-proxy.embassy",
+            8332,
+            "bitcoind.embassy",
+            28332,
+            28333,
+        ),
+    };
+
+    let rpc_info = &BitcoindRpcInfo {
+        host: &bitcoind_rpc_host,
+        port: bitcoind_rpc_port,
+        user: &bitcoind_rpc_user,
+        pass: &bitcoind_rpc_pass,
+    };
+
+    if bitcoind_selected {
         loop {
-            if bitcoin_rpc_is_ready(&BitcoindRpcInfo {
-                host: &bitcoind_rpc_host,
-                port: bitcoind_rpc_port,
-                user: &bitcoind_rpc_user,
-                pass: &bitcoind_rpc_pass,
-            }) {
+            if bitcoin_rpc_is_ready(rpc_info) {
                 break;
             }
             println!("Waiting for bitcoin RPC...");
             std::thread::sleep(std::time::Duration::from_secs(1));
         }
-
-        write!(
-            outfile,
-            include_str!("lnd.conf.template"),
-            control_tor_address = control_tor_address,
-            peer_tor_address = peer_tor_address,
-            watchtower_tor_address = watchtower_tor_address,
-            payments_expiration_grace_period = config.advanced.payments_expiration_grace_period,
-            debug_level = config.advanced.debug_level,
-            min_chan_size_row = match config.min_chan_size {
-                None => String::new(),
-                Some(u) => format!("minchansize={}", u),
-            },
-            max_chan_size_row = match config.max_chan_size {
-                None => String::new(),
-                Some(u) => format!("maxchansize={}", u),
-            },
-            default_remote_max_htlcs = config.advanced.default_remote_max_htlcs,
-            reject_htlc = config.reject_htlc,
-            max_channel_fee_allocation = config.advanced.max_channel_fee_allocation,
-            max_commit_fee_rate_anchors = config.advanced.max_commit_fee_rate_anchors,
-            accept_keysend = config.accept_keysend,
-            accept_amp = config.accept_amp,
-            gc_canceled_invoices_on_startup = config.advanced.gc_canceled_invoices_on_startup,
-            alias = alias,
-            color = config.color,
-            bitcoin_default_chan_confs = config.advanced.bitcoin.default_channel_confirmations,
-            bitcoin_min_htlc = config.advanced.bitcoin.min_htlc,
-            bitcoin_min_htlc_out = config.advanced.bitcoin.min_htlc_out,
-            bitcoin_base_fee = config.advanced.bitcoin.base_fee,
-            bitcoin_fee_rate = config.advanced.bitcoin.fee_rate,
-            bitcoin_time_lock_delta = config.advanced.bitcoin.time_lock_delta,
-            bitcoind_rpc_user = bitcoind_rpc_user,
-            bitcoind_rpc_pass = bitcoind_rpc_pass,
-            bitcoind_rpc_host = bitcoind_rpc_host,
-            bitcoind_rpc_port = bitcoind_rpc_port,
-            bitcoind_zmq_host = bitcoind_zmq_host,
-            bitcoind_zmq_block_port = bitcoind_zmq_block_port,
-            bitcoind_zmq_tx_port = bitcoind_zmq_tx_port,
-            autopilot_enabled = config.autopilot.enabled,
-            autopilot_maxchannels = config.autopilot.maxchannels,
-            autopilot_allocation = config.autopilot.allocation / 100.0,
-            autopilot_min_channel_size = config.autopilot.min_channel_size,
-            autopilot_max_channel_size = config.autopilot.max_channel_size,
-            autopilot_private = config.autopilot.private,
-            autopilot_min_confirmations = config.autopilot.advanced.min_confirmations,
-            autopilot_confirmation_target = config.autopilot.advanced.confirmation_target,
-            protocol_wumbo_channels = config.advanced.protocol_wumbo_channels,
-            protocol_no_anchors = config.advanced.protocol_no_anchors,
-            protocol_disable_script_enforced_lease =
-                config.advanced.protocol_disable_script_enforced_lease,
-            db_bolt_no_freelist_sync = config.advanced.db_bolt_no_freelist_sync,
-            db_bolt_auto_compact = config.advanced.db_bolt_auto_compact,
-            db_bolt_auto_compact_min_age = config.advanced.db_bolt_auto_compact_min_age,
-            db_bolt_db_timeout = config.advanced.db_bolt_db_timeout,
-            tor_enable_clearnet = !config.tor.use_tor_only,
-            tor_stream_isolation = config.tor.stream_isolation
-        )?;
     }
+
+    let bitcoin_synced = bitcoin_is_synced(rpc_info)?;
+    let use_neutrino = !(bitcoind_selected && bitcoin_synced);
+
+    write!(
+        outfile,
+        include_str!("lnd.conf.template"),
+        control_tor_address = control_tor_address,
+        peer_tor_address = peer_tor_address,
+        watchtower_tor_address = watchtower_tor_address,
+        payments_expiration_grace_period = config.advanced.payments_expiration_grace_period,
+        debug_level = config.advanced.debug_level,
+        min_chan_size_row = match config.min_chan_size {
+            None => String::new(),
+            Some(u) => format!("minchansize={}", u),
+        },
+        max_chan_size_row = match config.max_chan_size {
+            None => String::new(),
+            Some(u) => format!("maxchansize={}", u),
+        },
+        default_remote_max_htlcs = config.advanced.default_remote_max_htlcs,
+        reject_htlc = config.reject_htlc,
+        max_channel_fee_allocation = config.advanced.max_channel_fee_allocation,
+        max_commit_fee_rate_anchors = config.advanced.max_commit_fee_rate_anchors,
+        accept_keysend = config.accept_keysend,
+        accept_amp = config.accept_amp,
+        gc_canceled_invoices_on_startup = config.advanced.gc_canceled_invoices_on_startup,
+        alias = alias,
+        color = config.color,
+        feeurl_row = if use_neutrino {
+            "feeurl=https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json"
+        } else {
+            ""
+        },
+        bitcoin_node = if use_neutrino { "neutrino" } else { "bitcoind" },
+        bitcoin_default_chan_confs = config.advanced.bitcoin.default_channel_confirmations,
+        bitcoin_min_htlc = config.advanced.bitcoin.min_htlc,
+        bitcoin_min_htlc_out = config.advanced.bitcoin.min_htlc_out,
+        bitcoin_base_fee = config.advanced.bitcoin.base_fee,
+        bitcoin_fee_rate = config.advanced.bitcoin.fee_rate,
+        bitcoin_time_lock_delta = config.advanced.bitcoin.time_lock_delta,
+        bitcoind_rpc_user = bitcoind_rpc_user,
+        bitcoind_rpc_pass = bitcoind_rpc_pass,
+        bitcoind_rpc_host = bitcoind_rpc_host,
+        bitcoind_rpc_port = bitcoind_rpc_port,
+        bitcoind_zmq_host = bitcoind_zmq_host,
+        bitcoind_zmq_block_port = bitcoind_zmq_block_port,
+        bitcoind_zmq_tx_port = bitcoind_zmq_tx_port,
+        autopilot_enabled = config.autopilot.enabled,
+        autopilot_maxchannels = config.autopilot.maxchannels,
+        autopilot_allocation = config.autopilot.allocation / 100.0,
+        autopilot_min_channel_size = config.autopilot.min_channel_size,
+        autopilot_max_channel_size = config.autopilot.max_channel_size,
+        autopilot_private = config.autopilot.private,
+        autopilot_min_confirmations = config.autopilot.advanced.min_confirmations,
+        autopilot_confirmation_target = config.autopilot.advanced.confirmation_target,
+        protocol_wumbo_channels = config.advanced.protocol_wumbo_channels,
+        protocol_no_anchors = config.advanced.protocol_no_anchors,
+        protocol_disable_script_enforced_lease =
+            config.advanced.protocol_disable_script_enforced_lease,
+        db_bolt_no_freelist_sync = config.advanced.db_bolt_no_freelist_sync,
+        db_bolt_auto_compact = config.advanced.db_bolt_auto_compact,
+        db_bolt_auto_compact_min_age = config.advanced.db_bolt_auto_compact_min_age,
+        db_bolt_db_timeout = config.advanced.db_bolt_db_timeout,
+        tor_enable_clearnet = !config.tor.use_tor_only,
+        tor_stream_isolation = config.tor.stream_isolation
+    )?;
 
     // TLS Certificate migration from 0.11.0 -> 0.11.1 release (to include tor address)
     let cert_path = Path::new("/root/.lnd/tls.cert");
@@ -727,6 +681,18 @@ fn main() -> Result<(), anyhow::Error> {
             )?;
         }
     }
+
+    if bitcoind_selected {
+        loop {
+            let bitcoin_synced = bitcoin_is_synced(rpc_info)?;
+            if use_neutrino == bitcoin_synced {
+                let parent_process_id = nix::unistd::getppid();
+                nix::sys::signal::kill(parent_process_id, nix::sys::signal::Signal::SIGTERM)?;
+            }
+            std::thread::sleep(std::time::Duration::from_secs(60));
+        }
+    };
+
     Ok(())
 }
 
@@ -940,52 +906,26 @@ struct BitcoindRpcInfo<'a> {
     user: &'a str,
     pass: &'a str,
 }
+
 fn bitcoin_rpc_is_ready(rpc_info: &BitcoindRpcInfo) -> bool {
-    let body = json!({"jsonrpc": "1.0", "id": null, "method": "getblockchaininfo", "params": []});
-    let client = reqwest::blocking::Client::new();
-    let res = client
-        .post(format!("http://{}:{}/", rpc_info.host, rpc_info.port))
-        .basic_auth(rpc_info.user, Some(rpc_info.pass))
-        .json(&body)
-        .send();
-    match res {
-        Err(e) => {
-            println!("{:?}", e);
-            return false;
-        }
-        Ok(o) => {
-            if o.status().as_u16() == 401 {
-                panic!("Invalid credentials for bitcoind");
-            } else {
-                match o.json() {
-                    Ok(JsonRpc1Res {
-                        result: _,
-                        error,
-                        id: _,
-                    }) => {
-                        if let Some(e) = error {
-                            println!("{}", e.message);
-                            false
-                        } else {
-                            true
-                        }
-                    }
-                    Err(e) => {
-                        println!("{:?}", e);
-                        false
-                    }
-                }
-            }
-        }
-    }
+    // TODO write this in terms of bitcoin_rpc::BitcoinRpc::getblockchaininfo
+    let rpc_client = bitcoin_rpc::BitcoinRpc::new(
+        format!("http://{}:{}", rpc_info.host, rpc_info.port),
+        Some(rpc_info.user.to_owned()),
+        Some(rpc_info.pass.to_owned()),
+    );
+    rpc_client.getbestblockhash().is_ok()
 }
 
-#[test]
-fn test() {
-    assert!(bitcoin_rpc_is_ready(&BitcoindRpcInfo {
-        host: "localhost",
-        port: 8332,
-        user: "bitcoin",
-        pass: "testhere"
-    }))
+fn bitcoin_is_synced(rpc_info: &BitcoindRpcInfo) -> Result<bool, anyhow::Error> {
+    // TODO write this in terms of bitcoin_rpc::BitcoinRpc::getblockchaininfo
+    let rpc_client = bitcoin_rpc::BitcoinRpc::new(
+        format!("http://{}:{}", rpc_info.host, rpc_info.port),
+        Some(rpc_info.user.to_owned()),
+        Some(rpc_info.pass.to_owned()),
+    );
+    match rpc_client.getblockchaininfo() {
+        Ok(bi) => Ok(bi.initialblockdownload),
+        Err(e) => Err(anyhow::anyhow!("Bitcoin RPC Error {:?}", e)),
+    }
 }

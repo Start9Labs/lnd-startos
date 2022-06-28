@@ -1,14 +1,15 @@
 [package]
-name = "configurator"
-version = "0.1.0"
 authors = ["Aiden McClelland <me@drbonez.dev>"]
 edition = "2018"
+name = "configurator"
+version = "0.1.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 anyhow = "1.0.33"
 base64 = "0.13.0"
+bitcoin-rpc = "0.2.0"
 der-parser = "5.0.0"
 emver = { version = "0.1.0", features = ["serde"] }
 hex = "0.4.2"

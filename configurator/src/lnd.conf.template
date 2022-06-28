@@ -20,11 +20,12 @@ accept-amp={accept_amp}
 gc-canceled-invoices-on-startup={gc_canceled_invoices_on_startup}
 alias={alias}
 color=#{color}
+{feeurl_row}
 
 [Bitcoin]
 bitcoin.active=true
 bitcoin.mainnet=true
-bitcoin.node=bitcoind
+bitcoin.node={bitcoin_node}
 bitcoin.defaultchanconfs={bitcoin_default_chan_confs}
 bitcoin.minhtlc={bitcoin_min_htlc}
 bitcoin.minhtlcout={bitcoin_min_htlc_out}
