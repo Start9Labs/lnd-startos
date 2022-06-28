@@ -39,46 +39,11 @@ health-checks:
     io-format: yaml
 config: # if you dont provide an io format in cases like config where its necessarily developer defined, functionality will not work
   get:
-    type: docker
-    image: compat
-    system: true
-    entrypoint: compat
-    args:
-      - config
-      - get
-      - /root/.lnd
-      - "/mnt/assets/config_spec.yaml"
-    mounts: # a volume is a filesystem, when a volume needs to be mounted to another filesystem, the mount path needs to be specified. here, the key is the volume that needs to be mounted and the value is the path at which to mount the volume. two volumes cannot be mounted at the same path, or at a path that is needed by the base filesystem - default is typically under `/mnt/<something>`
-      compat: /mnt/assets
-      main: /root/.lnd
-    io-format: yaml # necessary in this case
+    type: script
   set:
-    type: docker
-    image: compat
-    system: true
-    entrypoint: compat
-    args:
-      - config
-      - set
-      - lnd
-      - /root/.lnd
-      - "/mnt/assets/config_rules.yaml"
-      - "/mnt/assets/dependencies.yaml"
-    mounts:
-      compat: /mnt/assets
-      main: /root/.lnd
-    io-format: yaml # necessary in this case
+    type: script
 properties:
-  type: docker
-  image: main
-  system: false
-  entrypoint: configurator
-  args:
-    - properties
-  mounts:
-    main: /root/.lnd
-  io-format: yaml
-  inject: false
+  type: script
 volumes:
   # this is the image where data will go from 0.2.x
   main:
@@ -139,40 +104,9 @@ dependencies:
     description: Used to fetch validated blocks.
     config:
       check:
-        type: docker
-        image: compat
-        system: true
-        # the compat image will contain a tool to check the config rules against the specified dependency
-        entrypoint: compat
-        args:
-          - dependency
-          - check
-          - lnd
-          - "btc-rpc-proxy"
-          - /root/.lnd
-          - "/mnt/assets/btc-rpc-proxy_config_rules.yaml"
-        mounts:
-          compat: /mnt/assets
-          main: /root/.lnd
-        io-format: yaml
+        type: script
       auto-configure:
-        type: docker
-        image: compat
-        # if true, the denoted image is prebuilt and comes stock with EOS
-        # uncommon: if you want something not prebuilt with EOS, you can bundle multiple docker images into the `image.tar` during the `make` build process
-        system: true
-        entrypoint: compat
-        args:
-          - dependency
-          - "auto-configure"
-          - lnd
-          - "btc-rpc-proxy"
-          - /root/.lnd
-          - "/mnt/assets/btc-rpc-proxy_config_rules.yaml"
-        mounts:
-          compat: /mnt/assets
-          main: /root/.lnd
-        io-format: yaml
+        type: script
   bitcoind:
     version: ">=0.21.1.2 <24.0.0"
     requirement:
@@ -181,37 +115,9 @@ dependencies:
     description: Used to subscribe to new block events.
     config:
       check:
-        type: docker
-        image: compat
-        system: true
-        entrypoint: compat
-        args:
-          - dependency
-          - check
-          - lnd
-          - bitcoind
-          - /root/.lnd
-          - "/mnt/assets/bitcoind_config_rules.yaml"
-        mounts:
-          compat: /mnt/assets
-          main: /root/.lnd
-        io-format: yaml
+        type: script
       auto-configure:
-        type: docker
-        image: compat
-        system: true
-        entrypoint: compat
-        args:
-          - dependency
-          - "auto-configure"
-          - lnd
-          - bitcoind
-          - /root/.lnd
-          - "/mnt/assets/bitcoind_config_rules.yaml"
-        mounts:
-          compat: /mnt/assets
-          main: /root/.lnd
-        io-format: yaml
+        type: script
 backup:
   create:
     type: docker

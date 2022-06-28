@@ -23,7 +23,7 @@ verify: lnd.s9pk $(S9PK_PATH)
 install: lnd.s9pk 
 	embassy-cli package install lnd
 
-lnd.s9pk: manifest.yaml image.tar instructions.md LICENSE icon.png $(ASSET_PATHS)
+lnd.s9pk: manifest.yaml image.tar instructions.md LICENSE icon.png $(ASSET_PATHS) scripts/embassy.js
 	embassy-sdk pack
 
 image.tar: Dockerfile docker_entrypoint.sh configurator/target/aarch64-unknown-linux-musl/release/configurator health-check/target/aarch64-unknown-linux-musl/release/health-check $(LND_GIT_FILE)
@@ -36,3 +36,6 @@ configurator/target/aarch64-unknown-linux-musl/release/configurator: $(CONFIGURA
 health-check/target/aarch64-unknown-linux-musl/release/health-check: $(HEALTH_CHECK_SRC)
 	docker run --rm -it -v ~/.cargo/registry:/root/.cargo/registry -v "$(shell pwd)"/health-check:/home/rust/src start9/rust-musl-cross:aarch64-musl cargo +beta build --release
 	docker run --rm -it -v ~/.cargo/registry:/root/.cargo/registry -v "$(shell pwd)"/health-check:/home/rust/src start9/rust-musl-cross:aarch64-musl musl-strip target/aarch64-unknown-linux-musl/release/health-check
+
+scripts/embassy.js: scripts/**/*.ts
+	deno bundle scripts/embassy.ts scripts/embassy.js

@@ -10,6 +10,7 @@ This project wraps [LND](https://github.com/lightningnetwork/lnd
 - [yq (version 4)](https://mikefarah.gitbook.io/yq)
 - [appmgr](https://github.com/Start9Labs/embassy-os/tree/master/appmgr)
 - [make](https://www.gnu.org/software/make/)
+- [deno](https://deno.land/)
 
 ## Cloning
 
