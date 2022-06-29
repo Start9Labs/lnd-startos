@@ -1,6 +1,6 @@
-use bitcoin_rpc::Error;
+use bitcoincore_rpc::RpcApi;
 use rand::Rng;
-use serde_json::{json, Value};
+use serde_json::Value;
 use std::env;
 use std::fs::File;
 use std::net::SocketAddr;
@@ -11,37 +11,8 @@ use std::{
 };
 
 use anyhow::anyhow;
-use http::Uri;
-use serde::{
-    de::{Deserializer, Error as DeserializeError, Unexpected},
-    ser::SerializeMap,
-    Deserialize, Serialize, Serializer,
-};
+use serde::{ser::SerializeMap, Deserialize, Serialize, Serializer};
 use x509_parser::pem;
-
-fn deserialize_parse<'de, D: Deserializer<'de>, T: std::str::FromStr>(
-    deserializer: D,
-) -> Result<T, D::Error> {
-    let s: String = Deserialize::deserialize(deserializer)?;
-    s.parse()
-        .map_err(|_| DeserializeError::invalid_value(Unexpected::Str(&s), &"a valid URI"))
-}
-
-fn parse_quick_connect_url(url: Uri) -> Result<(String, String, String, u16), anyhow::Error> {
-    let auth = url
-        .authority()
-        .ok_or_else(|| anyhow::anyhow!("invalid Quick Connect URL"))?;
-    let mut auth_split = auth.as_str().split(|c| c == ':' || c == '@');
-    let user = auth_split
-        .next()
-        .ok_or_else(|| anyhow::anyhow!("missing user"))?;
-    let pass = auth_split
-        .next()
-        .ok_or_else(|| anyhow::anyhow!("missing pass"))?;
-    let host = url.host().unwrap();
-    let port = url.port_u16().unwrap_or(8332);
-    Ok((user.to_owned(), pass.to_owned(), host.to_owned(), port))
-}
 
 struct SkipNulls(Value);
 impl Serialize for SkipNulls {
@@ -279,6 +250,8 @@ fn main() -> Result<(), anyhow::Error> {
         _ => true,
     };
 
+    println!("bitcoind_selected = {}", bitcoind_selected);
+
     let (
         bitcoind_rpc_user,
         bitcoind_rpc_pass,
@@ -318,7 +291,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     if bitcoind_selected {
         loop {
-            if bitcoin_rpc_is_ready(rpc_info) {
+            if bitcoin_rpc_is_ready(rpc_info)? {
                 break;
             }
             println!("Waiting for bitcoin RPC...");
@@ -327,7 +300,9 @@ fn main() -> Result<(), anyhow::Error> {
     }
 
     let bitcoin_synced = bitcoin_is_synced(rpc_info)?;
+    println!("bitcoin_synced = {}", bitcoin_synced);
     let use_neutrino = !(bitcoind_selected && bitcoin_synced);
+    println!("use_neutrino = {}", use_neutrino);
 
     write!(
         outfile,
@@ -684,8 +659,20 @@ fn main() -> Result<(), anyhow::Error> {
 
     if bitcoind_selected {
         loop {
-            let bitcoin_synced = bitcoin_is_synced(rpc_info)?;
+            let bitcoin_synced = match bitcoin_is_synced(rpc_info) {
+                Ok(bs) => bs,
+                Err(e) => {
+                    println!("Error checking whether bitcoin is synced: {:?}", e);
+                    std::thread::sleep(std::time::Duration::from_secs(60));
+                    continue;
+                }
+            };
             if use_neutrino == bitcoin_synced {
+                if bitcoin_synced {
+                    println!("Detected bitcoind end of IBD. Restarting to turn off Neutrino.");
+                } else {
+                    println!("Detected bitcoind in IBD. Restarting to turn on Neutrino.");
+                }
                 let parent_process_id = nix::unistd::getppid();
                 nix::sys::signal::kill(parent_process_id, nix::sys::signal::Signal::SIGTERM)?;
             }
@@ -900,6 +887,8 @@ struct BitcoindError {
     code: i32,
     message: String,
 }
+
+#[derive(Debug)]
 struct BitcoindRpcInfo<'a> {
     host: &'a str,
     port: u16,
@@ -907,25 +896,21 @@ struct BitcoindRpcInfo<'a> {
     pass: &'a str,
 }
 
-fn bitcoin_rpc_is_ready(rpc_info: &BitcoindRpcInfo) -> bool {
-    // TODO write this in terms of bitcoin_rpc::BitcoinRpc::getblockchaininfo
-    let rpc_client = bitcoin_rpc::BitcoinRpc::new(
-        format!("http://{}:{}", rpc_info.host, rpc_info.port),
-        Some(rpc_info.user.to_owned()),
-        Some(rpc_info.pass.to_owned()),
-    );
-    rpc_client.getbestblockhash().is_ok()
+fn bitcoin_rpc_is_ready(rpc_info: &BitcoindRpcInfo) -> Result<bool, anyhow::Error> {
+    let rpc_client = bitcoincore_rpc::Client::new(
+        &*format!("http://{}:{}", rpc_info.host, rpc_info.port),
+        bitcoincore_rpc::Auth::UserPass(rpc_info.user.to_owned(), rpc_info.pass.to_owned()),
+    )?;
+    Ok(rpc_client.get_best_block_hash().is_ok())
 }
 
 fn bitcoin_is_synced(rpc_info: &BitcoindRpcInfo) -> Result<bool, anyhow::Error> {
-    // TODO write this in terms of bitcoin_rpc::BitcoinRpc::getblockchaininfo
-    let rpc_client = bitcoin_rpc::BitcoinRpc::new(
-        format!("http://{}:{}", rpc_info.host, rpc_info.port),
-        Some(rpc_info.user.to_owned()),
-        Some(rpc_info.pass.to_owned()),
-    );
-    match rpc_client.getblockchaininfo() {
-        Ok(bi) => Ok(bi.initialblockdownload),
+    let rpc_client = bitcoincore_rpc::Client::new(
+        &*format!("http://{}:{}", rpc_info.host, rpc_info.port),
+        bitcoincore_rpc::Auth::UserPass(rpc_info.user.to_owned(), rpc_info.pass.to_owned()),
+    )?;
+    match rpc_client.get_blockchain_info() {
+        Ok(bir) => Ok(!bir.initial_block_download),
         Err(e) => Err(anyhow::anyhow!("Bitcoin RPC Error {:?}", e)),
     }
 }
