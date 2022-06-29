@@ -1,9 +1,6 @@
-import { Effects, Config, YAML, matches, KnownError, ExpectedExports, SetResult } from "../deps.ts";
+import { types as T, compat } from "../deps.ts";
 import { matchRoot, Root } from "../models/setConfig.ts";
 
-const { string, boolean, shape, number } = matches;
-
-const regexUrl = /^(\w+:\/\/)?(.*?)(:\d{0,4})?$/m;
 type Check = {
   currentError(config: Root): string | void;
 };
@@ -24,7 +21,7 @@ const configRules: Array<Check> = [
   },
 ];
 
-function checkConfigRules(config: Root): KnownError | void {
+function checkConfigRules(config: Root): T.KnownError | void {
   for (const checker of configRules) {
     const error = checker.currentError(config);
     if (error) {
@@ -33,27 +30,10 @@ function checkConfigRules(config: Root): KnownError | void {
   }
 }
 
-export const setConfig: ExpectedExports.setConfig = async (effects: Effects, input: Config) => {
+export const setConfig: T.ExpectedExports.setConfig = async (effects: T.Effects, input: T.Config) => {
   const config = matchRoot.unsafeCast(input);
   const error = checkConfigRules(config);
   if (error) return error;
-  await effects.createDir({
-    path: "start9",
-    volumeId: "main",
-  });
-  await effects.writeFile({
-    path: "start9/config.yaml",
-    toWrite: YAML.stringify(input),
-    volumeId: "main",
-  });
-
   const dependsOn: { [key: string]: string[] } = config.bitcoind.type === 'internal' || config.bitcoind.type === 'internal-proxy' ? { 'bitcoind': [] } : {}
-
-  const result: SetResult = {
-    signal: "SIGTERM",
-    "depends-on": {
-      ...dependsOn
-    },
-  }
-  return { result };
+  return await compat.setConfig(effects, input, dependsOn);
 }
