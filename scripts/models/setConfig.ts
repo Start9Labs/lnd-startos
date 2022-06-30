@@ -12,7 +12,7 @@ export const matchBitcoind = shape({
   type: string,
   user: string,
   password: string,
-})
+}, ['user','password'])
 
 
 export const matchAdvanced = shape({
@@ -72,7 +72,7 @@ export const matchRoot = shape({
   "control-tor-address": string,
   "peer-tor-address": string,
   "watchtower-tor-address": string
-}, ['alias', 'min-chan-size', 'max-chan-size'])
+}, ['alias', 'min-chan-size', 'max-chan-size', 'watchtower-tor-address', 'peer-tor-address', 'control-tor-address'])
 
 export type Root = typeof matchRoot._TYPE
 export type Tor = typeof matchTor._TYPE
