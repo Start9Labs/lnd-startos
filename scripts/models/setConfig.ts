@@ -12,7 +12,7 @@ export const matchBitcoind = shape({
   type: string,
   user: string,
   password: string,
-})
+}, ['user', 'password'])
 
 
 export const matchAdvanced = shape({
