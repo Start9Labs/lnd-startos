@@ -72,7 +72,7 @@ export const matchRoot = shape({
   "control-tor-address": string,
   "peer-tor-address": string,
   "watchtower-tor-address": string
-}, ['alias', 'min-chan-size', 'max-chan-size', 'watchtower-tor-address', 'peer-tor-address', 'control-tor-address'])
+}, ['alias', 'min-chan-size', 'max-chan-size', 'watchtower-tor-address', 'peer-tor-address', 'control-tor-address', 'control-tor-address'])
 
 export type Root = typeof matchRoot._TYPE
 export type Tor = typeof matchTor._TYPE
