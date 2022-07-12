@@ -1,11 +1,7 @@
 id: lnd
 title: Lightning Network Daemon
 version: 0.14.2.3
-release-notes: |
-  * Neutrino mode
-  * Auto-switch to neutrino when bitcoind is still syncing
-  * New action: Import from Umbrel 0.4
-  * Switch to using new eOS APIs for faster configuration and properties
+release-notes: Fix migration
 license: mit
 wrapper-repo: "https://github.com/Start9Labs/lnd-wrapper"
 upstream-repo: "https://github.com/lightningnetwork/lnd"
