@@ -1,6 +1,6 @@
 id: lnd
 title: Lightning Network Daemon
-version: 0.14.2.2
+version: 0.14.2.3
 release-notes: |
   * Neutrino mode
   * Auto-switch to neutrino when bitcoind is still syncing
