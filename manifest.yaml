@@ -169,6 +169,14 @@ backup:
     io-format: yaml
 migrations:
   from:
+    "<0.14.2": # tor added in 0.14.2
+      type: docker
+      image: main
+      system: false
+      entrypoint: "/bin/echo"
+      args: ['{"configured": false}']
+      io-format: json
+      inject: false
     "<=0.14.2.1":
       type: docker
       image: main
