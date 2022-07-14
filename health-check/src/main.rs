@@ -51,8 +51,6 @@ fn run_health_checks() -> Result<HealthCheckRes, anyhow::Error> {
         serde_json::from_slice(
             &std::process::Command::new("curl")
                 .arg("--no-progress-meter")
-                // .arg("--cacert")
-                // .arg("/root/.lnd/tls.cert")
                 .arg("--header")
                 .arg(format!("Grpc-Metadata-macaroon: {}", mac_encoded))
                 .arg("http://127.0.0.1:8081/v1/getinfo")
