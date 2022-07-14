@@ -3,8 +3,6 @@ use std::path::Path;
 
 #[derive(serde::Deserialize, Debug)]
 pub struct LndGetInfoRes {
-    identity_pubkey: String,
-    block_height: u32,
     synced_to_chain: bool,
     synced_to_graph: bool,
 }
@@ -53,11 +51,11 @@ fn run_health_checks() -> Result<HealthCheckRes, anyhow::Error> {
         serde_json::from_slice(
             &std::process::Command::new("curl")
                 .arg("--no-progress-meter")
-                .arg("--cacert")
-                .arg("/root/.lnd/tls.cert")
+                // .arg("--cacert")
+                // .arg("/root/.lnd/tls.cert")
                 .arg("--header")
                 .arg(format!("Grpc-Metadata-macaroon: {}", mac_encoded))
-                .arg("https://127.0.0.1:8080/v1/getinfo")
+                .arg("http://127.0.0.1:8081/v1/getinfo")
                 .output()?
                 .stdout,
         )

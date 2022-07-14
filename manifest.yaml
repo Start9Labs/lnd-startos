@@ -28,6 +28,7 @@ main:
   mounts:
     # main data directory - also needed to preserve data in 0.2.x migration
     main: /root/.lnd
+    certificates: /mnt/cert
 health-checks:
   synced:
     name: Synced
@@ -44,16 +45,7 @@ config: # if you dont provide an io format in cases like config where its necess
   set:
     type: script
 properties:
-  type: docker
-  image: main
-  system: false
-  entrypoint: configurator
-  args:
-    - properties
-  mounts:
-    main: /root/.lnd
-  io-format: yaml
-  inject: false
+  type: script
 volumes:
   # this is the image where data will go from 0.2.x
   main:
@@ -80,6 +72,13 @@ interfaces:
       port-mapping:
         8080: "8080"
         10009: "10009"
+    lan-config:
+      8080:
+        internal: 8080
+        ssl: false
+      10009:
+        internal: 10009
+        ssl: false
     ui: false
     protocols:
       - tcp
