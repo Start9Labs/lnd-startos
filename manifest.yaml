@@ -1,7 +1,7 @@
 id: lnd
 title: Lightning Network Daemon
-version: 0.14.2.3
-release-notes: Fixed all migrations to previous versions and from prior versions 
+version: 0.14.2.4
+release-notes: Fix migration to properly handle the bitcoin configuration for updates from 0.13.x versions 
 license: mit
 wrapper-repo: "https://github.com/Start9Labs/lnd-wrapper"
 upstream-repo: "https://github.com/lightningnetwork/lnd"

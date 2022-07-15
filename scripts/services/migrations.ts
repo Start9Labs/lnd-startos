@@ -39,14 +39,14 @@ export const migration: T.ExpectedExports.migration = async (effects, version) =
         if (parsed.bitcoind.type === 'none') {
             parsed.bitcoind.type = 'internal-proxy'
         }
-        // handle downgrading to versions when variant names were only internal/external (ie. 0.13.3.1 and 0.13.3.2)
-        if (version <= '0.13.3.2') {
-            if (parsed.bitcoind.type === 'internal-proxy') {
-                parsed.bitcoind.type = 'internal'
-            }
-        }
     }
 
+    // if bitcoin is configured to internal (ie. pointer to proxy), upgrade should ensure it remains proxy. As of 0.14.2, internal means bitcoin core. 
+    if (version <= '0.13.3.2') {
+        if (parsed.bitcoind.type === 'internal') {
+            parsed.bitcoind.type = 'internal-proxy'
+        }
+    }
 
     // handle cases prior to 0.14.2.1 when external was still an option 
     if (parsed.bitcoind.type === 'external') {
