@@ -1,7 +1,7 @@
 id: lnd
 title: Lightning Network Daemon
 version: 0.14.2.3
-release-notes: Fix migration
+release-notes: Fixed all migrations to previous versions and from prior versions 
 license: mit
 wrapper-repo: "https://github.com/Start9Labs/lnd-wrapper"
 upstream-repo: "https://github.com/lightningnetwork/lnd"
@@ -165,22 +165,8 @@ backup:
     io-format: yaml
 migrations:
   from:
-    "<0.14.2": # tor added in 0.14.2
-      type: docker
-      image: main
-      system: false
-      entrypoint: "/bin/echo"
-      args: ['{"configured": false}']
-      io-format: json
-      inject: false
     "<=0.14.2.1":
-      type: docker
-      image: main
-      system: false
-      entrypoint: "/bin/echo"
-      args: ['{"configured": true}']
-      io-format: json
-      inject: false
+      type: script
   to:
     ">=0.14.2.2":
       type: docker
@@ -190,6 +176,8 @@ migrations:
       args: ['{"configured": true}']
       io-format: json
       inject: false
+    "<=0.14.2.1":
+      type: script
 actions:
   import-umbrel:
     name: "Import from Umbrel (0.4)"
