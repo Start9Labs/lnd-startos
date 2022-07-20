@@ -123,6 +123,7 @@ struct AdvancedConfig {
     protocol_no_anchors: bool,
     protocol_disable_script_enforced_lease: bool,
     gc_canceled_invoices_on_startup: bool,
+    allow_circular_route: bool,
     bitcoin: BitcoinChannelConfig,
 }
 
@@ -329,6 +330,7 @@ fn main() -> Result<(), anyhow::Error> {
         accept_keysend = config.accept_keysend,
         accept_amp = config.accept_amp,
         gc_canceled_invoices_on_startup = config.advanced.gc_canceled_invoices_on_startup,
+        allow_circular_route = config.advanced.allow_circular_route,
         alias = alias,
         color = config.color,
         feeurl_row = if use_neutrino {

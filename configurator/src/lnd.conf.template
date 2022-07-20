@@ -18,6 +18,7 @@ max-commit-fee-rate-anchors={max_commit_fee_rate_anchors}
 accept-keysend={accept_keysend}
 accept-amp={accept_amp}
 gc-canceled-invoices-on-startup={gc_canceled_invoices_on_startup}
+allow-circular-route={allow_circular_route}
 alias={alias}
 color=#{color}
 {feeurl_row}

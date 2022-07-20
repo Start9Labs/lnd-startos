@@ -14,8 +14,9 @@ S9PK_PATH=$(shell find . -name lnd.s9pk -print)
 all: verify
 
 clean:
-	rm lnd.s9pk
-	rm image.tar
+	rm -f lnd.s9pk
+	rm -f image.tar
+	rm -f scripts/*.js
 
 verify: lnd.s9pk $(S9PK_PATH)
 	embassy-sdk verify s9pk $(S9PK_PATH)

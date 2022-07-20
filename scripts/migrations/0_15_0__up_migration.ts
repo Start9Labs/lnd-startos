@@ -2,6 +2,12 @@ import { types as T, YAML, matches, rangeOf } from "../deps.ts"
 
 const { shape, string, boolean } = matches
 
+const matchAdvanced = shape({
+  advanced: shape({
+    "allow-circular-route": boolean,
+  })
+})
+
 const matchWatch = shape({
   "watchtower-enabled": boolean,
   "watchtower-client-enabled": boolean
@@ -20,7 +26,7 @@ const matchBitcoin = shape({
   })
 })
 
-export const migration_up_0_14_2_1: T.ExpectedExports.migration = async (effects, version) => {
+export const migration_up_0_15_0: T.ExpectedExports.migration = async (effects, version) => {
   await effects.createDir({
     volumeId: "main",
     path: "start9"
@@ -69,6 +75,12 @@ export const migration_up_0_14_2_1: T.ExpectedExports.migration = async (effects
     }
   }
 
+  // allow_circular_route was added in 0.15.0
+  if (rangeOf('<0.15.0').check(version)) {
+    if (!matchAdvanced.test(parsed)) {
+      return { result: { configured: false } }
+    }
+  }
   return { result: { configured: true } }
 
 }

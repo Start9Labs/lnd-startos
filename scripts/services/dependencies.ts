@@ -72,6 +72,7 @@ const checks: Array<Check> = [
     "getrawtransaction",
     "getpeerinfo",
     "getmempoolinfo",
+    "getzmqnotifications",
   ].map(
     (operator): Check => ({
       currentError(config) {
