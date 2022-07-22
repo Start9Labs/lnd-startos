@@ -376,6 +376,12 @@ export const getConfig: T.ExpectedExports.getConfig = compat.getConfig({
         "description": "If true, LND will attempt to garbage collect canceled invoices upon start.\n",
         "default": false
       },
+      "allow-circular-route": {
+        "type": "boolean",
+        "name": "Allow Circular Route",
+        "description": "If true, LND will allow htlc forwards that arrive and depart on the same channel.\n",
+        "default": false
+      },
       "bitcoin": {
         "type": "object",
         "name": "Bitcoin Channel Configuration",

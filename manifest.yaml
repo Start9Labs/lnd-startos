@@ -1,13 +1,16 @@
 id: lnd
 title: Lightning Network Daemon
-version: 0.14.2.4
-release-notes: Fix migrations to properly handle the bitcoin configuration for updates from 0.13.x versions and ensure any version will successfully migrate to the latest version going forward
+version: 0.15.0
+release-notes: |-
+  * New LND v0.15.0-beta: [Upstream Release Notes](https://github.com/lightningnetwork/lnd/blob/master/docs/release-notes/release-notes-0.15.0.md)  
+  * Add "Allow Circular Route" Config Option 
 license: mit
 wrapper-repo: "https://github.com/Start9Labs/lnd-wrapper"
 upstream-repo: "https://github.com/lightningnetwork/lnd"
 support-site: "https://lightning.engineering/slack.html"
 marketing-site: "https://lightning.engineering/"
 build: ["make"]
+eos-version: 0.3.1.1
 description:
   short: A complete implementation of a Lightning Network node by Lightning Labs
   long: |
@@ -167,9 +170,11 @@ migrations:
   from:
     "*":
       type: script
+      args: ["from"]
   to:
     "*":
       type: script
+      args: ["to"]
 actions:
   import-umbrel:
     name: "Import from Umbrel (0.4)"
