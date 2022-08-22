@@ -693,8 +693,7 @@ fn main() -> Result<(), anyhow::Error> {
             )?;
         }
     }
-
-    // API calls to add watchtowers. I have not connected this to the config yet, these are two placeholder immutable Strings to test 
+ 
     if true { 
         let mac = std::fs::read(Path::new(
             "/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon",

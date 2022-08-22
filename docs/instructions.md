@@ -55,5 +55,5 @@ As of v0.7.0, LND supports the ability to run a private, altruist watchtower as 
 Your watchtower’s public key is *different* from lnd’s node public key. For now this acts as a soft whitelist as it requires clients to know the tower’s public key in order to use it for backups before more advanced whitelisting features are implemented. We recommend NOT disclosing this public key openly, unless you are prepared to open your tower up to the entire Internet.
 
 You can add other watchtowers to your node by using `Add a watchtower to your LND Node` in actions or in the config options. This will back up your LND node state to the remote watchtower you entered. NOTE: For now, watchtowers will only backup the `to_local` and `to_remote` outputs from revoked commitments; backing up HTLC outputs is slated to be deployed in a future release, as the protocol can be extended to include the extra signature data in the encrypted blobs.
+
 =======
-```

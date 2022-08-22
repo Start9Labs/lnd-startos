@@ -219,8 +219,8 @@ actions:
     input-spec:
       wt-uri:
         type: string
-        name: Peer Lightning Network Daemon URI
-        description: "The URI (pubkey@host) of the Lightning Network Daemon Node you are adding as a watchtower"
+        name: Peer Lightning Network Daemon Watchtower URI
+        description: "The Watchtower URI (pubkey@host) of the Lightning Network Daemon Node you are adding as a watchtower"
         masked: false
         placeholder: "pubkey@host"
         nullable: false
