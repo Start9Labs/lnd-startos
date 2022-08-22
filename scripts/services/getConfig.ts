@@ -253,6 +253,30 @@ export const getConfig: T.ExpectedExports.getConfig = compat.getConfig({
       }
     }
   },
+  "watchtowers": {
+    "type": "list",
+    "name": "Watchtowers",
+    "description": "Public Node Addresses for Watchtower",
+    "range": "[0,*)",
+    "subtype": "object",
+    "spec": {
+      "unique-by": "wt-uri",
+      "display-as": "{{wt-uri}}",
+      "spec": {
+        "wt-uri": {
+          "type": "string",
+          "name": "Watchtower URI",
+          "description": "The URI for the watchtower",
+          "nullable": false,
+          "copyable": true,
+          "placeholder": "pubkey@host",
+        },
+      }
+    },
+    "default": [
+
+    ]
+  },
   "advanced": {
     "type": "object",
     "name": "Advanced",
@@ -374,6 +398,12 @@ export const getConfig: T.ExpectedExports.getConfig = compat.getConfig({
         "type": "boolean",
         "name": "Cleanup Canceled Invoices on Startup",
         "description": "If true, LND will attempt to garbage collect canceled invoices upon start.\n",
+        "default": false
+      },
+      "allow-circular-route": {
+        "type": "boolean",
+        "name": "Allow Circular Route",
+        "description": "If true, LND will allow htlc forwards that arrive and depart on the same channel.\n",
         "default": false
       },
       "bitcoin": {
