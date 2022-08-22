@@ -59,3 +59,12 @@ embassy-cli auth login (enter password)
 embassy-cli package install /embassy-data/pacakge-data/tmp/lnd.s9pk
 ```
 
+=======
+```
+# Copy S9PK to the external disk. Make sure to create the directory if it doesn't already exist
+scp lnd.s9pk start9@embassy-<id>.local:/embassy-data/package-data/tmp 
+ssh start9@embassy-<id>.local
+embassy-cli auth login (enter password)
+# Install the sideloaded package
+embassy-cli package install /embassy-data/pacakge-data/tmp/lnd.s9pk
+```
