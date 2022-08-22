@@ -14,14 +14,15 @@ S9PK_PATH=$(shell find . -name lnd.s9pk -print)
 all: verify
 
 clean:
-	rm lnd.s9pk
-	rm image.tar
+	rm -f lnd.s9pk
+	rm -f image.tar
+	rm -f scripts/*.js
 
 verify: lnd.s9pk $(S9PK_PATH)
 	embassy-sdk verify s9pk $(S9PK_PATH)
 
-install: lnd.s9pk 
-	embassy-cli package install lnd
+install: all lnd.s9pk 
+	embassy-cli package install lnd.s9pk
 
 lnd.s9pk: manifest.yaml image.tar instructions.md LICENSE icon.png $(ASSET_PATHS) scripts/embassy.js
 	embassy-sdk pack

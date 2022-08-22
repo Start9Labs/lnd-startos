@@ -1,13 +1,17 @@
 id: lnd
 title: Lightning Network Daemon
-version: 0.14.2.4
-release-notes: Fix migrations to properly handle the bitcoin configuration for updates from 0.13.x versions and ensure any version will successfully migrate to the latest version going forward
+version: 0.15.0
+release-notes: |-
+  * New LND v0.15.0-beta: [Upstream Release Notes](https://github.com/lightningnetwork/lnd/blob/master/docs/release-notes/release-notes-0.15.0.md)  
+  * Add "Allow Circular Route" Config Option
+  * Enable Watchtowers 
 license: mit
 wrapper-repo: "https://github.com/Start9Labs/lnd-wrapper"
 upstream-repo: "https://github.com/lightningnetwork/lnd"
 support-site: "https://lightning.engineering/slack.html"
 marketing-site: "https://lightning.engineering/"
 build: ["make"]
+eos-version: 0.3.1.1
 description:
   short: A complete implementation of a Lightning Network node by Lightning Labs
   long: |
@@ -167,9 +171,11 @@ migrations:
   from:
     "*":
       type: script
+      args: ["from"]
   to:
     "*":
       type: script
+      args: ["to"]
 actions:
   import-umbrel:
     name: "Import from Umbrel (0.4)"
@@ -193,5 +199,29 @@ actions:
         description: "The password you use to log into your Umbrel dashboard or SSH"
         masked: true
         placeholder: password
+        nullable: false
+        default: ""
+  add-watchtower:
+    name: "Add a watchtower to your LND Node"
+    description: "Register a watchtower to use for future sessions/backups"
+    warning: "Make sure that the target LND node has watchtowers enabled!"
+    allowed-statuses:
+      - running
+    implementation:
+      type: docker
+      image: main
+      system: false
+      entrypoint: add-watchtower.sh
+      args: []
+      io-format: json
+      mounts:
+        main: /root/.lnd
+    input-spec:
+      wt-uri:
+        type: string
+        name: Peer Lightning Network Daemon URI
+        description: "The URI (pubkey@host) of the Lightning Network Daemon Node you are adding as a watchtower"
+        masked: false
+        placeholder: "pubkey@host"
         nullable: false
         default: ""

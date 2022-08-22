@@ -1,23 +1,154 @@
-import { types as T, rangeOf } from "../deps.ts"
+import { compat, matches, types as T } from "../deps.ts";
 
-import { migration_up_0_14_2_1 } from "../migrations/0_14_2_1__up_migration.ts";
-import { migration_down_0_14_2_1 } from "../migrations/0_14_2_1_down_migration.ts";
-
-// version here is where you are coming from ie. the version the service is currently on
-export const migration: T.ExpectedExports.migration = async (effects, version) => {
-
-  // from migrations (upgrades)
-  if (rangeOf('<=0.14.2.1').check(version)) {
-    const result = await migration_up_0_14_2_1(effects,version)
-    return result
-  }
-
-  // to migrations (downgrades)
-  if (rangeOf('>0.14.2.1').check(version)) {
-    const result = await migration_down_0_14_2_1(effects, version)
-    return result
-  }
-
-  return { result: { configured: true } }
-
-}
+export const migration: T.ExpectedExports.migration = compat.migrations
+  .fromMapping(
+    {
+      "0.13.3.2": {
+        up: compat.migrations.updateConfig(
+          (config) => {
+            if (
+              matches.shape({
+                bitcoind: matches.shape({ type: matches.any }),
+              }).test(config)
+            ) {
+              if ( config.bitcoind.type == "internal"){ config.bitcoind.type = "internal-proxy" }
+            }
+            return config;
+          },
+          false,
+          { version: "0.13.3.2", type: "up" },
+        ),
+        down: compat.migrations.updateConfig(
+          (config) => {
+            if (
+              matches.shape({
+                bitcoind: matches.shape({ type: matches.any }, ["type"]),
+              }).test(config)
+            ) {
+              config.bitcoind.type = "internal";
+            }
+            return config;
+          },
+          false,
+          { version: "0.13.3.2", type: "down" },
+        ),
+      },
+      "0.14.2": {
+        up: compat.migrations.updateConfig(
+          (config) => {
+            if (
+              matches.shape({
+                bitcoind: matches.shape({ type: matches.any }, ["type"]),
+              }).test(config)
+            ) {
+              if ( config.bitcoind.type == "external"){ config.bitcoind.type = "internal-proxy" }
+            }
+            if (
+              matches.shape({
+                tor: matches.shape({
+                  "use-tor-only": matches.any,
+                  "stream-isolation": matches.any,
+                }),
+              }).test(config)
+            ) {
+              delete config.tor["use-tor-only"];
+              delete config.tor["stream-isolation"];
+            }
+            return config;
+          },
+          false,
+          { version: "0.14.2", type: "up" },
+        ),
+        down: compat.migrations.updateConfig(
+          (config) => {
+            if (
+              matches.shape({
+                tor: matches.shape({
+                  "use-tor-only": matches.any,
+                  "stream-isolation": matches.any,
+                }),
+              }).test(config)
+            ) {
+              delete config.tor["use-tor-only"];
+              delete config.tor["stream-isolation"];
+            }
+            return config;
+          },
+          false,
+          { version: "0.14.2", type: "down" },
+          ),
+      },
+      "0.14.2.1": {
+        up: compat.migrations.updateConfig(
+          (config) => {
+            if (
+              matches.shape({
+                bitcoind: matches.shape({ type: matches.any }, ["type"]),
+              }).test(config)
+            ) {
+              if ( config.bitcoind.type == "none"){ config.bitcoind.type = "internal-proxy" }
+            }
+            if (
+              matches.shape({
+                "watchtower-enabled": matches.any,
+                "watchtower-client-enabled": matches.any,
+              }).test(config)
+            ) {
+              delete config["watchtower-enabled"];
+              delete config["watchtower-client-enabled"];
+            }
+            return config;
+          },
+          false,
+          { version: "0.14.2.1", type: "up" },
+        ),
+        down: compat.migrations.updateConfig(
+          (config) => {
+            return config;
+          },
+          false,
+          { version: "0.14.2.1", type: "down" },
+        ),
+      },
+      "0.15.0": {
+        up: compat.migrations.updateConfig(
+          (config) => {
+            if (
+              matches.shape({
+                "watchtowers": matches.any,
+              }).test(config)
+            ) {
+              delete config.watchtowers;
+            }
+            return config;
+          },
+          false,
+          { version: "0.15.0", type: "up" },
+        ),
+        down: compat.migrations.updateConfig(
+          (config) => {
+            if (
+              matches.shape({
+                advanced: matches.shape({
+                  "allow-circular-route": matches.any,
+                })
+              }).test(config)
+            ) {
+              delete config.advanced["allow-circular-route"];
+            }
+            if (
+              matches.shape({
+                "watchtowers": matches.any,
+              }).test(config)
+            ) {
+              delete config.watchtowers;
+            }
+            return config;
+          },
+          false,
+          { version: "0.15.0", type: "down" },
+        ),
+      },
+    },
+    "0.15.0",
+  );

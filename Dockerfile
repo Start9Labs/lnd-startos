@@ -21,6 +21,8 @@ ADD ./docker_entrypoint.sh /usr/local/bin/docker_entrypoint.sh
 RUN chmod a+x /usr/local/bin/docker_entrypoint.sh
 ADD ./actions/import-umbrel.sh /usr/local/bin/import-umbrel.sh
 RUN chmod a+x /usr/local/bin/import-umbrel.sh
+ADD ./actions/add-watchtower.sh /usr/local/bin/add-watchtower.sh
+RUN chmod a+x /usr/local/bin/add-watchtower.sh
 
 WORKDIR /root
 
