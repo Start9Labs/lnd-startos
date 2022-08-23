@@ -1,6 +1,6 @@
 # Compatible Wallets
 
-## Ride the Lightning (RTL)
+## [Ride the Lightning](https://github.com/Ride-The-Lightning/RTL)
 
 ### Available on the Embassy
 
@@ -8,6 +8,15 @@
 1. Install RTL on the Embassy
 2. Copy/paste your RTL Tor Address into any Tor-enabled browser
 3. Copy/paste your password (located in `Properties`) into your RTL website
+
+## [Thunderhub](https://github.com/apotdevin/thunderhub)
+
+### Available on the Embassy
+
+### Instructions
+1. Install Thunderhub on the Embassy
+2. Copy/paste your Thunderhub Tor Address into any Tor-enabled browser
+3. Copy/paste your password (located in `Properties`) into your Thunderhub website
 
 ## [Zap](https://github.com/LN-Zap/)
 
