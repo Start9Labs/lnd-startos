@@ -254,28 +254,48 @@ export const getConfig: T.ExpectedExports.getConfig = compat.getConfig({
     }
   },
   "watchtowers": {
-    "type": "list",
+    "type": "object",
     "name": "Watchtowers",
-    "description": "Public Node Addresses for Watchtower",
-    "range": "[0,*)",
-    "subtype": "object",
+    "description": "Watchtower Settings",
     "spec": {
-      "unique-by": "wt-uri",
-      "display-as": "{{wt-uri}}",
-      "spec": {
-        "wt-uri": {
-          "type": "string",
-          "name": "Watchtower URI",
-          "description": "The URI for the watchtower",
-          "nullable": false,
-          "copyable": true,
-          "placeholder": "pubkey@host",
+      "wt-server": {
+        "type": "boolean",
+        "name": "Enable Watchtower Server",
+        "description":
+          "Allow other nodes to find your watchtower server on the network.",
+        "default": false,
+      },
+      "wt-client": {
+        "type": "boolean",
+        "name": "Enable Watchtower Client",
+        "description": "Allow your node to find other watchtower servers on the network.",
+        "default": false,
+      },
+      "add-watchtowers": {
+        "type": "list",
+        "name": "Add Watchtowers",
+        "description": "Add URIs of Watchtowers to connect to.",
+        "range": "[0,*)",
+        "subtype": "object",
+        "spec": {
+          "unique-by": "wt-uri",
+          "display-as": "{{wt-uri}}",
+          "spec": {
+            "wt-uri": {
+              "type": "string",
+              "name": "Watchtower URI",
+              "description": "The URI for the watchtower",
+              "nullable": true,
+              "copyable": true,
+              "placeholder": "pubkey@host",
+            },
+          }
         },
-      }
-    },
-    "default": [
+        "default": [
 
-    ]
+        ]
+      }
+    }
   },
   "advanced": {
     "type": "object",

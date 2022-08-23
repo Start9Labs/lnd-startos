@@ -115,10 +115,18 @@ export const migration: T.ExpectedExports.migration = compat.migrations
           (config) => {
             if (
               matches.shape({
-                "watchtowers": matches.any,
+                watchtowers: matches.shape({
+                  "wt-server": matches.any,
+                  "wt-client": matches.any,
+                  "add-watchtowers": matches.shape ({
+                    "wt-uri": matches.any,
+                  })
+                })
               }).test(config)
             ) {
-              delete config.watchtowers;
+              delete config.watchtowers["wt-server"];
+              delete config.watchtowers["wt-client"];
+              delete config.watchtowers["add-watchtowers"]["wt-uri"];
             }
             return config;
           },
@@ -138,10 +146,18 @@ export const migration: T.ExpectedExports.migration = compat.migrations
             }
             if (
               matches.shape({
-                "watchtowers": matches.any,
+                watchtowers: matches.shape({
+                  "wt-server": matches.any,
+                  "wt-client": matches.any,
+                  "add-watchtowers": matches.shape ({
+                    "wt-uri": matches.any,
+                  })
+                })
               }).test(config)
-            ) {
-              delete config.watchtowers;
+            ) {     
+              delete config.watchtowers["wt-server"];
+              delete config.watchtowers["wt-client"];
+              delete config.watchtowers["add-watchtowers"]["wt-uri"];
             }
             return config;
           },

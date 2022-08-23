@@ -54,7 +54,7 @@ struct Config {
     max_chan_size: Option<u64>,
     bitcoind: BitcoinCoreConfig,
     autopilot: AutoPilotConfig,
-    watchtowers: Vec<WatchtowerConfig>,
+    watchtowers: WatchtowerConfig,
     advanced: AdvancedConfig,
     tor: TorConfig,
 }
@@ -65,10 +65,19 @@ struct TorConfig {
     use_tor_only: bool,
     stream_isolation: bool,
 }
+
 #[derive(Debug, Clone, serde::Deserialize)]
 #[serde(tag = "type")]
 #[serde(rename_all = "kebab-case")]
 struct WatchtowerConfig {
+    wt_server: bool,
+    wt_client: bool,
+    add_watchtowers: Vec<WatchtowerAddConfig>,
+}
+#[derive(Debug, Clone, serde::Deserialize)]
+#[serde(tag = "type")]
+#[serde(rename_all = "kebab-case")]
+struct WatchtowerAddConfig {
     wt_uri: String,
 }
 
@@ -402,7 +411,9 @@ fn main() -> Result<(), anyhow::Error> {
         db_bolt_auto_compact_min_age = config.advanced.db_bolt_auto_compact_min_age,
         db_bolt_db_timeout = config.advanced.db_bolt_db_timeout,
         tor_enable_clearnet = !config.tor.use_tor_only,
-        tor_stream_isolation = config.tor.stream_isolation
+        tor_stream_isolation = config.tor.stream_isolation,
+        wt_server = config.watchtowers.wt_server,
+        wt_client = config.watchtowers.wt_client
     )?;
 
     // TLS Certificate migration from 0.11.0 -> 0.11.1 release (to include tor address)
@@ -693,15 +704,14 @@ fn main() -> Result<(), anyhow::Error> {
             )?;
         }
     }
-
-    // API calls to add watchtowers. I have not connected this to the config yet, these are two placeholder immutable Strings to test 
+ 
     if true { 
         let mac = std::fs::read(Path::new(
             "/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon",
         ))?;
         let mac_encoded = hex::encode_upper(mac);
 
-        for watchtower in config.watchtowers.iter() {
+        for watchtower in config.watchtowers.add_watchtowers.iter() {
             let mut watchtower_uri = String::new();
             watchtower_uri.push_str(&format!("{}", watchtower.wt_uri));
             let parsed_watchtower_uri: WatchtowerUri = watchtower_uri.parse()?;
