@@ -260,14 +260,14 @@ export const getConfig: T.ExpectedExports.getConfig = compat.getConfig({
     "spec": {
       "wt-server": {
         "type": "boolean",
-        "name": "Enable Watchtower Server",
+        "name": "Enable Watchtower",
         "description":
           "Allow other nodes to find your watchtower server on the network.",
         "default": false,
       },
       "wt-client": {
         "type": "boolean",
-        "name": "Enable Watchtower Client",
+        "name": "Enable Watchtower (Client Only)",
         "description": "Allow your node to find other watchtower servers on the network.",
         "default": false,
       },

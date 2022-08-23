@@ -1,6 +1,6 @@
 #!/bin/sh
 
-set -ea
+set -e
 
 cat > wtinput.json
 export WT_URI=$(jq -r '.["wt-uri"]' wtinput.json)
@@ -19,12 +19,23 @@ if $WT_CLIENT || $WT_SERVER ; then
         \"copyable\": false,
         \"qr\": false
     }"
+    action_result_error="    {
+        \"version\": \"0\",
+        \"message\": \"Error: Not able to add watchtower. Please check the log for details.\",
+        \"value\": null,
+        \"copyable\": false,
+        \"qr\": false
+    }"
+    export WT_RES=$(curl --no-progress-meter -X POST --cacert /root/.lnd/tls.cert --header "$MACAROON_HEADER" https://lnd.embassy:8080/v2/watchtower/client -d '{"pubkey":"'$(echo $PUBKEY | xxd -r -p | base64)'","address":"'$ADDRESS'"}')
+  
+        if test "$WT_RES" != "{}"; then
+            echo $action_result_error
+        else
+            echo $action_result_running 
+            sed -n -i 'H;${x;s/^\n//;s/    - wt-uri: >-.*$/    - wt-uri: >- \n        '$WT_URI'\n&/;p;}' /root/.lnd/start9/config.yaml &&
+            sed -i 's/\[\]/\n  - wt-uri: >- \n        '$WT_URI'/' /root/.lnd/start9/config.yaml
+        fi
 
-    curl --no-progress-meter -X POST --cacert /root/.lnd/tls.cert --header \
-        "$MACAROON_HEADER" https://lnd.embassy:8080/v2/watchtower/client -d \
-        '{"pubkey":"'$(echo $PUBKEY | xxd -r -p | base64)'","address":"'$ADDRESS'"}' >/dev/null 2>/dev/null && echo $action_result_running
-    sed -n -i 'H;${x;s/^\n//;s/    - wt-uri: >-.*$/    - wt-uri: >- \n        '$WT_URI'\n&/;p;}' /root/.lnd/start9/config.yaml &&
-    sed -i 's/\[\]/\n  - wt-uri: >- \n        '$WT_URI'/' /root/.lnd/start9/config.yaml
 else
    action_result_running="    {
         \"version\": \"0\",
