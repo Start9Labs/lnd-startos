@@ -11,7 +11,6 @@ upstream-repo: "https://github.com/lightningnetwork/lnd"
 support-site: "https://lightning.engineering/slack.html"
 marketing-site: "https://lightning.engineering/"
 build: ["make"]
-eos-version: 0.3.1.1
 description:
   short: A complete implementation of a Lightning Network node by Lightning Labs
   long: |
