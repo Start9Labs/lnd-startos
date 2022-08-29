@@ -11,7 +11,7 @@ export PUBKEY=${WT_URI%%@*}
 export ADDRESS=${WT_URI#*@}
 rm wtinput.json
 
-if $WT_CLIENT || $WT_SERVER ; then
+if $WT_CLIENT ; then
     action_result_running="    {
         \"version\": \"0\",
         \"message\": \"Successfully Added Watchtower $PUBKEY\",
@@ -39,7 +39,7 @@ if $WT_CLIENT || $WT_SERVER ; then
 else
    action_result_running="    {
         \"version\": \"0\",
-        \"message\": \"Watchtower Server or Watchtower Client need to be enabled in order to use this action.\",
+        \"message\": \"Watchtower Client needs to be enabled in order to use this action.\",
         \"value\": null,
         \"copyable\": false,
         \"qr\": false
