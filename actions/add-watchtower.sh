@@ -32,8 +32,7 @@ if $WT_CLIENT ; then
             echo $action_result_error
         else
             echo $action_result_running 
-            sed -n -i 'H;${x;s/^\n//;s/    - wt-uri: >-.*$/    - wt-uri: >- \n        '$WT_URI'\n&/;p;}' /root/.lnd/start9/config.yaml &&
-            sed -i 's/\[\]/\n  - wt-uri: >- \n        '$WT_URI'/' /root/.lnd/start9/config.yaml
+            sed "s/add-watchtowers:.*/add-watchtowers:\n  - $WT_URI/" /root/.lnd/start9/config.yaml
         fi
 
 else

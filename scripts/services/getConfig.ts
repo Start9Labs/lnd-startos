@@ -276,24 +276,13 @@ export const getConfig: T.ExpectedExports.getConfig = compat.getConfig({
         "name": "Add Watchtowers",
         "description": "Add URIs of Watchtowers to connect to.",
         "range": "[0,*)",
-        "subtype": "object",
+        "subtype": "string",
         "spec": {
-          "unique-by": "wt-uri",
-          "display-as": "{{wt-uri}}",
-          "spec": {
-            "wt-uri": {
-              "type": "string",
-              "name": "Watchtower URI",
-              "description": "The URI for the watchtower",
-              "nullable": true,
-              "copyable": true,
-              "placeholder": "pubkey@host",
-            },
-          }
+          "masked": false,
+          "copyable": true,
+          "placeholder": "pubkey@host"
         },
-        "default": [
-
-        ]
+        "default": []
       }
     }
   },

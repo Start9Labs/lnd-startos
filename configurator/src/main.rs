@@ -72,13 +72,7 @@ struct TorConfig {
 struct WatchtowerConfig {
     wt_server: bool,
     wt_client: bool,
-    add_watchtowers: Vec<WatchtowerAddConfig>,
-}
-#[derive(Debug, Clone, serde::Deserialize)]
-#[serde(tag = "type")]
-#[serde(rename_all = "kebab-case")]
-struct WatchtowerAddConfig {
-    wt_uri: String,
+    add_watchtowers: Vec<String>,
 }
 
 #[derive(serde::Deserialize)]
@@ -711,9 +705,7 @@ fn main() -> Result<(), anyhow::Error> {
         ))?;
         let mac_encoded = hex::encode_upper(mac);
 
-        for watchtower in config.watchtowers.add_watchtowers.iter() {
-            let mut watchtower_uri = String::new();
-            watchtower_uri.push_str(&format!("{}", watchtower.wt_uri));
+        for watchtower_uri in config.watchtowers.add_watchtowers.iter() {
             let parsed_watchtower_uri: WatchtowerUri = watchtower_uri.parse()?;
             let _status = {
                 use std::process;

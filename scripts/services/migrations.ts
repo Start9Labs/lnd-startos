@@ -118,52 +118,20 @@ export const migration: T.ExpectedExports.migration = compat.migrations
                 watchtowers: matches.shape({
                   "wt-server": matches.any,
                   "wt-client": matches.any,
-                  "add-watchtowers": matches.shape ({
-                    "wt-uri": matches.any,
-                  })
+                  "add-watchtowers": matches.any
                 })
               }).test(config)
             ) {
               delete config.watchtowers["wt-server"];
               delete config.watchtowers["wt-client"];
-              delete config.watchtowers["add-watchtowers"]["wt-uri"];
+              delete config.watchtowers["add-watchtowers"];
             }
             return config;
           },
           false,
           { version: "0.15.0", type: "up" },
         ),
-        down: compat.migrations.updateConfig(
-          (config) => {
-            if (
-              matches.shape({
-                advanced: matches.shape({
-                  "allow-circular-route": matches.any,
-                })
-              }).test(config)
-            ) {
-              delete config.advanced["allow-circular-route"];
-            }
-            if (
-              matches.shape({
-                watchtowers: matches.shape({
-                  "wt-server": matches.any,
-                  "wt-client": matches.any,
-                  "add-watchtowers": matches.shape ({
-                    "wt-uri": matches.any,
-                  })
-                })
-              }).test(config)
-            ) {     
-              delete config.watchtowers["wt-server"];
-              delete config.watchtowers["wt-client"];
-              delete config.watchtowers["add-watchtowers"]["wt-uri"];
-            }
-            return config;
-          },
-          false,
-          { version: "0.15.0", type: "down" },
-        ),
+        down: () => { throw new Error('Cannot downgrade') },
       },
     },
     "0.15.0",
