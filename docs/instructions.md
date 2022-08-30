@@ -63,9 +63,7 @@ Be advised, your watchtower’s public key is *different* from lnd’s node publ
 To obtain your full LND Watchtower URI:
 1. SSH into your Embassy
 1. Run `sudo docker exec -ti lnd.embassy lncli tower info`
-1. Combine the pubky and uri values with an "@" symbol between them (e.g. `pubkey@uri`)
-
-Give this combined URI to anyone for whom you would like to be a watchtower.
+1. Copy the entry under `uris` and give it to anyone for whom you would like to be a watchtower
 
 ### Using a Watchtower
 
