@@ -56,7 +56,7 @@ In LND, watchtowers act as a second line of defense in responding to malicious o
 
 ### Being a Watchtower for Others
 
-You can make your LND node a watchtower for others by enabling in settings. There is immediate economic reason to do this, but you may want to do it for friends or family, or a second LND node of your own. Once enabled, you share your watchtower public key with whomever you want to use it.
+You can make your LND node a watchtower for others by enabling in settings. There isn't immediate economic reason to do this, but you may want to do it for friends or family, or a second LND node of your own. Once enabled, you share your watchtower public key with whomever you want to use it.
 
 Be advised, your watchtower’s public key is *different* from lnd’s node public key. It is not known the network. We recommend NOT disclosing this public key openly, unless you are prepared to open your tower up to the entire Internet.
 
