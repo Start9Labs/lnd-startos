@@ -32,7 +32,10 @@ if $WT_CLIENT ; then
             echo $action_result_error
         else
             echo $action_result_running
-            sed -i "s/add-watchtowers:.*/add-watchtowers:\n  - $WT_URI/" /root/.lnd/start9/config.yaml
+            export EXISTING_WT=$(grep $WT_URI /root/.lnd/start9/config.yaml)
+            if ! [ $EXISTING_WT == $WT_URI ]; then
+                sed -i "s/add-watchtowers:.*/add-watchtowers:\n    - >-\n      $WT_URI/" /root/.lnd/start9/config.yaml
+            fi
         fi
 
 else
