@@ -56,10 +56,24 @@ In LND, watchtowers act as a second line of defense in responding to malicious o
 
 ### Being a Watchtower for Others
 
-You can make your LND node a watchtower for others by enabling in settings. There is immediate economic reason to do this, but you may want to do it for friends or family, or a second LND node of your own. Once enabled, you share your watchtower public key with whomever you want to use it.
+You can make your LND node a watchtower for others by enabling in settings. There is no immediate economic reason to do this, but you may want to do it for friends or family, or a second LND node of your own. Once enabled, you share your watchtower public key with whomever you want to use it.
 
 Be advised, your watchtower’s public key is *different* from lnd’s node public key. It is not known the network. We recommend NOT disclosing this public key openly, unless you are prepared to open your tower up to the entire Internet.
 
+To obtain your full LND Watchtower URI:
+1. SSH into your Embassy
+1. Run `sudo docker exec -ti lnd.embassy lncli tower info`
+1. Combine the pubky and uri values with an "@" symbol between them (e.g. `pubkey@uri`)
+
+Give this combined URI to anyone for whom you would like to be a watchtower.
+
 ### Using a Watchtower
 
-You can enlist watchtowers to watch your node by using `Add a watchtower to your LND Node` in Actions or in Config options. This will back up your LND node state to the remote watchtower you entered. NOTE: For now, watchtowers will only backup the `to_local` and `to_remote` outputs from revoked commitments; backing up HTLC outputs is slated to be deployed in a future release, as the protocol can be extended to include the extra signature data in the encrypted blobs.
+You can enlist watchtowers to watch your node by using `Add a watchtower to your LND Node` in Actions or in Config options. This will back up your LND node state to the remote watchtower you entered.
+
+After adding a watchtower URI through Actions or Config, you can conform it is working by:
+1. SSH into your Embassy
+1. Run `sudo docker exec -ti lnd.embassy lncli wtclient towers`
+1. If you see `"active_session_candidate": true`, it worked. If not, double check the watchtower URI you were provided and try again.
+
+NOTE: For now, watchtowers will only backup the `to_local` and `to_remote` outputs from revoked commitments; backing up HTLC outputs is slated to be deployed in a future release, as the protocol can be extended to include the extra signature data in the encrypted blobs.
