@@ -1,8 +1,9 @@
 id: lnd
 title: Lightning Network Daemon
-version: 0.15.2
+version: 0.15.3
 release-notes: |-
-  * New LND v0.15.2-beta: [Upstream Release Notes](https://github.com/lightningnetwork/lnd/blob/master/docs/release-notes/release-notes-0.15.2.md)  
+  * New LND v0.15.3-beta: [Upstream Release Notes](https://github.com/lightningnetwork/lnd/blob/master/docs/release-notes/release-notes-0.15.3.md)  
+  * Update LND to run on x86_64 architecture
 license: mit
 wrapper-repo: "https://github.com/Start9Labs/lnd-wrapper"
 upstream-repo: "https://github.com/lightningnetwork/lnd"
@@ -17,7 +18,6 @@ assets:
   license: LICENSE # default = LICENSE.md
   icon: icon.png # default = icon.png - assumes icon.png if this field does not exist
   instructions: instructions.md # default = INSTRUCTIONS.md
-  docker-images: image.tar # default
 main:
   type: docker
   image: main
@@ -35,7 +35,6 @@ health-checks:
     image: main
     entrypoint: "health-check"
     args: []
-    inject: true
     io-format: yaml
 config: # if you dont provide an io format in cases like config where its necessarily developer defined, functionality will not work
   get:
@@ -52,15 +51,10 @@ properties:
   mounts:
     main: /root/.lnd
   io-format: yaml
-  inject: false
 volumes:
   # this is the image where data will go from 0.2.x
   main:
     type: data
-  # this is the image where files from the project asset directory will go
-  compat:
-    type: assets
-  # TODO - update configurator to not gen cert
   certificates:
     type: certificate
     # id of the interface you want the cert for
@@ -153,7 +147,7 @@ backup:
     type: docker
     image: compat
     system: true
-    entrypoint: /mnt/assets/backup-restore.sh
+    entrypoint: backup-restore.sh
     args:
       - duplicity
       - restore
@@ -162,7 +156,6 @@ backup:
     mounts:
       BACKUP: /mnt/backup
       main: /root/.lnd
-      compat: /mnt/assets
     io-format: yaml
 migrations:
   from:

@@ -1,9 +1,12 @@
-FROM arm64v8/golang:alpine3.13 AS builder
+FROM golang:alpine3.13 AS builder
+
+# arm64 or amd64
+ARG PLATFORM
 
 RUN apk update
 RUN apk add make git wget
-RUN wget https://github.com/mikefarah/yq/releases/download/v4.23.1/yq_linux_arm.tar.gz -O - |\
-    tar xz && mv yq_linux_arm /usr/bin/yq
+RUN wget https://github.com/mikefarah/yq/releases/download/v4.6.3/yq_linux_${PLATFORM}.tar.gz -O - |\
+  tar xz && mv yq_linux_${PLATFORM} /usr/bin/yq
     
 ADD . /root
 
@@ -12,6 +15,9 @@ WORKDIR /root/lnd
 RUN make -j24 install tags="autopilotrpc signrpc walletrpc chainrpc invoicesrpc routerrpc watchtowerrpc"
 
 FROM alpine:3.12 as runner
+
+# arm64 or amd64
+ARG PLATFORM
 
 RUN apk update
 RUN apk add tini curl sshpass jq openssh-client bash vim
@@ -28,7 +34,3 @@ ADD ./actions/add-watchtower.sh /usr/local/bin/add-watchtower.sh
 RUN chmod a+x /usr/local/bin/add-watchtower.sh
 
 WORKDIR /root
-
-EXPOSE 9735 8080
-
-ENTRYPOINT ["/usr/local/bin/docker_entrypoint.sh"]
