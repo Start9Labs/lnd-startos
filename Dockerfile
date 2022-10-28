@@ -1,7 +1,8 @@
-FROM golang:alpine3.13 AS builder
+FROM golang:1.19.2-alpine as builder
 
 # arm64 or amd64
 ARG PLATFORM
+ARG ARCH
 
 RUN apk update
 RUN apk add make git wget
@@ -14,10 +15,11 @@ WORKDIR /root/lnd
 
 RUN make -j24 install tags="autopilotrpc signrpc walletrpc chainrpc invoicesrpc routerrpc watchtowerrpc"
 
-FROM alpine:3.12 as runner
+FROM alpine as runner
 
 # arm64 or amd64
 ARG PLATFORM
+ARG ARCH
 
 RUN apk update
 RUN apk add tini curl sshpass jq openssh-client bash vim
