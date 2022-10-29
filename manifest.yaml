@@ -168,6 +168,30 @@ migrations:
       type: script
       args: ["to"]
 actions:
+  add-peer:
+    name: "Add a Peer to your LND Node"
+    description: "Add another Lightning Node to the list of peers on your LND Node"
+    warning: "Lightning node pubkey required"
+    allowed-statuses:
+      - running
+    implementation:
+      type: docker
+      image: main
+      system: false
+      entrypoint: add-peer.sh
+      args: []
+      io-format: json
+      mounts:
+        main: /root/.lnd
+    input-spec:
+      peer-uri:
+        type: string
+        name: Peer Lightning URI
+        description: "The URI (pubkey@host:port) of the Lightning Node you are adding as a Peer"
+        masked: false
+        placeholder: "pubkey@host:port"
+        nullable: false
+        default: "03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f@3.33.236.230:9735"
   import-umbrel:
     name: "Import from Umbrel (0.4)"
     description: "Imports wallet and channel data from Umbrel 0.4"

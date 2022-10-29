@@ -1,8 +1,6 @@
 PKG_ID := $(shell yq e ".id" manifest.yaml)
 PKG_VERSION := $(shell yq e ".version" manifest.yaml)
 TS_FILES := $(shell find ./ -name \*.ts)
-LND_GIT_REF := $(shell cat .git/modules/lnd/HEAD)
-LND_GIT_FILE := $(addprefix .git/modules/lnd/,$(if $(filter ref:%,$(LND_GIT_REF)),$(lastword $(LND_GIT_REF)),HEAD))
 CONFIGURATOR_SRC := $(shell find ./configurator/src) configurator/Cargo.toml configurator/Cargo.lock
 HEALTH_CHECK_SRC := $(shell find ./health-check/src) health-check/Cargo.toml health-check/Cargo.lock
 
@@ -26,11 +24,11 @@ clean:
 scripts/embassy.js: $(TS_FILES)
 	deno bundle scripts/embassy.ts scripts/embassy.js
 
-docker-images/x86_64.tar: Dockerfile docker_entrypoint.sh configurator/target/aarch64-unknown-linux-musl/release/configurator health-check/target/aarch64-unknown-linux-musl/release/health-check $(LND_GIT_FILE)
+docker-images/x86_64.tar: Dockerfile docker_entrypoint.sh configurator/target/aarch64-unknown-linux-musl/release/configurator health-check/target/aarch64-unknown-linux-musl/release/health-check 
 	mkdir -p docker-images
 	docker buildx build --tag start9/$(PKG_ID)/main:$(PKG_VERSION) --platform=linux/amd64 --build-arg PLATFORM=amd64 -o type=docker,dest=docker-images/x86_64.tar .
 
-docker-images/aarch64.tar: Dockerfile docker_entrypoint.sh configurator/target/aarch64-unknown-linux-musl/release/configurator health-check/target/aarch64-unknown-linux-musl/release/health-check $(LND_GIT_FILE)
+docker-images/aarch64.tar: Dockerfile docker_entrypoint.sh configurator/target/aarch64-unknown-linux-musl/release/configurator health-check/target/aarch64-unknown-linux-musl/release/health-check 
 	mkdir -p docker-images
 	docker buildx build --tag start9/$(PKG_ID)/main:$(PKG_VERSION) --platform=linux/arm64 --build-arg PLATFORM=arm64 -o type=docker,dest=docker-images/aarch64.tar .
 
