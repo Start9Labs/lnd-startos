@@ -30,7 +30,7 @@ action_result_error="    {
 }"
 
 # Not sure if this is the correct format for PEER address
-export PEER_RES=$(curl --no-progress-meter -X POST --cacert /root/.lnd/tls.cert --header "$MACAROON_HEADER" https://lnd.embassy:8080/v1/peers -d '{"addr":"'${PEER}'","perm":"'$PERSIST'","timeout":"'$TIMEOUT'"}')
+export PEER_RES=$(curl --no-progress-meter -X POST --cacert /root/.lnd/tls.cert --header "$MACAROON_HEADER" https://lnd.embassy:8080/v1/peers -d '{"addr":"'$PEER'","perm":"'$PERSIST'","timeout":"'$TIMEOUT'"}')
 
 if test "$PEER_RES" != "{}"; then
     echo $action_result_error

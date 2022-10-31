@@ -5,7 +5,7 @@ ARG PLATFORM
 ARG ARCH
 
 RUN apk update
-RUN apk add --no-cache --virtual make git wget yq tini curl sshpass jq openssh-client bash vim && \
+RUN apk add --no-cache make git wget yq tini curl sshpass jq openssh-client bash vim && \
     rm -f /var/cache/apk/*
 
 ADD lnd.conf /usr/local/bin/lnd.conf
