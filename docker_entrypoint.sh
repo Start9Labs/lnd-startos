@@ -23,6 +23,7 @@ lnd &
 lnd_child=$!
 
 # ----------Hotfix for bootstrapping peers----------
+sleep 60
 while true; do {
   echo 'checking for sync...'
   SYNC_CHECK=$(lncli getinfo) 
