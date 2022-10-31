@@ -18,7 +18,6 @@ addpeers() {
     lncli connect 02bba49d7f9c57b9c05f7eb33bf4dc69b2aa37cb63caff93f13bfa88135e7f7a46@212.129.58.219:9739 || >&2 echo 'Failed to add fallback peer #2'
     lncli connect 033dee9c6a0afc40ffd8f27d68ef260f3e5e1c19e59c6f9bb607fb04c1d497a809@98.165.150.209:9735 || >&2 echo 'Failed to add fallback peer #3'
 }
-export CHECK_VAR='"synced_to_chain": true'
 # ----------End of Hotfix---------------------------
 
 configurator
