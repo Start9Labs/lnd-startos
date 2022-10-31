@@ -1,0 +1,6 @@
+.git
+lnd/.git
+configurator
+!configurator/target/aarch64-unknown-linux-musl/release/configurator
+health-check
+!health-check/target/aarch64-unknown-linux-musl/release/health-check

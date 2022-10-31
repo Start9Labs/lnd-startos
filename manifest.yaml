@@ -1,8 +1,8 @@
 id: lnd
 title: Lightning Network Daemon
-version: 0.15.2
+version: 0.15.2.1
 release-notes: |-
-  * New LND v0.15.2-beta: [Upstream Release Notes](https://github.com/lightningnetwork/lnd/blob/master/docs/release-notes/release-notes-0.15.2.md)  
+  * Minor hotfix for bootstrapping peers on first run 
 license: mit
 wrapper-repo: "https://github.com/Start9Labs/lnd-wrapper"
 upstream-repo: "https://github.com/lightningnetwork/lnd"
