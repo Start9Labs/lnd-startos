@@ -106,7 +106,7 @@ interfaces:
       - http
 dependencies:
   btc-rpc-proxy:
-    version: ">=0.3.2.5 <0.4.0"
+    version: ">=0.3.2.6 <0.4.0"
     requirement:
       type: "opt-out"
       how: Can alternatively use the internal full archival bitcoind node or configure an external bitcoin node.
