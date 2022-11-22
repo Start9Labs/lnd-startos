@@ -2,7 +2,8 @@ id: lnd
 title: Lightning Network Daemon
 version: 0.15.4.1
 release-notes: |-
-  * Umbrel 0.5.x migration action added  
+  * Umbrel 0.5.x migration action added
+  * Update LND for eOS v0.3.3  
   * Various bugfixes
 license: mit
 wrapper-repo: "https://github.com/Start9Labs/lnd-wrapper"
@@ -18,15 +19,13 @@ assets:
   license: LICENSE # default = LICENSE.md
   icon: icon.png # default = icon.png - assumes icon.png if this field does not exist
   instructions: instructions.md # default = INSTRUCTIONS.md
+containers:
+  main:
+    image: main
+    mounts:
+      main: /root/.lnd
 main:
-  type: docker
-  image: main
-  entrypoint: "docker_entrypoint.sh"
-  args: []
-  # specifices where to put the volumes in the main image
-  mounts:
-    # main data directory - also needed to preserve data in 0.2.x migration
-    main: /root/.lnd
+  type: script
 health-checks:
   synced:
     name: Synced
@@ -167,7 +166,7 @@ migrations:
       type: script
       args: ["to"]
 actions:
-  import-umbrel-5:
+  import-umbrel-five:
     name: "Import from Umbrel (0.5)"
     description: "Imports wallet and channel data from Umbrel 0.5"
     warning: "This will destroy existing channel data, please make sure you have no funds on this node before running this action"
@@ -183,6 +182,14 @@ actions:
       mounts:
         main: /root/.lnd
     input-spec:
+      umbrel-host:
+        type: string
+        name: Umbrel Hostname
+        description: "The hostname you use to log into your Umbrel dashboard or SSH"
+        masked: true
+        placeholder: "umbrel.local"
+        nullable: false
+        default: "umbrel.local"
       umbrel-password:
         type: string
         name: Umbrel Password
