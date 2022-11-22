@@ -19,13 +19,13 @@ assets:
   license: LICENSE # default = LICENSE.md
   icon: icon.png # default = icon.png - assumes icon.png if this field does not exist
   instructions: instructions.md # default = INSTRUCTIONS.md
-containers:
-  main:
-    image: main
-    mounts:
-      main: /root/.lnd
 main:
-  type: script
+  type: docker
+  image: main
+  entrypoint: docker_entrypoint.sh
+  args: []
+  mounts:
+    main: /root/.lnd
 health-checks:
   synced:
     name: Synced
