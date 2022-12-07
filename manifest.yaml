@@ -1,6 +1,6 @@
 id: lnd
 title: Lightning Network Daemon
-version: 0.15.4.1
+version: 0.15.4.2
 release-notes: |-
   * Umbrel 0.5.x migration action added
   * Update LND for eOS v0.3.3  
@@ -33,6 +33,7 @@ health-checks:
     type: docker
     image: main
     entrypoint: "health-check"
+    inject: true
     args: []
     io-format: yaml
 config: # if you dont provide an io format in cases like config where its necessarily developer defined, functionality will not work
@@ -110,7 +111,7 @@ dependencies:
       auto-configure:
         type: script
   bitcoind:
-    version: ">=0.21.1.2 <24.0.0"
+    version: ">=0.21.1.2 <26.0.0"
     requirement:
       type: "opt-out"
       how: Can alternatively configure an external bitcoin node.
