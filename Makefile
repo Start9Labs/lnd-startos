@@ -16,7 +16,7 @@ clean:
 	rm -f scripts/*.js
 
 verify: $(PKG_ID).s9pk
-	embassy-sdk verify s9pk
+	embassy-sdk verify s9pk $(PKG_ID).s9pk
 
 install: all $(PKG_ID).s9pk 
 	embassy-cli package install lnd.s9pk

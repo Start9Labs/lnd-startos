@@ -3,6 +3,7 @@ title: Lightning Network Daemon
 version: 0.15.4.1
 release-notes: |-
   * Build for x86
+  * Adjust bitcoind dependency version requirement to accommodate bitcoind v24 and v25
 license: mit
 wrapper-repo: "https://github.com/Start9Labs/lnd-wrapper"
 upstream-repo: "https://github.com/lightningnetwork/lnd"
@@ -17,7 +18,6 @@ assets:
   license: LICENSE # default = LICENSE.md
   icon: icon.png # default = icon.png - assumes icon.png if this field does not exist
   instructions: instructions.md # default = INSTRUCTIONS.md
-  docker-images: image.tar # default
 main:
   type: docker
   image: main
@@ -117,7 +117,7 @@ dependencies:
       auto-configure:
         type: script
   bitcoind:
-    version: ">=0.21.1.2 <24.0.0"
+    version: ">=0.21.1.2 <26.0.0"
     requirement:
       type: "opt-out"
       how: Can alternatively configure an external bitcoin node.
