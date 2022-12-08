@@ -1,9 +1,8 @@
-FROM arm64v8/golang:alpine3.13 AS builder
+FROM golang:alpine3.13 AS builder
 
 RUN apk update
 RUN apk add make git wget
-RUN wget https://github.com/mikefarah/yq/releases/download/v4.23.1/yq_linux_arm.tar.gz -O - |\
-    tar xz && mv yq_linux_arm /usr/bin/yq
+RUN apk add --no-cache yq --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community
     
 ADD . /root
 
@@ -14,12 +13,14 @@ RUN make -j24 install tags="autopilotrpc signrpc walletrpc chainrpc invoicesrpc 
 FROM alpine:3.12 as runner
 
 RUN apk update
-RUN apk add tini curl sshpass jq openssh-client bash vim
+RUN apk add tini curl sshpass jq openssh-client bash xxd
+
+ARG ARCH
 
 COPY --from=builder /go/bin /usr/local/bin
 COPY --from=builder /usr/bin/yq /usr/local/bin/yq
-ADD ./configurator/target/aarch64-unknown-linux-musl/release/configurator /usr/local/bin/configurator
-ADD ./health-check/target/aarch64-unknown-linux-musl/release/health-check /usr/local/bin/health-check
+ADD ./configurator/target/${ARCH}-unknown-linux-musl/release/configurator /usr/local/bin/configurator
+ADD ./health-check/target/${ARCH}-unknown-linux-musl/release/health-check /usr/local/bin/health-check
 ADD ./docker_entrypoint.sh /usr/local/bin/docker_entrypoint.sh
 RUN chmod a+x /usr/local/bin/docker_entrypoint.sh
 ADD ./actions/import-umbrel.sh /usr/local/bin/import-umbrel.sh

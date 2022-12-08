@@ -1,8 +1,8 @@
 id: lnd
 title: Lightning Network Daemon
-version: 0.15.4
+version: 0.15.4.1
 release-notes: |-
-  * Emergency hot fix relelase to fix a bug that can cause lnd nodes to be unable to parse certain transactions that have a very large number of witness inputs. 
+  * Build for x86
 license: mit
 wrapper-repo: "https://github.com/Start9Labs/lnd-wrapper"
 upstream-repo: "https://github.com/lightningnetwork/lnd"
