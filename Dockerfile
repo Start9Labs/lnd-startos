@@ -27,6 +27,8 @@ ADD ./actions/import-umbrel.sh /usr/local/bin/import-umbrel.sh
 RUN chmod a+x /usr/local/bin/import-umbrel.sh
 ADD ./actions/add-watchtower.sh /usr/local/bin/add-watchtower.sh
 RUN chmod a+x /usr/local/bin/add-watchtower.sh
+ADD ./actions/reset-txs.sh /usr/local/bin/reset-txs.sh
+RUN chmod a+x /usr/local/bin/reset-txs.sh
 
 WORKDIR /root
 

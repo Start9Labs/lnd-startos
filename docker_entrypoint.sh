@@ -14,7 +14,12 @@ export CONTAINER_IP=$(ifconfig | sed -En 's/127.0.0.1//;s/.*inet (addr:)?(([0-9]
 
 configurator
 configurator_child=$!
-lnd &
+if test -f /root/.lnd/requires.reset-txs; then
+  rm /root/.lnd/requires.reset-txs &
+  lnd --reset-wallet-transactions &
+else
+  lnd &
+fi
 lnd_child=$!
 
 trap _term SIGTERM

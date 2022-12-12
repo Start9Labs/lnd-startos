@@ -222,3 +222,19 @@ actions:
         placeholder: "pubkey@host"
         nullable: false
         default: ""
+  reset-txs:
+    name: "Reset Wallet Transactions"
+    description: "Resets the best synced height of the wallet back to its birthday, or genesis if the birthday isn't known. This is useful for picking up on-chain transactions that may have been missed by LND."
+    warning: ~
+    allowed-statuses:
+      - running
+      - stopped
+    implementation:
+      type: docker
+      image: main
+      system: false
+      entrypoint: reset-txs.sh
+      args: []
+      mounts:
+        main: /root/.lnd
+      io-format: json
