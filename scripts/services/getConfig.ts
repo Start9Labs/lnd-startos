@@ -341,7 +341,7 @@ export const getConfig: T.ExpectedExports.getConfig = compat.getConfig({
       "recovery-window": {
         "type": "number",
         "name": "Recovery Window",
-        "description": "Optional address 'look-ahead' when scanning for used keys during an on-chain recovery.  For example, a value of 2 would mean lnd would stop looking for funds after finding 2 consecutive addresses that were generated but never used.  If an lnd on-chain wallet was extensively used, then users may want to increase this value.  2500 is the default.",
+        "description": "Optional address 'look-ahead' when scanning for used keys during an on-chain recovery.  For example, a value of 2 would mean LND would stop looking for funds after finding 2 consecutive addresses that were generated but never used.  If an LND on-chain wallet was extensively used, then users may want to increase this value.  2500 is the default.",
         "nullable": true,
         "range": "[1,*)",
         "integral": true,
