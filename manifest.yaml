@@ -1,8 +1,8 @@
 id: lnd
 title: Lightning Network Daemon
-version: 0.15.4.2
+version: 0.15.4.3
 release-notes: |-
-  * Add new action for resetting wallet transactions
+  * Add new action for migration from Umbrel v0.5
 license: mit
 wrapper-repo: "https://github.com/Start9Labs/lnd-wrapper"
 upstream-repo: "https://github.com/lightningnetwork/lnd"
@@ -173,6 +173,38 @@ migrations:
       type: script
       args: ["to"]
 actions:
+  import-umbrel-five:
+    name: "Import from Umbrel (0.5)"
+    description: "Imports wallet and channel data from Umbrel 0.5"
+    warning: "This will destroy existing channel data, please make sure you have no funds on this node before running this action"
+    allowed-statuses:
+      - stopped
+    implementation:
+      type: docker
+      image: main
+      system: false
+      entrypoint: import-umbrel-5.sh
+      args: []
+      io-format: json
+      mounts:
+        main: /root/.lnd
+    input-spec:
+      umbrel-host:
+        type: string
+        name: Umbrel Hostname
+        description: "The hostname you use to log into your Umbrel dashboard or SSH"
+        masked: false
+        placeholder: "umbrel.local"
+        nullable: false
+        default: "umbrel.local"
+      umbrel-password:
+        type: string
+        name: Umbrel Password
+        description: "The password you use to log into your Umbrel dashboard or SSH"
+        masked: true
+        placeholder: password
+        nullable: false
+        default: ""
   import-umbrel:
     name: "Import from Umbrel (0.4)"
     description: "Imports wallet and channel data from Umbrel 0.4"

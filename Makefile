@@ -14,6 +14,7 @@ clean:
 	rm -f $(PKG_ID).s9pk
 	rm -f image.tar
 	rm -f scripts/*.js
+	rm -fr docker-images/
 
 verify: $(PKG_ID).s9pk
 	embassy-sdk verify s9pk $(PKG_ID).s9pk
