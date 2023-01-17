@@ -22,13 +22,11 @@ COPY --from=builder /usr/bin/yq /usr/local/bin/yq
 ADD ./configurator/target/${ARCH}-unknown-linux-musl/release/configurator /usr/local/bin/configurator
 ADD ./health-check/target/${ARCH}-unknown-linux-musl/release/health-check /usr/local/bin/health-check
 ADD ./docker_entrypoint.sh /usr/local/bin/docker_entrypoint.sh
-RUN chmod a+x /usr/local/bin/docker_entrypoint.sh
 ADD ./actions/import-umbrel.sh /usr/local/bin/import-umbrel.sh
-RUN chmod a+x /usr/local/bin/import-umbrel.sh
+ADD ./actions/import-umbrel-5.sh /usr/local/bin/import-umbrel-5.sh
 ADD ./actions/add-watchtower.sh /usr/local/bin/add-watchtower.sh
-RUN chmod a+x /usr/local/bin/add-watchtower.sh
 ADD ./actions/reset-txs.sh /usr/local/bin/reset-txs.sh
-RUN chmod a+x /usr/local/bin/reset-txs.sh
+RUN chmod a+x /usr/local/bin/*.sh
 
 WORKDIR /root
 

@@ -191,12 +191,11 @@ actions:
     input-spec:
       umbrel-host:
         type: string
-        name: Umbrel Hostname
-        description: "The hostname you use to log into your Umbrel dashboard or SSH"
+        name: Umbrel IP Address
+        description: "The IP Address for your Umbrel. You can find this by running the command `ping umbrel.local` while connected to your LAN."
         masked: false
-        placeholder: "umbrel.local"
+        placeholder: "192.168.1.9"
         nullable: false
-        default: "umbrel.local"
       umbrel-password:
         type: string
         name: Umbrel Password
@@ -221,6 +220,13 @@ actions:
       mounts:
         main: /root/.lnd
     input-spec:
+      umbrel-host:
+        type: string
+        name: Umbrel IP Address
+        description: "The IP Address for your Umbrel. You can find this by running the command `ping umbrel.local` while connected to your LAN."
+        masked: false
+        placeholder: "192.168.1.9"
+        nullable: false
       umbrel-password:
         type: string
         name: Umbrel Password
