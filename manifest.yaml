@@ -1,8 +1,9 @@
 id: lnd
 title: Lightning Network Daemon
-version: 0.15.4.3
+version: 0.15.5
 release-notes: |-
-  * Add new action for migration from Umbrel v0.5
+  * LND v0.15.5 [Release Notes](https://github.com/lightningnetwork/lnd/blob/v0-15-5-branch/docs/release-notes/release-notes-0.15.5.md)
+  * Add new action for migration from Umbrel v0.5 and update action for migration from Umbrel v0.4
 license: mit
 wrapper-repo: "https://github.com/Start9Labs/lnd-wrapper"
 upstream-repo: "https://github.com/lightningnetwork/lnd"
