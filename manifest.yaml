@@ -1,9 +1,10 @@
 id: lnd
-title: Lightning Network Daemon
-version: 0.15.5
+title: LND
+version: 0.15.5.1
 release-notes: |-
   * LND v0.15.5 [Release Notes](https://github.com/lightningnetwork/lnd/blob/v0-15-5-branch/docs/release-notes/release-notes-0.15.5.md)
   * Add new action for migration from Umbrel v0.5 and update action for migration from Umbrel v0.4
+  * Updated service name from Lightning Network Daemon to LND
 license: mit
 wrapper-repo: "https://github.com/Start9Labs/lnd-wrapper"
 upstream-repo: "https://github.com/lightningnetwork/lnd"
@@ -13,7 +14,7 @@ build: ["make"]
 description:
   short: A complete implementation of a Lightning Network node by Lightning Labs
   long: |
-    LND fully conforms to the Lightning Network specification (BOLTs). BOLT stands for: Basis of Lightning Technology. In the current state lnd is capable of: creating channels, closing channels, managing all channel states (including the exceptional ones!), maintaining a fully authenticated+validated channel graph, performing path finding within the network, passively forwarding incoming payments, sending outgoing onion-encrypted payments through the network, updating advertised fee schedules, and automatic channel management (autopilot).
+    Lightning Network Daemon (LND) fully conforms to the Lightning Network specification (BOLTs). BOLT stands for: Basis of Lightning Technology. In the current state lnd is capable of: creating channels, closing channels, managing all channel states (including the exceptional ones!), maintaining a fully authenticated+validated channel graph, performing path finding within the network, passively forwarding incoming payments, sending outgoing onion-encrypted payments through the network, updating advertised fee schedules, and automatic channel management (autopilot).
 assets:
   license: LICENSE # default = LICENSE.md
   icon: icon.png # default = icon.png - assumes icon.png if this field does not exist
