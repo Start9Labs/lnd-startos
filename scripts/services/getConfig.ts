@@ -118,7 +118,7 @@ export const getConfig: T.ExpectedExports.getConfig = compat.getConfig({
       "description": "<p>The Bitcoin Core node to connect to:</p><ul><li><strong>None</strong>: Use the light bitcoin backend built into LND, Neutrino. If using Neutrino, please switch to using Bitcoin Core as soon as possible. Neutrino uses the BIP157/8 light client protocol, which has security risks.</li><br><li><strong>Bitcoin Core/Proxy</strong>: either service installed on your Embassy. Neutrino will also be used during IBD.</li></ul>"
     },
     "warning": "If using Neutrino, please switch to using Bitcoin Core as soon as possible. Neutrino uses the BIP157/8 light client protocol, which has security risks.",
-    "default": "internal-proxy",
+    "default": "internal",
     "variants": {
       "none": {
       },
