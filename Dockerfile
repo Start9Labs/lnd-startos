@@ -4,7 +4,7 @@ RUN apk update
 RUN apk add make git wget
 RUN apk add --no-cache yq --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community
     
-ADD . /root
+ADD ./lnd /root/lnd
 
 WORKDIR /root/lnd
 
