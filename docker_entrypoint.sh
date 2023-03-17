@@ -19,8 +19,8 @@ export CONTROL_TOR_ADDRESS=$(yq e '.control-tor-address' /root/.lnd/start9/confi
 mkdir -p /root/.lnd/start9/ && mkdir -p /root/.lnd/public
 echo $PEER_TOR_ADDRESS > /root/.lnd/start9/peerTorAddress
 echo $CONTROL_TOR_ADDRESS > /root/.lnd/start9/controlTorAddress
-cat /root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon | basenc --base16 -w0  > /root/.lnd/start9/admin.macaroon.hex
-cat /root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon | basenc --base64url -w0  > /root/.lnd/start9/admin.macaroon.base64url
+
+# copy system cert
 openssl x509 -outform der -in /mnt/cert/control.cert.pem -out /root/.lnd/start9/control.cert.der
 cat /root/.lnd/start9/control.cert.der | basenc --base64url -w0 > /root/.lnd/start9/control.cert.pem.base64url
 cp /mnt/cert/control.cert.pem /root/.lnd/public/
@@ -34,6 +34,14 @@ else
   lnd &
 fi
 lnd_child=$!
+
+while ! [ -e /root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon ]; do
+  echo "Waiting for lnd to create macaroon..."
+  sleep 1
+done
+
+cat /root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon | basenc --base16 -w0  > /root/.lnd/start9/admin.macaroon.hex
+cat /root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon | basenc --base64url -w0  > /root/.lnd/start9/admin.macaroon.base64url
 
 while ! nc -z localhost 8081 </dev/null; do
   echo "proxyboi: Waiting for REST server to start listening..."

@@ -1,5 +1,4 @@
-import { compat, exists, matches, types as T, YAML } from "../deps.ts";
-import { lazy } from "../models/lazy.ts";
+import { compat, matches, types as T, util, YAML } from "../deps.ts";
 const { shape, string, number, boolean } = matches;
 
 const nodeInfoMatcher = shape({
@@ -50,7 +49,7 @@ export const properties: T.ExpectedExports.properties = async (
   effects: T.Effects,
 ) => {
   if (
-    await exists(effects, {
+    await util.exists(effects, {
       volumeId: "main",
       path: "start9/controlTorAddress",
     }) === false
@@ -58,7 +57,7 @@ export const properties: T.ExpectedExports.properties = async (
     return noPropertiesFound;
   }
   if (
-    await exists(effects, {
+    await util.exists(effects, {
       volumeId: "main",
       path: "start9/peerTorAddress",
     }) === false
@@ -154,7 +153,8 @@ export const properties: T.ExpectedExports.properties = async (
         "Node Id": {
           type: "string",
           value: nodeInfoJson.identity_pubkey,
-          description: "The node identifier that other nodes can use to connect to this node",
+          description:
+            "The node identifier that other nodes can use to connect to this node",
           copyable: true,
           qr: false,
           masked: false,
@@ -191,9 +191,9 @@ export const properties: T.ExpectedExports.properties = async (
       },
     };
     await effects.writeFile({
-        path: "start9/stats.yaml",
-        volumeId: "main",
-        toWrite: YAML.stringify(stats),
+      path: "start9/stats.yaml",
+      volumeId: "main",
+      toWrite: YAML.stringify(stats),
     });
     return { result: stats };
   } catch (e) {
