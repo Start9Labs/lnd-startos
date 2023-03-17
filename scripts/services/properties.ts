@@ -197,7 +197,7 @@ export const properties: T.ExpectedExports.properties = async (
     });
     return { result: stats };
   } catch (e) {
-    effects.error("Error updating ");
+    effects.error(`Error updating: ${e}`);
     return await compat.properties(effects);
   }
 };

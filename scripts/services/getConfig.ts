@@ -131,7 +131,7 @@ export const getConfig: T.ExpectedExports.getConfig = compat.getConfig({
     },
     "warning":
       "If using Neutrino, please switch to using Bitcoin Core as soon as possible. Neutrino uses the BIP157/8 light client protocol, which has security risks.",
-    "default": "internal-proxy",
+    "default": "internal",
     "variants": {
       "none": {},
       "internal": {

@@ -13,6 +13,7 @@ RUN make -j24 install tags="autopilotrpc signrpc walletrpc chainrpc invoicesrpc 
 FROM alpine as runner
 
 ARG ARCH
+ARG PLATFORM
 RUN apk update
 RUN apk add \
     bash \
@@ -25,10 +26,10 @@ RUN apk add \
     sshpass \
     xxd 
 
-RUN wget https://github.com/mikefarah/yq/releases/download/v4.25.3/yq_linux_arm.tar.gz -O - |\
-    tar xz && mv yq_linux_arm /usr/bin/yq
+RUN wget https://github.com/mikefarah/yq/releases/download/v4.25.3/yq_linux_${PLATFORM}.tar.gz -O - |\
+    tar xz && mv yq_linux_${PLATFORM} /usr/bin/yq
 
-RUN wget https://github.com/svenstaro/proxyboi/releases/download/v0.5.0/proxyboi-v0.5.0-linux-aarch64 \
+RUN wget https://github.com/svenstaro/proxyboi/releases/download/v0.5.0/proxyboi-v0.5.0-linux-${ARCH} \
     -O /usr/bin/proxyboi && chmod a+x /usr/bin/proxyboi
 
 COPY --from=builder /go/bin /usr/local/bin

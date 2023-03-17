@@ -264,11 +264,6 @@ fn main() -> Result<(), anyhow::Error> {
     let control_tor_address = config.control_tor_address;
     let watchtower_tor_address = config.watchtower_tor_address;
     let peer_tor_address = config.peer_tor_address;
-    properties(
-        control_tor_address.clone(),
-        peer_tor_address.clone(),
-        alias.clone(),
-    )?;
 
     println!(
         "config fetched. alias = {:?}",
@@ -646,6 +641,13 @@ fn main() -> Result<(), anyhow::Error> {
         }
     }
 
+    // write properties once
+    properties(
+        control_tor_address.clone(),
+        peer_tor_address.clone(),
+        alias.clone(),
+    )?;
+
     if true {
         let mac = std::fs::read(Path::new(
             "/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon",
@@ -763,6 +765,7 @@ fn get_stats(
     peer_tor_address: String,
     alias: String,
 ) -> Result<Properties, anyhow::Error> {
+    println!("calling getinfo...");
     let mut macaroon_file = File::open("/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon")?;
     let mut macaroon_vec = Vec::with_capacity(macaroon_file.metadata()?.len() as usize);
     let tls_cert = std::fs::read_to_string("/mnt/cert/control.cert.pem")?;
@@ -910,7 +913,9 @@ fn get_stats(
                     },
                 },
             };
+            println!("writing actual stats.yaml file...");
             serde_yaml::to_writer(File::create("/root/.lnd/start9/stats.yaml")?, &stats)?;
+            println!("finished writing stats.yaml");
             stats
         }
         None => {
