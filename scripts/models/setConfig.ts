@@ -2,23 +2,21 @@ import { matches } from "../deps.ts";
 
 const { shape, number, string, boolean } = matches;
 
-
 export const matchTor = shape({
   "use-tor-only": boolean,
   "stream-isolation": boolean,
-})
+});
 
 export const matchBitcoind = shape({
   type: string,
   user: string,
   password: string,
-}, ['user','password'])
-
+}, ["user", "password"]);
 
 export const matchAdvanced = shape({
   "min-confirmations": number,
-  "confirmation-target": number
-})
+  "confirmation-target": number,
+});
 export const matchAutopilot = shape({
   enabled: boolean,
   private: boolean,
@@ -27,8 +25,7 @@ export const matchAutopilot = shape({
   "min-channel-size": number,
   "max-channel-size": number,
   advanced: matchAdvanced,
-})
-
+});
 
 export const matchBitcoin = shape({
   "default-channel-confirmations": number,
@@ -37,7 +34,7 @@ export const matchBitcoin = shape({
   "base-fee": number,
   "fee-rate": number,
   "time-lock-delta": number,
-})
+});
 
 export const matchAdvanced2 = shape({
   "debug-level": string,
@@ -55,7 +52,7 @@ export const matchAdvanced2 = shape({
   "protocol-disable-script-enforced-lease": boolean,
   "gc-canceled-invoices-on-startup": boolean,
   bitcoin: matchBitcoin,
-}, ['recovery-window'])
+}, ["recovery-window"]);
 
 export const matchRoot = shape({
   alias: string,
@@ -71,13 +68,20 @@ export const matchRoot = shape({
   advanced: matchAdvanced2,
   "control-tor-address": string,
   "peer-tor-address": string,
-  "watchtower-tor-address": string
-}, ['alias', 'min-chan-size', 'max-chan-size', 'watchtower-tor-address', 'peer-tor-address', 'control-tor-address'])
+  "watchtower-tor-address": string,
+}, [
+  "alias",
+  "min-chan-size",
+  "max-chan-size",
+  "watchtower-tor-address",
+  "peer-tor-address",
+  "control-tor-address",
+]);
 
-export type Root = typeof matchRoot._TYPE
-export type Tor = typeof matchTor._TYPE
-export type Bitcoind = typeof matchBitcoind._TYPE
-export type Autopilot = typeof matchAutopilot._TYPE
-export type Advanced = typeof matchAdvanced._TYPE
-export type Advanced2 = typeof matchAdvanced2._TYPE
-export type Bitcoin = typeof matchBitcoin._TYPE
+export type Root = typeof matchRoot._TYPE;
+export type Tor = typeof matchTor._TYPE;
+export type Bitcoind = typeof matchBitcoind._TYPE;
+export type Autopilot = typeof matchAutopilot._TYPE;
+export type Advanced = typeof matchAdvanced._TYPE;
+export type Advanced2 = typeof matchAdvanced2._TYPE;
+export type Bitcoin = typeof matchBitcoin._TYPE;

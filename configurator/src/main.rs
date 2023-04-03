@@ -1,19 +1,16 @@
 use bitcoincore_rpc::RpcApi;
 use rand::Rng;
 use serde_json::Value;
-use std::str::FromStr;
-use std::env;
 use std::fs::File;
 use std::net::SocketAddr;
 use std::path::Path;
+use std::str::FromStr;
 use std::{
     io::{Read, Write},
     time::Duration,
 };
 
-use anyhow::anyhow;
 use serde::{ser::SerializeMap, Deserialize, Serialize, Serializer};
-use x509_parser::pem;
 
 struct SkipNulls(Value);
 impl Serialize for SkipNulls {
@@ -158,10 +155,12 @@ pub enum Data {
         lnd_connect_grpc: Property<String>,
         #[serde(rename = "LND Connect REST URL")]
         lnd_connect_rest: Property<String>,
-        #[serde(rename = "NODE URI")]
+        #[serde(rename = "Node URI")]
         node_uri: Property<String>,
-        #[serde(rename = "Alias")]
-        alias: Property<String>,
+        #[serde(rename = "Node Alias")]
+        node_alias: Property<String>,
+        #[serde(rename = "Node Id")]
+        node_id: Property<String>,
     },
     NotReady {
         #[serde(rename = "Not Ready")]
@@ -252,10 +251,7 @@ impl FromStr for WatchtowerUri {
             Some(x) => x.to_string(),
             None => anyhow::bail!("Couldn't parse the address from watchtower URI"),
         };
-        Ok(WatchtowerUri{
-            pubkey , address
-        })
-
+        Ok(WatchtowerUri { pubkey, address })
     }
 }
 
@@ -268,13 +264,7 @@ fn main() -> Result<(), anyhow::Error> {
     let control_tor_address = config.control_tor_address;
     let watchtower_tor_address = config.watchtower_tor_address;
     let peer_tor_address = config.peer_tor_address;
-    
-    if let Some(cmd) = env::args().skip(1).next() {
-        if cmd == "properties" {
-            properties(control_tor_address, peer_tor_address, alias);
-            return Ok(());
-        }
-    }
+
     println!(
         "config fetched. alias = {:?}",
         config.alias.clone().unwrap_or("No alias found".to_owned())
@@ -346,7 +336,6 @@ fn main() -> Result<(), anyhow::Error> {
     write!(
         outfile,
         include_str!("lnd.conf.template"),
-        control_tor_address = control_tor_address,
         peer_tor_address = peer_tor_address,
         watchtower_tor_address = watchtower_tor_address,
         payments_expiration_grace_period = config.advanced.payments_expiration_grace_period,
@@ -409,51 +398,13 @@ fn main() -> Result<(), anyhow::Error> {
         wt_server = config.watchtowers.wt_server,
         wt_client = config.watchtowers.wt_client
     )?;
-
-    // TLS Certificate migration from 0.11.0 -> 0.11.1 release (to include tor address)
-    let cert_path = Path::new("/root/.lnd/tls.cert");
-    if cert_path.exists() {
-        let bs = std::fs::read(cert_path)?;
-        let (_, pem) = pem::parse_x509_pem(&bs)?;
-        let cert = pem.parse_x509()?;
-        let subj_alt_name_oid = "2.5.29.17".parse().unwrap();
-        let ext = cert
-            .extensions()
-            .get(&subj_alt_name_oid)
-            .ok_or(anyhow!("No Alternative Names"))?
-            .parsed_extension(); // oid for subject alternative names
-        match ext {
-            x509_parser::extensions::ParsedExtension::SubjectAlternativeName(names) => {
-                if !(&names.general_names).into_iter().any(|a| match *a {
-                    x509_parser::extensions::GeneralName::DNSName(host) => {
-                        host == control_tor_address
-                    }
-                    _ => false,
-                }) {
-                    println!("Replacing Certificates");
-                    // Delete the tls.key
-                    std::fs::remove_file(Path::new("/root/.lnd/tls.key"))?;
-                    // Delete the tls.cert
-                    std::fs::remove_file(Path::new("/root/.lnd/tls.cert"))?;
-                } else {
-                    println!("Certificate check complete. No changes required.");
-                }
-            }
-            _ => panic!("Type does not correspond with OID"),
-        }
-    } // if it doesn't exist, LND will correctly create it this time.
-
     let public_path = Path::new("/root/.lnd/public");
     // Create public directory to make accessible to dependents through the bindmounts interface
-    println!("creating public directory... ");
+    println!("creating public directory...");
     std::fs::create_dir_all(public_path)?;
 
-    let cert_link = public_path.join("tls.cert");
-    if cert_link.exists() {
-        std::fs::remove_file(&cert_link)?;
-    }
-
     // write backup ignore to the root of the mounted volume
+    println!("writing .backupignore...");
     std::fs::write(
         Path::new("/root/.lnd/.backupignore.tmp"),
         include_str!(".backupignore.template"),
@@ -463,19 +414,16 @@ fn main() -> Result<(), anyhow::Error> {
     // background configurator so lnd can start
     #[cfg(target_os = "linux")]
     nix::unistd::daemon(true, true)?;
+    println!("checking port 10010 on 127.0.0.1 (gRPC control port)...");
     loop {
-        if let Ok(_) = std::net::TcpStream::connect(SocketAddr::from(([127, 0, 0, 1], 10009))) {
+        if let Ok(_) = std::net::TcpStream::connect(SocketAddr::from(([127, 0, 0, 1], 10010))) {
             break;
         } else {
             std::thread::sleep(std::time::Duration::from_secs(1));
         }
     }
 
-    while !cert_path.exists() {
-        std::thread::sleep(std::time::Duration::from_secs(1));
-    }
-    std::fs::hard_link(cert_path, &cert_link)?;
-
+    println!("checking if we need to restore from channel backup...");
     let use_channel_backup_data = if is_restore(Path::new("/root/.lnd")) {
         println!("Detected Embassy Restore. Conducting precautionary channel backup restoration.");
         let channel_backup_path = Path::new("/root/.lnd/data/chain/bitcoin/mainnet/channel.backup");
@@ -497,6 +445,7 @@ fn main() -> Result<(), anyhow::Error> {
         Ok(None)
     }?;
 
+    println!("unlocking wallet...");
     if Path::new("/root/.lnd/pwd.dat").exists() {
         let pass_file = File::open("/root/.lnd/pwd.dat")?;
         let pass_size = pass_file.metadata().unwrap().len();
@@ -512,9 +461,7 @@ fn main() -> Result<(), anyhow::Error> {
                     .arg("--no-progress-meter")
                     .arg("-X")
                     .arg("POST")
-                    .arg("--cacert")
-                    .arg("/root/.lnd/tls.cert")
-                    .arg("https://127.0.0.1:8080/v1/unlockwallet")
+                    .arg("http://127.0.0.1:8081/v1/unlockwallet")
                     .arg("-d")
                     .arg(serde_json::to_string(&SkipNulls(serde_json::json!({
                         "wallet_password": base64::encode(&password_bytes),
@@ -570,7 +517,7 @@ fn main() -> Result<(), anyhow::Error> {
             Ok(_) => match use_channel_backup_data {
                 None => (),
                 Some(backups) => {
-                    while local_port_available(8080)? {
+                    while local_port_available(8081)? {
                         std::thread::sleep(Duration::from_secs(10))
                     }
                     let mac = std::fs::read(Path::new(
@@ -584,11 +531,9 @@ fn main() -> Result<(), anyhow::Error> {
                             .arg("--no-progress-meter")
                             .arg("-X")
                             .arg("POST")
-                            .arg("--cacert")
-                            .arg("/root/.lnd/tls.cert")
                             .arg("--header")
                             .arg(format!("Grpc-Metadata-macaroon: {}", mac_encoded))
-                            .arg("https://127.0.0.1:8080/v1/channels/backup/restore")
+                            .arg("http://127.0.0.1:8081/v1/channels/backup/restore")
                             .arg("-d")
                             .arg(serde_json::to_string(&backups)?)
                             .output()?;
@@ -650,9 +595,7 @@ fn main() -> Result<(), anyhow::Error> {
             .arg("--no-progress-meter")
             .arg("-X")
             .arg("GET")
-            .arg("--cacert")
-            .arg("/root/.lnd/tls.cert")
-            .arg("https://127.0.0.1:8080/v1/genseed")
+            .arg("http://127.0.0.1:8081/v1/genseed")
             .arg("-d")
             .arg(format!("{}", serde_json::json!({})))
             .output()?;
@@ -667,9 +610,7 @@ fn main() -> Result<(), anyhow::Error> {
             .arg("--no-progress-meter")
             .arg("-X")
             .arg("POST")
-            .arg("--cacert")
-            .arg("/root/.lnd/tls.cert")
-            .arg("https://127.0.0.1:8080/v1/initwallet")
+            .arg("http://127.0.0.1:8081/v1/initwallet")
             .arg("-d")
             .arg(format!(
                 "{}",
@@ -686,6 +627,7 @@ fn main() -> Result<(), anyhow::Error> {
             return Err(anyhow::anyhow!("Error creating wallet. Exiting."));
         }
     }
+    println!("copying macaroon to public dir...");
     while !Path::new("/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon").exists() {
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
@@ -698,8 +640,15 @@ fn main() -> Result<(), anyhow::Error> {
             )?;
         }
     }
- 
-    if true { 
+
+    // write properties once
+    properties(
+        control_tor_address.clone(),
+        peer_tor_address.clone(),
+        alias.clone(),
+    )?;
+
+    if true {
         let mac = std::fs::read(Path::new(
             "/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon",
         ))?;
@@ -713,9 +662,13 @@ fn main() -> Result<(), anyhow::Error> {
                 let stat;
                 loop {
                     println!("Configuring Watchtower for {}... ", alias);
-                    println!("pubkey: {} || host: {}", &parsed_watchtower_uri.pubkey, &parsed_watchtower_uri.address);
+                    println!(
+                        "pubkey: {} || host: {}",
+                        &parsed_watchtower_uri.pubkey, &parsed_watchtower_uri.address
+                    );
                     let bytes: Vec<u8> = hex::decode(&parsed_watchtower_uri.pubkey)?;
-                    let hex_encoded: String = base64::encode_config(&bytes, base64::URL_SAFE_NO_PAD);
+                    let hex_encoded: String =
+                        base64::encode_config(&bytes, base64::URL_SAFE_NO_PAD);
                     std::thread::sleep(Duration::from_secs(5));
                     let cmd = process::Command::new("curl")
                         .arg("--no-progress-meter")
@@ -779,6 +732,7 @@ fn main() -> Result<(), anyhow::Error> {
     };
 
     if bitcoind_selected {
+        println!("looping forever to see if we need to switch backends...");
         loop {
             let bitcoin_synced = match bitcoin_is_synced(rpc_info) {
                 Ok(bs) => bs,
@@ -801,6 +755,8 @@ fn main() -> Result<(), anyhow::Error> {
         }
     };
 
+    println!("configurator exiting...");
+
     Ok(())
 }
 
@@ -809,23 +765,24 @@ fn get_stats(
     peer_tor_address: String,
     alias: String,
 ) -> Result<Properties, anyhow::Error> {
+    println!("calling getinfo...");
     let mut macaroon_file = File::open("/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon")?;
     let mut macaroon_vec = Vec::with_capacity(macaroon_file.metadata()?.len() as usize);
-    let tls_cert = std::fs::read_to_string("/root/.lnd/tls.cert")?;
+    let tls_cert = std::fs::read_to_string("/mnt/cert/control.cert.pem")?;
     macaroon_file.read_to_end(&mut macaroon_vec)?;
     let mac_encoded = hex::encode_upper(&macaroon_vec);
     let node_info: Option<LndGetInfoRes> = serde_json::from_slice(
         &std::process::Command::new("curl")
             .arg("--no-progress-meter")
-            .arg("--cacert")
-            .arg("/root/.lnd/tls.cert")
             .arg("--header")
             .arg(format!("Grpc-Metadata-macaroon: {}", mac_encoded))
-            .arg("https://lnd.embassy:8080/v1/getinfo")
+            .arg("http://localhost:8081/v1/getinfo")
             .output()?
             .stdout,
     )
     .or::<anyhow::Error>(Ok(None))?;
+
+    println!("writing stats.yaml...");
     let stats: Properties = match node_info {
         Some(ni) => {
             let lnd_connect_grpc = Property {
@@ -938,63 +895,83 @@ fn get_stats(
                     lnd_connect_grpc,
                     lnd_connect_rest,
                     node_uri,
-                    alias: Property {
+                    node_alias: Property {
                         value_type: "string".to_owned(),
                         value: alias,
                         description: Some("The human readable name your node can identify as on the Lightning Network".to_owned()),
                         copyable: false,
                         qr: false,
                         masked: false,
-                    }
+                    },
+                    node_id: Property {
+                        value_type: "string".to_owned(),
+                        value: ni.identity_pubkey,
+                        description: Some("The node identifier that other nodes can use to connect to this node".to_owned()),
+                        copyable: true,
+                        qr: false,
+                        masked: false,
+                    },
                 },
             };
+            println!("writing actual stats.yaml file...");
             serde_yaml::to_writer(File::create("/root/.lnd/start9/stats.yaml")?, &stats)?;
+            println!("finished writing stats.yaml");
             stats
         }
         None => {
             const PROPERTIES_FALLBACK_MESSAGE: &str =
                 "Could not find properties. The service might still be starting";
+            let not_ready_stats = Properties {
+                version: 2,
+                data: Data::NotReady {
+                    not_ready: Property {
+                        value_type: "string".to_owned(),
+                        value: PROPERTIES_FALLBACK_MESSAGE.to_owned(),
+                        description: Some(
+                            "Fallback message for when properties cannot be found".to_owned(),
+                        ),
+                        copyable: false,
+                        qr: false,
+                        masked: false,
+                    },
+                },
+            };
             let stats_path = Path::new("/root/.lnd").join("start9/stats.yaml");
             if stats_path.exists() {
-                let stats: Properties =
-                    serde_yaml::from_reader(File::open(stats_path).unwrap()).unwrap();
-                stats
-            } else {
-                let stats = Properties {
-                    version: 2,
-                    data: Data::NotReady {
-                        not_ready: Property {
-                            value_type: "string".to_owned(),
-                            value: PROPERTIES_FALLBACK_MESSAGE.to_owned(),
-                            description: Some(
-                                "Fallback Message When Properties could not be found".to_owned(),
-                            ),
-                            copyable: false,
-                            qr: false,
-                            masked: false,
-                        },
-                    },
+                let stats = match serde_yaml::from_reader(File::open(&stats_path)?) {
+                    Ok(s) => s,
+                    Err(e) => {
+                        println!("Old/corrupt stats.yaml file, deleting: {:?}", e);
+                        std::fs::remove_file(&stats_path)?;
+                        not_ready_stats
+                    }
                 };
                 stats
+            } else {
+                not_ready_stats
             }
         }
     };
     Ok(stats)
 }
 
-fn properties(control_tor_address: String, peer_tor_address: String, alias: String) -> () {
+fn properties(
+    control_tor_address: String,
+    peer_tor_address: String,
+    alias: String,
+) -> Result<(), anyhow::Error> {
     let stats = match get_stats(control_tor_address, peer_tor_address, alias) {
         Err(e) => {
-            println!("Warn: {:?}", e);
-            return;
+            return Err(anyhow::anyhow!("Warn: {:?}", e));
         }
         Ok(v) => v,
     };
 
-    use std::io::stdout;
-    if let Err(e) = serde_yaml::to_writer(stdout(), &stats) {
-        println!("Warn: {:?}", e);
-    }
+    if let Err(e) = serde_yaml::to_writer(File::create("/root/.lnd/start9/stats.yaml")?, &stats) {
+        return Err(anyhow::anyhow!("Warn: {:?}", e));
+    };
+
+    Ok(())
 }
 
 #[derive(Serialize, Deserialize)]
