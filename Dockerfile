@@ -24,7 +24,8 @@ RUN apk add \
     openssh-client \
     openssl \
     sshpass \
-    xxd 
+    xxd \
+    ca-certificates
 
 RUN wget https://github.com/mikefarah/yq/releases/download/v4.25.3/yq_linux_${PLATFORM}.tar.gz -O - |\
     tar xz && mv yq_linux_${PLATFORM} /usr/bin/yq
