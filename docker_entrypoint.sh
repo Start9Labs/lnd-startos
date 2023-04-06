@@ -23,7 +23,9 @@ echo $CONTROL_TOR_ADDRESS > /root/.lnd/start9/controlTorAddress
 # copy system cert
 openssl x509 -outform der -in /mnt/cert/control.cert.pem -out /root/.lnd/start9/control.cert.der
 cat /root/.lnd/start9/control.cert.der | basenc --base64url -w0 > /root/.lnd/start9/control.cert.pem.base64url
-cp /mnt/cert/control.cert.pem /root/.lnd/public/
+cp /mnt/cert/control.cert.pem /root/.lnd/tls.cert
+cp /mnt/cert/control.key.pem /root/.lnd/tls.key
+sed -i 's/\(BEGIN\|END\) PRIVATE KEY/\1 EC PRIVATE KEY/g' /root/.lnd/tls.key
 
 configurator
 configurator_child=$!
@@ -42,19 +44,6 @@ done
 
 cat /root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon | basenc --base16 -w0  > /root/.lnd/start9/admin.macaroon.hex
 cat /root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon | basenc --base64url -w0  > /root/.lnd/start9/admin.macaroon.base64url
-
-while ! nc -z localhost 8081 </dev/null; do
-  echo "proxyboi: Waiting for REST server to start listening..."
-  sleep 1
-done
-proxyboi -l 0.0.0.0:8080 --cert /mnt/cert/control.cert.pem --key /mnt/cert/control.key.pem http://localhost:8081 &
-rest_child=$!
-while ! nc -z localhost 10010 </dev/null; do
-  echo "proxyboi: Waiting for gRPC server to start listening..."
-  sleep 1
-done
-proxyboi -l 0.0.0.0:10009 --cert /mnt/cert/control.cert.pem --key /mnt/cert/control.key.pem http://localhost:10010 &
-grpc_child=$!
 
 trap _term SIGTERM
 

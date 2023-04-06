@@ -3,7 +3,7 @@ FROM golang:alpine3.16 AS builder
 RUN apk update
 RUN apk add make git wget
 RUN apk add --no-cache yq --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community
-    
+
 ADD ./lnd /root/lnd
 
 WORKDIR /root/lnd
@@ -29,9 +29,6 @@ RUN apk add \
 
 RUN wget https://github.com/mikefarah/yq/releases/download/v4.25.3/yq_linux_${PLATFORM}.tar.gz -O - |\
     tar xz && mv yq_linux_${PLATFORM} /usr/bin/yq
-
-RUN wget https://github.com/svenstaro/proxyboi/releases/download/v0.5.0/proxyboi-v0.5.0-linux-${ARCH} \
-    -O /usr/bin/proxyboi && chmod a+x /usr/bin/proxyboi
 
 COPY --from=builder /go/bin /usr/local/bin
 COPY --from=builder /usr/bin/yq /usr/local/bin/yq

@@ -2,8 +2,9 @@ use bitcoincore_rpc::RpcApi;
 use rand::Rng;
 use serde_json::Value;
 use std::fs::File;
-use std::net::SocketAddr;
+use std::net::{Ipv4Addr, SocketAddr};
 use std::path::Path;
+use std::process::Command;
 use std::str::FromStr;
 use std::{
     io::{Read, Write},
@@ -11,6 +12,33 @@ use std::{
 };
 
 use serde::{ser::SerializeMap, Deserialize, Serialize, Serializer};
+
+fn parse_iface_ip(output: &str) -> Result<Option<&str>, anyhow::Error> {
+    let output = output.trim();
+    if output.is_empty() {
+        return Ok(None);
+    }
+    if let Some(ip) = output.split_ascii_whitespace().nth(3) {
+        Ok(Some(ip))
+    } else {
+        Err(anyhow::anyhow!("malformed output from `ip`"))
+    }
+}
+
+pub fn get_iface_ipv4_addr(iface: &str) -> Result<Option<Ipv4Addr>, anyhow::Error> {
+    Ok(parse_iface_ip(&String::from_utf8(
+        Command::new("ip")
+            .arg("-4")
+            .arg("-o")
+            .arg("addr")
+            .arg("show")
+            .arg(iface)
+            .output()?
+            .stdout,
+    )?)?
+    .map(|s| Ok::<_, anyhow::Error>(s.split("/").next().unwrap().parse()?))
+    .transpose()?)
+}
 
 struct SkipNulls(Value);
 impl Serialize for SkipNulls {
@@ -333,9 +361,15 @@ fn main() -> Result<(), anyhow::Error> {
     let use_neutrino = !(bitcoind_selected && bitcoin_synced);
     println!("use_neutrino = {}", use_neutrino);
 
+    let container_ip = get_iface_ipv4_addr("eth0").unwrap_or_else(|e| {
+        eprintln!("{e}");
+        None
+    });
+
     write!(
         outfile,
         include_str!("lnd.conf.template"),
+        container_ip = container_ip.unwrap_or_else(|| [0, 0, 0, 0].into()),
         peer_tor_address = peer_tor_address,
         watchtower_tor_address = watchtower_tor_address,
         payments_expiration_grace_period = config.advanced.payments_expiration_grace_period,
@@ -414,9 +448,10 @@ fn main() -> Result<(), anyhow::Error> {
     // background configurator so lnd can start
     #[cfg(target_os = "linux")]
     nix::unistd::daemon(true, true)?;
-    println!("checking port 10010 on 127.0.0.1 (gRPC control port)...");
+    let container_ip = container_ip.unwrap_or_else(|| [127, 0, 0, 1].into());
+    println!("checking port 10009 on {container_ip} (gRPC control port)...");
     loop {
-        if let Ok(_) = std::net::TcpStream::connect(SocketAddr::from(([127, 0, 0, 1], 10010))) {
+        if let Ok(_) = std::net::TcpStream::connect(SocketAddr::from((container_ip, 10009))) {
             break;
         } else {
             std::thread::sleep(std::time::Duration::from_secs(1));
@@ -461,7 +496,9 @@ fn main() -> Result<(), anyhow::Error> {
                     .arg("--no-progress-meter")
                     .arg("-X")
                     .arg("POST")
-                    .arg("http://127.0.0.1:8081/v1/unlockwallet")
+                    .arg("--cacert")
+                    .arg("/root/.lnd/tls.cert")
+                    .arg("https://lnd.embassy:8080/v1/unlockwallet")
                     .arg("-d")
                     .arg(serde_json::to_string(&SkipNulls(serde_json::json!({
                         "wallet_password": base64::encode(&password_bytes),
@@ -517,7 +554,7 @@ fn main() -> Result<(), anyhow::Error> {
             Ok(_) => match use_channel_backup_data {
                 None => (),
                 Some(backups) => {
-                    while local_port_available(8081)? {
+                    while local_port_available(8080)? {
                         std::thread::sleep(Duration::from_secs(10))
                     }
                     let mac = std::fs::read(Path::new(
@@ -533,7 +570,9 @@ fn main() -> Result<(), anyhow::Error> {
                             .arg("POST")
                             .arg("--header")
                             .arg(format!("Grpc-Metadata-macaroon: {}", mac_encoded))
-                            .arg("http://127.0.0.1:8081/v1/channels/backup/restore")
+                            .arg("--cacert")
+                            .arg("/root/.lnd/tls.cert")
+                            .arg("https://lnd.embassy:8080/v1/channels/backup/restore")
                             .arg("-d")
                             .arg(serde_json::to_string(&backups)?)
                             .output()?;
@@ -595,7 +634,9 @@ fn main() -> Result<(), anyhow::Error> {
             .arg("--no-progress-meter")
             .arg("-X")
             .arg("GET")
-            .arg("http://127.0.0.1:8081/v1/genseed")
+            .arg("--cacert")
+            .arg("/root/.lnd/tls.cert")
+            .arg("https://lnd.embassy:8080/v1/genseed")
             .arg("-d")
             .arg(format!("{}", serde_json::json!({})))
             .output()?;
@@ -610,7 +651,9 @@ fn main() -> Result<(), anyhow::Error> {
             .arg("--no-progress-meter")
             .arg("-X")
             .arg("POST")
-            .arg("http://127.0.0.1:8081/v1/initwallet")
+            .arg("--cacert")
+            .arg("/root/.lnd/tls.cert")
+            .arg("https://lnd.embassy:8080/v1/initwallet")
             .arg("-d")
             .arg(format!(
                 "{}",
@@ -674,10 +717,10 @@ fn main() -> Result<(), anyhow::Error> {
                         .arg("--no-progress-meter")
                         .arg("-X")
                         .arg("POST")
-                        .arg("--cacert")
-                        .arg("/root/.lnd/tls.cert")
                         .arg("--header")
                         .arg(format!("Grpc-Metadata-macaroon: {}", mac_encoded))
+                        .arg("--cacert")
+                        .arg("/root/.lnd/tls.cert")
                         .arg("https://lnd.embassy:8080/v2/watchtower/client")
                         .arg("-d")
                         .arg(format!(
@@ -776,7 +819,9 @@ fn get_stats(
             .arg("--no-progress-meter")
             .arg("--header")
             .arg(format!("Grpc-Metadata-macaroon: {}", mac_encoded))
-            .arg("http://localhost:8081/v1/getinfo")
+            .arg("--cacert")
+            .arg("/root/.lnd/tls.cert")
+            .arg("https://lnd.embassy:8080/v1/getinfo")
             .output()?
             .stdout,
     )

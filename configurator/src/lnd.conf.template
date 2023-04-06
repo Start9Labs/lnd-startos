@@ -1,10 +1,9 @@
 [Application Options]
-no-rest-tls=true
 externalhosts={peer_tor_address}
 payments-expiration-grace-period={payments_expiration_grace_period}s
 listen=0.0.0.0:9735
-rpclisten=127.0.0.1:10010
-restlisten=127.0.0.1:8081
+rpclisten={container_ip}:10009
+restlisten={container_ip}:8080
 debuglevel={debug_level}
 {min_chan_size_row}
 {max_chan_size_row}
