@@ -4,6 +4,7 @@ payments-expiration-grace-period={payments_expiration_grace_period}s
 listen=0.0.0.0:9735
 rpclisten={container_ip}:10009
 restlisten={container_ip}:8080
+rpcmiddleware.enable=true
 debuglevel={debug_level}
 {min_chan_size_row}
 {max_chan_size_row}
