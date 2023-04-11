@@ -685,11 +685,11 @@ fn main() -> Result<(), anyhow::Error> {
     }
 
     // write properties once
-    properties(
-        control_tor_address.clone(),
-        peer_tor_address.clone(),
-        alias.clone(),
-    )?;
+    // properties(
+    //     control_tor_address.clone(),
+    //     peer_tor_address.clone(),
+    //     alias.clone(),
+    // )?;
 
     if true {
         let mac = std::fs::read(Path::new(
@@ -803,221 +803,221 @@ fn main() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-fn get_stats(
-    control_tor_address: String,
-    peer_tor_address: String,
-    alias: String,
-) -> Result<Properties, anyhow::Error> {
-    println!("calling getinfo...");
-    let mut macaroon_file = File::open("/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon")?;
-    let mut macaroon_vec = Vec::with_capacity(macaroon_file.metadata()?.len() as usize);
-    let tls_cert = std::fs::read_to_string("/mnt/cert/control.cert.pem")?;
-    macaroon_file.read_to_end(&mut macaroon_vec)?;
-    let mac_encoded = hex::encode_upper(&macaroon_vec);
-    let node_info: Option<LndGetInfoRes> = serde_json::from_slice(
-        &std::process::Command::new("curl")
-            .arg("--no-progress-meter")
-            .arg("--header")
-            .arg(format!("Grpc-Metadata-macaroon: {}", mac_encoded))
-            .arg("--cacert")
-            .arg("/root/.lnd/tls.cert")
-            .arg("https://lnd.embassy:8080/v1/getinfo")
-            .output()?
-            .stdout,
-    )
-    .or::<anyhow::Error>(Ok(None))?;
+// fn get_stats(
+//     control_tor_address: String,
+//     peer_tor_address: String,
+//     alias: String,
+// ) -> Result<Properties, anyhow::Error> {
+//     println!("calling getinfo...");
+//     let mut macaroon_file = File::open("/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon")?;
+//     let mut macaroon_vec = Vec::with_capacity(macaroon_file.metadata()?.len() as usize);
+//     let tls_cert = std::fs::read_to_string("/mnt/cert/control.cert.pem")?;
+//     macaroon_file.read_to_end(&mut macaroon_vec)?;
+//     let mac_encoded = hex::encode_upper(&macaroon_vec);
+//     let node_info: Option<LndGetInfoRes> = serde_json::from_slice(
+//         &std::process::Command::new("curl")
+//             .arg("--no-progress-meter")
+//             .arg("--header")
+//             .arg(format!("Grpc-Metadata-macaroon: {}", mac_encoded))
+//             .arg("--cacert")
+//             .arg("/root/.lnd/tls.cert")
+//             .arg("https://lnd.embassy:8080/v1/getinfo")
+//             .output()?
+//             .stdout,
+//     )
+//     .or::<anyhow::Error>(Ok(None))?;
 
-    println!("writing stats.yaml...");
-    let stats: Properties = match node_info {
-        Some(ni) => {
-            let lnd_connect_grpc = Property {
-                value_type: "string".to_owned(),
-                value: format!(
-                    "lndconnect://{control_tor_address}:10009?cert={cert}&macaroon={macaroon}",
-                    control_tor_address = control_tor_address,
-                    cert = base64::encode_config(
-                        base64::decode(
-                            tls_cert
-                                .lines()
-                                .filter(|l| !l.is_empty())
-                                .filter(|l| *l != "-----BEGIN CERTIFICATE-----")
-                                .filter(|l| *l != "-----END CERTIFICATE-----")
-                                .collect::<String>()
-                        )?,
-                        base64::Config::new(base64::CharacterSet::UrlSafe, false)
-                    ),
-                    macaroon = base64::encode_config(
-                        &macaroon_vec,
-                        base64::Config::new(base64::CharacterSet::UrlSafe, false)
-                    ),
-                ),
-                description: Some(
-                    "Use this for other applications that require a gRPC connection".to_owned(),
-                ),
-                copyable: true,
-                qr: true,
-                masked: true,
-            };
-            let lnd_connect_rest = Property {
-                value_type: "string".to_owned(),
-                value: format!(
-                    "lndconnect://{control_tor_address}:8080?cert={cert}&macaroon={macaroon}",
-                    control_tor_address = control_tor_address,
-                    cert = base64::encode_config(
-                        base64::decode(
-                            tls_cert
-                                .lines()
-                                .filter(|l| !l.is_empty())
-                                .filter(|l| *l != "-----BEGIN CERTIFICATE-----")
-                                .filter(|l| *l != "-----END CERTIFICATE-----")
-                                .collect::<String>()
-                        )?,
-                        base64::Config::new(base64::CharacterSet::UrlSafe, false)
-                    ),
-                    macaroon = base64::encode_config(
-                        &macaroon_vec,
-                        base64::Config::new(base64::CharacterSet::UrlSafe, false)
-                    ),
-                ),
-                description: Some(
-                    "Use this for other applications that require a REST connection".to_owned(),
-                ),
-                copyable: true,
-                qr: true,
-                masked: true,
-            };
-            let node_uri = Property {
-                value_type: "string".to_owned(),
-                value: format!(
-                    "{pubkey}@{peer_tor_address}:9735",
-                    pubkey = ni.identity_pubkey,
-                    peer_tor_address = peer_tor_address
-                ),
-                description: Some(
-                    "Give this to others to allow them to add your LND node as a peer".to_owned(),
-                ),
-                copyable: true,
-                qr: true,
-                masked: false,
-            };
-            let stats = Properties {
-                version: 2,
-                data: Data::LND{
-                    sync_height: Property {
-                        value_type: "string".to_owned(),
-                        value: format!("{}", ni.block_height),
-                        description: Some(
-                            "The latest block height that has been processed by LND".to_owned(),
-                        ),
-                        copyable: false,
-                        qr: false,
-                        masked: false,
-                    },
-                    synced_to_chain: Property {
-                        value_type: "string".to_owned(),
-                        value: if ni.synced_to_chain {
-                            "✅".to_owned()
-                        } else {
-                            "❌".to_owned()
-                        },
-                        description: Some("Until this value is ✅, you may not be able to see transactions sent to your on chain wallet.".to_owned()),
-                        copyable: false,
-                        qr: false,
-                        masked: false,
-                    },
-                    synced_to_graph: Property {
-                        value_type: "string".to_owned(),
-                        value: if ni.synced_to_graph {
-                            "✅".to_owned()
-                        } else {
-                            "❌".to_owned()
-                        },
-                        description: Some("Until this value is ✅, you will experience problems sending payments over lightning.".to_owned()),
-                        copyable: false,
-                        qr: false,
-                        masked: false,
-                    },
-                    lnd_connect_grpc,
-                    lnd_connect_rest,
-                    node_uri,
-                    node_alias: Property {
-                        value_type: "string".to_owned(),
-                        value: alias,
-                        description: Some("The human readable name your node can identify as on the Lightning Network".to_owned()),
-                        copyable: false,
-                        qr: false,
-                        masked: false,
-                    },
-                    node_id: Property {
-                        value_type: "string".to_owned(),
-                        value: ni.identity_pubkey,
-                        description: Some("The node identifier that other nodes can use to connect to this node".to_owned()),
-                        copyable: true,
-                        qr: false,
-                        masked: false,
-                    },
-                },
-            };
-            println!("writing actual stats.yaml file...");
-            serde_yaml::to_writer(File::create("/root/.lnd/start9/stats.yaml")?, &stats)?;
-            println!("finished writing stats.yaml");
-            stats
-        }
-        None => {
-            const PROPERTIES_FALLBACK_MESSAGE: &str =
-                "Could not find properties. The service might still be starting";
-            let not_ready_stats = Properties {
-                version: 2,
-                data: Data::NotReady {
-                    not_ready: Property {
-                        value_type: "string".to_owned(),
-                        value: PROPERTIES_FALLBACK_MESSAGE.to_owned(),
-                        description: Some(
-                            "Fallback message for when properties cannot be found".to_owned(),
-                        ),
-                        copyable: false,
-                        qr: false,
-                        masked: false,
-                    },
-                },
-            };
-            let stats_path = Path::new("/root/.lnd").join("start9/stats.yaml");
-            if stats_path.exists() {
-                let stats = match serde_yaml::from_reader(File::open(&stats_path)?) {
-                    Ok(s) => s,
-                    Err(e) => {
-                        println!("Old/corrupt stats.yaml file, deleting: {:?}", e);
-                        std::fs::remove_file(&stats_path)?;
-                        not_ready_stats
-                    }
-                };
-                stats
-            } else {
-                not_ready_stats
-            }
-        }
-    };
-    Ok(stats)
-}
+//     println!("writing stats.yaml...");
+//     let stats: Properties = match node_info {
+//         Some(ni) => {
+//             let lnd_connect_grpc = Property {
+//                 value_type: "string".to_owned(),
+//                 value: format!(
+//                     "lndconnect://{control_tor_address}:10009?cert={cert}&macaroon={macaroon}",
+//                     control_tor_address = control_tor_address,
+//                     cert = base64::encode_config(
+//                         base64::decode(
+//                             tls_cert
+//                                 .lines()
+//                                 .filter(|l| !l.is_empty())
+//                                 .filter(|l| *l != "-----BEGIN CERTIFICATE-----")
+//                                 .filter(|l| *l != "-----END CERTIFICATE-----")
+//                                 .collect::<String>()
+//                         )?,
+//                         base64::Config::new(base64::CharacterSet::UrlSafe, false)
+//                     ),
+//                     macaroon = base64::encode_config(
+//                         &macaroon_vec,
+//                         base64::Config::new(base64::CharacterSet::UrlSafe, false)
+//                     ),
+//                 ),
+//                 description: Some(
+//                     "Use this for other applications that require a gRPC connection".to_owned(),
+//                 ),
+//                 copyable: true,
+//                 qr: true,
+//                 masked: true,
+//             };
+//             let lnd_connect_rest = Property {
+//                 value_type: "string".to_owned(),
+//                 value: format!(
+//                     "lndconnect://{control_tor_address}:8080?cert={cert}&macaroon={macaroon}",
+//                     control_tor_address = control_tor_address,
+//                     cert = base64::encode_config(
+//                         base64::decode(
+//                             tls_cert
+//                                 .lines()
+//                                 .filter(|l| !l.is_empty())
+//                                 .filter(|l| *l != "-----BEGIN CERTIFICATE-----")
+//                                 .filter(|l| *l != "-----END CERTIFICATE-----")
+//                                 .collect::<String>()
+//                         )?,
+//                         base64::Config::new(base64::CharacterSet::UrlSafe, false)
+//                     ),
+//                     macaroon = base64::encode_config(
+//                         &macaroon_vec,
+//                         base64::Config::new(base64::CharacterSet::UrlSafe, false)
+//                     ),
+//                 ),
+//                 description: Some(
+//                     "Use this for other applications that require a REST connection".to_owned(),
+//                 ),
+//                 copyable: true,
+//                 qr: true,
+//                 masked: true,
+//             };
+//             let node_uri = Property {
+//                 value_type: "string".to_owned(),
+//                 value: format!(
+//                     "{pubkey}@{peer_tor_address}:9735",
+//                     pubkey = ni.identity_pubkey,
+//                     peer_tor_address = peer_tor_address
+//                 ),
+//                 description: Some(
+//                     "Give this to others to allow them to add your LND node as a peer".to_owned(),
+//                 ),
+//                 copyable: true,
+//                 qr: true,
+//                 masked: false,
+//             };
+//             let stats = Properties {
+//                 version: 2,
+//                 data: Data::LND{
+//                     sync_height: Property {
+//                         value_type: "string".to_owned(),
+//                         value: format!("{}", ni.block_height),
+//                         description: Some(
+//                             "The latest block height that has been processed by LND".to_owned(),
+//                         ),
+//                         copyable: false,
+//                         qr: false,
+//                         masked: false,
+//                     },
+//                     synced_to_chain: Property {
+//                         value_type: "string".to_owned(),
+//                         value: if ni.synced_to_chain {
+//                             "✅".to_owned()
+//                         } else {
+//                             "❌".to_owned()
+//                         },
+//                         description: Some("Until this value is ✅, you may not be able to see transactions sent to your on chain wallet.".to_owned()),
+//                         copyable: false,
+//                         qr: false,
+//                         masked: false,
+//                     },
+//                     synced_to_graph: Property {
+//                         value_type: "string".to_owned(),
+//                         value: if ni.synced_to_graph {
+//                             "✅".to_owned()
+//                         } else {
+//                             "❌".to_owned()
+//                         },
+//                         description: Some("Until this value is ✅, you will experience problems sending payments over lightning.".to_owned()),
+//                         copyable: false,
+//                         qr: false,
+//                         masked: false,
+//                     },
+//                     lnd_connect_grpc,
+//                     lnd_connect_rest,
+//                     node_uri,
+//                     node_alias: Property {
+//                         value_type: "string".to_owned(),
+//                         value: alias,
+//                         description: Some("The human readable name your node can identify as on the Lightning Network".to_owned()),
+//                         copyable: false,
+//                         qr: false,
+//                         masked: false,
+//                     },
+//                     node_id: Property {
+//                         value_type: "string".to_owned(),
+//                         value: ni.identity_pubkey,
+//                         description: Some("The node identifier that other nodes can use to connect to this node".to_owned()),
+//                         copyable: true,
+//                         qr: false,
+//                         masked: false,
+//                     },
+//                 },
+//             };
+//             println!("writing actual stats.yaml file...");
+//             serde_yaml::to_writer(File::create("/root/.lnd/start9/stats.yaml")?, &stats)?;
+//             println!("finished writing stats.yaml");
+//             stats
+//         }
+//         None => {
+//             const PROPERTIES_FALLBACK_MESSAGE: &str =
+//                 "Could not find properties. The service might still be starting";
+//             let not_ready_stats = Properties {
+//                 version: 2,
+//                 data: Data::NotReady {
+//                     not_ready: Property {
+//                         value_type: "string".to_owned(),
+//                         value: PROPERTIES_FALLBACK_MESSAGE.to_owned(),
+//                         description: Some(
+//                             "Fallback message for when properties cannot be found".to_owned(),
+//                         ),
+//                         copyable: false,
+//                         qr: false,
+//                         masked: false,
+//                     },
+//                 },
+//             };
+//             let stats_path = Path::new("/root/.lnd").join("start9/stats.yaml");
+//             if stats_path.exists() {
+//                 let stats = match serde_yaml::from_reader(File::open(&stats_path)?) {
+//                     Ok(s) => s,
+//                     Err(e) => {
+//                         println!("Old/corrupt stats.yaml file, deleting: {:?}", e);
+//                         std::fs::remove_file(&stats_path)?;
+//                         not_ready_stats
+//                     }
+//                 };
+//                 stats
+//             } else {
+//                 not_ready_stats
+//             }
+//         }
+//     };
+//     Ok(stats)
+// }
 
-fn properties(
-    control_tor_address: String,
-    peer_tor_address: String,
-    alias: String,
-) -> Result<(), anyhow::Error> {
-    let stats = match get_stats(control_tor_address, peer_tor_address, alias) {
-        Err(e) => {
-            return Err(anyhow::anyhow!("Warn: {:?}", e));
-        }
-        Ok(v) => v,
-    };
+// fn properties(
+//     control_tor_address: String,
+//     peer_tor_address: String,
+//     alias: String,
+// ) -> Result<(), anyhow::Error> {
+//     let stats = match get_stats(control_tor_address, peer_tor_address, alias) {
+//         Err(e) => {
+//             return Err(anyhow::anyhow!("Warn: {:?}", e));
+//         }
+//         Ok(v) => v,
+//     };
 
-    if let Err(e) = serde_yaml::to_writer(File::create("/root/.lnd/start9/stats.yaml")?, &stats) {
-        return Err(anyhow::anyhow!("Warn: {:?}", e));
-    };
+//     if let Err(e) = serde_yaml::to_writer(File::create("/root/.lnd/start9/stats.yaml")?, &stats) {
+//         return Err(anyhow::anyhow!("Warn: {:?}", e));
+//     };
 
-    Ok(())
-}
+//     Ok(())
+// }
 
 #[derive(Serialize, Deserialize)]
 struct JsonRpc1Res {

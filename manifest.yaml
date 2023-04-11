@@ -71,13 +71,6 @@ interfaces:
       port-mapping:
         8080: "8080"
         10009: "10009"
-    lan-config:
-      8080:
-        internal: 8080
-        ssl: false
-      10009:
-        internal: 10009
-        ssl: true
     ui: false
     protocols:
       - tcp
