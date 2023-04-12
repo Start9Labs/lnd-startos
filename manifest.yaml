@@ -3,7 +3,7 @@ title: LND
 version: 0.16.0
 release-notes: |-
   * LND v0.16.0 [Release Notes](https://github.com/lightningnetwork/lnd/blob/master/docs/release-notes/release-notes-0.16.0.md)
-  * Start9 packaging performance updates and bigfixes
+  * Start9 packaging performance updates and bugfixes
 license: mit
 wrapper-repo: "https://github.com/Start9Labs/lnd-wrapper"
 upstream-repo: "https://github.com/lightningnetwork/lnd"
