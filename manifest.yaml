@@ -1,9 +1,10 @@
 id: lnd
 title: LND
-version: 0.16.0
+version: 0.16.0.1
 release-notes: |-
   * LND v0.16.0 [Release Notes](https://github.com/lightningnetwork/lnd/blob/master/docs/release-notes/release-notes-0.16.0.md)
   * Start9 packaging performance updates and bugfixes
+  * Added action to recreate LND macaroons
 license: mit
 wrapper-repo: "https://github.com/Start9Labs/lnd-wrapper"
 upstream-repo: "https://github.com/lightningnetwork/lnd"
@@ -265,6 +266,22 @@ actions:
       image: main
       system: false
       entrypoint: reset-txs.sh
+      args: []
+      mounts:
+        main: /root/.lnd
+      io-format: json
+  recreate-macaroons:
+    name: "Recreate Macaroons"
+    description: "Deletes current macaroons, and restarts LND to recreate all macaroons."
+    warning: ~
+    allowed-statuses:
+      - running
+      - stopped
+    implementation:
+      type: docker
+      image: main
+      system: false
+      entrypoint: recreate-macaroons.sh
       args: []
       mounts:
         main: /root/.lnd
