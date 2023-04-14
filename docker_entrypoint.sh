@@ -20,6 +20,13 @@ mkdir -p /root/.lnd/start9/ && mkdir -p /root/.lnd/public
 echo $PEER_TOR_ADDRESS > /root/.lnd/start9/peerTorAddress
 echo $CONTROL_TOR_ADDRESS > /root/.lnd/start9/controlTorAddress
 
+while ! openssl x509 -text -noout -in /mnt/cert/control.cert.pem -ext subjectAltName \
+  -certopt no_subject,no_header,no_version,no_serial,no_signame,no_validity,no_issuer,no_pubkey,no_sigdump,no_aux \
+  | grep "IP Address:$(ip -4 -o addr show eth0 | awk '{print $4}' | sed -e 's/\/[0-9]\+//g')"; do
+  >&2 echo Cert is not yet signed for current IP...
+  sleep 1;
+done
+
 # copy system cert
 openssl x509 -outform der -in /mnt/cert/control.cert.pem -out /root/.lnd/start9/control.cert.der
 cat /root/.lnd/start9/control.cert.der | basenc --base64url -w0 > /root/.lnd/start9/control.cert.pem.base64url
