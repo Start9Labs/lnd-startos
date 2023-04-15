@@ -2,7 +2,8 @@
 
 set -e
 
-rm /root/.lnd/data/chain/bitcoin/mainnet/*.macaroon
+rm -f /root/.lnd/data/chain/bitcoin/mainnet/*.macaroon >/dev/null
+rm -f /root/.lnd/public/*.macaroon >/dev/null
 action_result_running="    {
     \"version\": \"0\",
     \"message\": \"Restarting LND to recreate macaroons.\",
@@ -18,3 +19,4 @@ action_result_stopped="    {
     \"qr\": false
 }"
 lncli --rpcserver=lnd.embassy stop >/dev/null 2>/dev/null && echo $action_result_running || echo $action_result_stopped
+exit 0
