@@ -1,10 +1,8 @@
 id: lnd
 title: LND
-version: 0.16.0.2
+version: 0.16.1
 release-notes: |-
-  * LND v0.16.0 [Release Notes](https://github.com/lightningnetwork/lnd/blob/master/docs/release-notes/release-notes-0.16.0.md)
-  * Start9 packaging performance updates and bugfixes
-  * Added action to recreate LND macaroons
+  * LND v0.16.1 [Release Notes](https://github.com/lightningnetwork/lnd/blob/master/docs/release-notes/release-notes-0.16.1.md)
 license: mit
 wrapper-repo: "https://github.com/Start9Labs/lnd-wrapper"
 upstream-repo: "https://github.com/lightningnetwork/lnd"
