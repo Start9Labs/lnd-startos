@@ -1,6 +1,6 @@
 id: lnd
 title: LND
-version: 0.16.2
+version: 0.16.2.1
 release-notes: |-
   * LND v0.16.2 [Release Notes](https://github.com/lightningnetwork/lnd/blob/master/docs/release-notes/release-notes-0.16.2.md)
 license: mit
