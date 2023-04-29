@@ -75,6 +75,7 @@ const checks: Array<Check> = [
     "getmempoolinfo",
     "getzmqnotifications",
     "getdeploymentinfo",
+    "getrawmempool",
   ].map(
     (operator): Check => ({
       currentError(config) {
