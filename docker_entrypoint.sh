@@ -32,6 +32,8 @@ openssl x509 -outform der -in /mnt/cert/control.cert.pem -out /root/.lnd/start9/
 cat /root/.lnd/start9/control.cert.der | basenc --base64url -w0 > /root/.lnd/start9/control.cert.pem.base64url
 cp /mnt/cert/control.cert.pem /root/.lnd/tls.cert
 cp /mnt/cert/control.key.pem /root/.lnd/tls.key
+cp /mnt/cert/control.cert.pem /root/.lnd/public/tls.cert
+cp /mnt/cert/control.key.pem /root/.lnd/public/tls.key
 sed -i 's/\(BEGIN\|END\) PRIVATE KEY/\1 EC PRIVATE KEY/g' /root/.lnd/tls.key
 
 configurator
