@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
+
 #[derive(serde::Deserialize, Debug)]
 pub struct LndGetInfoRes {
     synced_to_chain: bool,
