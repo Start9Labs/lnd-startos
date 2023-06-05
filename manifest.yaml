@@ -197,6 +197,37 @@ actions:
         placeholder: password
         nullable: false
         default: ""
+  import-mynode:
+    name: "Import from MyNode"
+    description: "Imports wallet and channel data from MyNode"
+    warning: "This will destroy existing channel data, please make sure you have no funds on this node before running this action"
+    allowed-statuses:
+      - stopped
+    implementation:
+      type: docker
+      image: main
+      system: false
+      entrypoint: import-mynode.sh
+      args: []
+      io-format: json
+      mounts:
+        main: /root/.lnd
+    input-spec:
+      mynode-host:
+        type: string
+        name: MyNode IP Address
+        description: "The IP Address for your MyNode. You can find this by running the command `ping mynode.local` while connected to your LAN."
+        masked: false
+        placeholder: "192.168.1.9"
+        nullable: false
+      mynode-password:
+        type: string
+        name: MyNode Password
+        description: "The password you use to log into your MyNode dashboard or SSH"
+        masked: true
+        placeholder: bolt
+        nullable: false
+        default: ""
   import-umbrel:
     name: "Import from Umbrel (0.4)"
     description: "Imports wallet and channel data from Umbrel 0.4"
