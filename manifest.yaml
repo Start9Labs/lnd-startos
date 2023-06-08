@@ -1,8 +1,9 @@
 id: lnd
 title: LND
-version: 0.16.2.2
+version: 0.16.3
 release-notes: |-
-  * Bugfix with cert generation on first run
+  * Update upstream to lnd [v0.16.3-beta](https://github.com/lightningnetwork/lnd/releases/tag/v0.16.3-beta)
+  * Add action to migrate from myNode
 license: mit
 wrapper-repo: "https://github.com/Start9Labs/lnd-wrapper"
 upstream-repo: "https://github.com/lightningnetwork/lnd"
