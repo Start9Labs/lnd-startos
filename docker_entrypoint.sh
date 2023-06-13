@@ -48,7 +48,7 @@ lnd_child=$!
 
 while ! [ -e /root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon ]; do
   echo "Waiting for lnd to create macaroon..."
-  sleep 1
+  sleep 30
 done
 
 cat /root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon | basenc --base16 -w0  > /root/.lnd/start9/admin.macaroon.hex
