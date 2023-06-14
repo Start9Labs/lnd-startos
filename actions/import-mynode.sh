@@ -12,6 +12,6 @@ sshpass -p "$MYNODE_PASS" ssh -o StrictHostKeyChecking=no admin@$MYNODE_HOST "ec
 sshpass -p "$MYNODE_PASS" ssh -o StrictHostKeyChecking=no admin@$MYNODE_HOST "echo \"$MYNODE_PASS\" | >&2 sudo -S chmod -R 755 /mnt/hdd/mynode/lnd/data"
 sshpass -p "$MYNODE_PASS" scp -o StrictHostKeyChecking=no -r -v admin@$MYNODE_HOST:"/mnt/hdd/mynode/lnd/data" /root/.lnd
 
-LN_CLI_PASS=$(sshpass -p "$MYNODE_PASS" ssh -o StrictHostKeyChecking=no admin@$MYNODE_HOST "cat /mnt/hdd/mynode/settings/.lndpw")
+LN_CLI_PASS=$(sshpass -p "$MYNODE_PASS" ssh -o StrictHostKeyChecking=no admin@$MYNODE_HOST "echo \"$MYNODE_PASS\" | >&2 sudo -S cat /mnt/hdd/mynode/settings/.lndpw")
 echo -n "$LN_CLI_PASS" > /root/.lnd/pwd.dat
 echo '{"version":"0","message":"Successfully Imported MyNode Data","value":null,"copyable":false,"qr":false}'
