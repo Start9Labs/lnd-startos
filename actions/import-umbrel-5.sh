@@ -2,7 +2,7 @@
 
 set -e
 
-#cat > input.json
+cat > input.json
 UMBREL_HOST=$(jq -r '.["umbrel-host"]' input.json)
 UMBREL_PASS=$(jq -r '.["umbrel-password"]' input.json)
 rm input.json
