@@ -219,7 +219,7 @@ actions:
         name: MyNode IP Address
         description: "The IP Address for your MyNode. You can find this by running the command `ping mynode.local` while connected to your LAN."
         masked: false
-        placeholder: "192.168.1.9"
+        placeholder: "192.168.1.7"
         nullable: false
       mynode-password:
         type: string
@@ -227,6 +227,45 @@ actions:
         description: "The password you use to log into your MyNode dashboard or SSH"
         masked: true
         placeholder: bolt
+        nullable: false
+        default: ""
+  import-raspiblitz:
+    name: "Import from RaspiBlitz"
+    description: "Imports wallet and channel data from RaspiBlitz"
+    warning: "This will destroy existing channel data, please make sure you have no funds on this node before running this action"
+    allowed-statuses:
+      - stopped
+    implementation:
+      type: docker
+      image: main
+      system: false
+      entrypoint: import-raspiblitz.sh
+      args: []
+      io-format: json
+      mounts:
+        main: /root/.lnd
+    input-spec:
+      raspiblitz-host:
+        type: string
+        name: RaspiBlitz IP Address
+        description: "The IP Address for your RaspiBlitz. To find this IP address, you may need to check the DHCP Leases in your router."
+        masked: false
+        placeholder: "192.168.1.7"
+        nullable: false
+      raspiblitz-password:
+        type: string
+        name: RaspiBlitz SSH Password
+        description: "The password you use to log into your RaspiBlitz via SSH (Password A)"
+        masked: true
+        placeholder: raspiblitz
+        nullable: false
+        default: ""
+      raspiblitz-lncli-password:
+        type: string
+        name: RaspiBlitz lncli Password
+        description: "The password used to unlock LND on RaspiBlitz (Password C)"
+        masked: true
+        placeholder: raspiblitz_lncli
         nullable: false
         default: ""
   import-umbrel:
