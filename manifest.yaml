@@ -3,7 +3,9 @@ title: LND
 version: 0.16.3
 release-notes: |-
   * Update upstream to lnd [v0.16.3-beta](https://github.com/lightningnetwork/lnd/releases/tag/v0.16.3-beta)
-  * Add action to migrate from myNode
+  * Add actions to migrate from myNode and RaspiBlitz
+  * Remove Proxy as a dependency
+  * Expose Azeed CipherSeed in properties for wallets created on >= 16.3
 license: mit
 wrapper-repo: "https://github.com/Start9Labs/lnd-wrapper"
 upstream-repo: "https://github.com/lightningnetwork/lnd"
@@ -101,7 +103,8 @@ dependencies:
   bitcoind:
     version: ">=0.21.1.2 <27.0.0"
     requirement:
-      type: "required"
+      type: "opt-out"
+      how: "Can alternatively use Neutrino"
     description: Used to subscribe to new block events.
     config:
       check:
