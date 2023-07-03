@@ -119,8 +119,6 @@ enum BitcoinCoreConfig {
     None,
     #[serde(rename_all = "kebab-case")]
     Internal { user: String, password: String },
-    // #[serde(rename_all = "kebab-case")]
-    // InternalProxy { user: String, password: String },
 }
 
 #[derive(Deserialize)]
@@ -326,15 +324,6 @@ fn main() -> Result<(), anyhow::Error> {
             28332,
             28333,
         ),
-        // BitcoinCoreConfig::InternalProxy { user, password } => (
-        //     user,
-        //     password,
-        //     "btc-rpc-proxy.embassy",
-        //     8332,
-        //     "bitcoind.embassy",
-        //     28332,
-        //     28333,
-        // ),
     };
 
     let rpc_info = &BitcoindRpcInfo {

@@ -1,6 +1,4 @@
 import { compat, matches, types as T } from "../deps.ts";
-import { literal } from "https://deno.land/x/ts_matches@v5.2.0/mod.ts";
-
 
 export const migration: T.ExpectedExports.migration = compat.migrations
   .fromMapping(
