@@ -656,9 +656,6 @@ fn main() -> Result<(), anyhow::Error> {
             Ok(())
         }
 
-        println!("The cipherseed is:");
-        println!("{:?}", &cipher_seed_mnemonic);
-
         let file_path = "/root/.lnd/start9/cipherSeedMnemonic.txt";
     
         if let Err(err) = save_to_file(&cipher_seed_mnemonic, file_path) {
