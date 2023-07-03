@@ -1,4 +1,6 @@
 import { compat, matches, types as T } from "../deps.ts";
+import { literal } from "https://deno.land/x/ts_matches@v5.2.0/mod.ts";
+
 
 export const migration: T.ExpectedExports.migration = compat.migrations
   .fromMapping(
@@ -133,6 +135,16 @@ export const migration: T.ExpectedExports.migration = compat.migrations
         ),
         down: () => { throw new Error('Cannot downgrade') },
       },
+      "0.16.3": {
+        up: compat.migrations.updateConfig(
+          (config: any) => {
+            return config;
+          },
+          true,
+          { version: "0.16.3", type: "up" },
+        ),
+        down: () => { throw new Error('Cannot downgrade') },
+      }
     },
     "0.16.3",
   );

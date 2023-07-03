@@ -117,17 +117,16 @@ export const getConfig: T.ExpectedExports.getConfig = compat.getConfig({
     "type": "union",
     "name": "Bitcoin Core",
     "description":
-      "<p>The Bitcoin Core node to connect to:</p><ul><li><strong>None</strong>: Use the light bitcoin backend built into LND, Neutrino. If using Neutrino, please switch to using Bitcoin Core as soon as possible. Neutrino uses the BIP157/8 light client protocol, which has security risks.</li><br><li><strong>Bitcoin Core/Proxy</strong>: either service installed on your Embassy. Neutrino will also be used during IBD.</li></ul>",
+      "<p>The Bitcoin Core node to connect to:</p><ul><li><strong>None</strong>: Use the light bitcoin backend built into LND, Neutrino. If using Neutrino, please switch to using Bitcoin Core as soon as possible. Neutrino uses the BIP157/8 light client protocol, which has security risks.</li><br><li><strong>Bitcoin Core</strong>: service installed on your server. Neutrino will also be used during IBD.</li></ul>",
     "tag": {
       "id": "type",
       "name": "Type",
       "variant-names": {
         "none": "None (Built-in LND Neutrino)",
         "internal": "Bitcoin Core",
-        "internal-proxy": "Bitcoin Proxy",
       },
       "description":
-        "<p>The Bitcoin Core node to connect to:</p><ul><li><strong>None</strong>: Use the light bitcoin backend built into LND, Neutrino. If using Neutrino, please switch to using Bitcoin Core as soon as possible. Neutrino uses the BIP157/8 light client protocol, which has security risks.</li><br><li><strong>Bitcoin Core/Proxy</strong>: either service installed on your Embassy. Neutrino will also be used during IBD.</li></ul>",
+        "<p>The Bitcoin Core node to connect to:</p><ul><li><strong>None</strong>: Use the light bitcoin backend built into LND, Neutrino. If using Neutrino, please switch to using Bitcoin Core as soon as possible. Neutrino uses the BIP157/8 light client protocol, which has security risks.</li><br><li><strong>Bitcoin Core</strong>: service installed on your server. Neutrino will also be used during IBD.</li></ul>",
     },
     "warning":
       "If using Neutrino, please switch to using Bitcoin Core as soon as possible. Neutrino uses the BIP157/8 light client protocol, which has security risks.",
@@ -154,28 +153,6 @@ export const getConfig: T.ExpectedExports.getConfig = compat.getConfig({
           "target": "config",
           "multi": false,
           "selector": "$.rpc.password",
-        },
-      },
-      "internal-proxy": {
-        "user": {
-          "type": "pointer",
-          "name": "RPC Username",
-          "description": "The username for the RPC user allocated to lnd",
-          "subtype": "package",
-          "package-id": "btc-rpc-proxy",
-          "target": "config",
-          "multi": false,
-          "selector": '$.users[?(@.name == "lnd")].name',
-        },
-        "password": {
-          "type": "pointer",
-          "name": "RPC Password",
-          "description": "The password for the RPC user allocated to lnd",
-          "subtype": "package",
-          "package-id": "btc-rpc-proxy",
-          "target": "config",
-          "multi": false,
-          "selector": '$.users[?(@.name == "lnd")].password',
         },
       },
     },

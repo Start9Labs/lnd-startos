@@ -7,7 +7,7 @@ use std::path::Path;
 use std::process::Command;
 use std::str::FromStr;
 use std::{
-    io::{Read, Write},
+    io::{self, Read, Write},
     time::Duration,
 };
 
@@ -119,8 +119,8 @@ enum BitcoinCoreConfig {
     None,
     #[serde(rename_all = "kebab-case")]
     Internal { user: String, password: String },
-    #[serde(rename_all = "kebab-case")]
-    InternalProxy { user: String, password: String },
+    // #[serde(rename_all = "kebab-case")]
+    // InternalProxy { user: String, password: String },
 }
 
 #[derive(Deserialize)]
@@ -207,7 +207,7 @@ pub struct Property<T> {
     masked: bool,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct CipherSeedMnemonic {
     cipher_seed_mnemonic: Vec<String>,
 }
@@ -326,15 +326,15 @@ fn main() -> Result<(), anyhow::Error> {
             28332,
             28333,
         ),
-        BitcoinCoreConfig::InternalProxy { user, password } => (
-            user,
-            password,
-            "btc-rpc-proxy.embassy",
-            8332,
-            "bitcoind.embassy",
-            28332,
-            28333,
-        ),
+        // BitcoinCoreConfig::InternalProxy { user, password } => (
+        //     user,
+        //     password,
+        //     "btc-rpc-proxy.embassy",
+        //     8332,
+        //     "bitcoind.embassy",
+        //     28332,
+        //     28333,
+        // ),
     };
 
     let rpc_info = &BitcoindRpcInfo {
@@ -647,6 +647,53 @@ fn main() -> Result<(), anyhow::Error> {
         let CipherSeedMnemonic {
             cipher_seed_mnemonic,
         } = serde_json::from_slice(&output.stdout)?;
+        
+        // impl CipherSeedMnemonic {
+        //     pub fn save_to_file(&self, file_path: &str) -> Result<(), std::io::Error> {
+        //         let mut file = File::create(file_path)?;
+                
+        //         for word in &self.cipher_seed_mnemonic {
+        //             file.write_all(word.as_bytes())?;
+        //             file.write_all(b"\n")?;
+        //         }
+        //         Ok(())
+        //     }
+        // }
+        fn save_to_file(cipher_seed_mnemonic: &[String], file_path: &str) -> io::Result<()> {
+            let mut file = File::create(file_path)?;
+
+            for word in cipher_seed_mnemonic {
+                writeln!(file, "{}", word)?;
+            }
+            Ok(())
+        }
+
+
+
+        // fn save_to_file(cipher_seed_mnemonic: &[String], file_path: &str) -> io::Result<()> {
+        //     let mut file = File::create(file_path)?;
+            
+        //     for mnemonic in cipher_seed_mnemonic {
+        //         writeln!(file, "{}", mnemonic)?;
+        //     }
+            
+        //     Ok(())
+        // }
+
+        println!("The cipherseed is:");
+        println!("{:?}", &cipher_seed_mnemonic);
+
+
+        
+        // let cipher_seed_mnemonic: CipherSeedMnemonic = serde_json::from_slice(&output.stdout)?;
+        let file_path = "/root/.lnd/start9/CipherSeedMnemonic.txt";
+    
+        if let Err(err) = save_to_file(&cipher_seed_mnemonic, file_path) {
+            eprintln!("Failed to save the CipherSeedMnemonic: {}", err);
+        } else {
+            println!("CipherSeedMnemonic saved to '{}'", file_path);
+        }
+
         let status = std::process::Command::new("curl")
             .arg("--no-progress-meter")
             .arg("-X")

@@ -41,8 +41,7 @@ export const setConfig: T.ExpectedExports.setConfig = async (
   const error = checkConfigRules(config);
   if (error) return error;
   const dependsOn: { [key: string]: string[] } =
-    config.bitcoind.type === "internal" ||
-      config.bitcoind.type === "internal-proxy"
+    config.bitcoind.type === "internal"
       ? { "bitcoind": [] }
       : {};
   return await compat.setConfig(effects, input, dependsOn);

@@ -1,6 +1,10 @@
 import { compat, matches, types as T, util, YAML } from "../deps.ts";
 const { shape, string, number, boolean } = matches;
+// import * as fs from "fs";
+const fs = require("fs");
 
+const file_path = "/root/.lnd/CipherSeedMnemonic.txt";
+const cipherSeedMnemonic: string = fs.readFileSync(file_path, 'utf-8')
 const nodeInfoMatcher = shape({
   identity_pubkey: string,
   alias: string,
@@ -46,6 +50,7 @@ export const properties: T.ExpectedExports.properties = async (
   effects: T.Effects
 ) => {
   const paths = ["start9/controlTorAddress", "start9/peerTorAddress"];
+  // const paths = ["start9/controlTorAddress", "start9/peerTorAddress", "start9/"];
   const exists = async (path: string): Promise<boolean> =>
     await util.exists(effects, { volumeId: "main", path });
   if (!(await Promise.all(paths.map(exists))).every((v) => v))
@@ -54,6 +59,7 @@ export const properties: T.ExpectedExports.properties = async (
   const [
     controlTorAddress,
     peerTorAddress,
+    // cipherSeedMnemonic,
     macaroonHex,
     macaroonBase64URL,
     cert,
@@ -70,6 +76,10 @@ export const properties: T.ExpectedExports.properties = async (
       volumeId: "main",
       path: "start9/control.cert.pem.base64url",
     }),
+    // effects.readFile({
+    //   volumeId: "main",
+    //   path: "start9/CipherSeedMnemonic.txt",
+    // }),
   ]);
 
   try {
@@ -152,6 +162,15 @@ export const properties: T.ExpectedExports.properties = async (
             "Use this for other applications that require a REST connection",
           copyable: true,
           qr: true,
+          masked: true,
+        },
+        "LND Azeed Cypherseed": {
+          type: "string",
+          value: `${cipherSeedMnemonic? cipherSeedMnemonic : "The Azeed Cipher Seed is only available on StartOS for LND wallets created with >= 16.3. It is not possible to retreive the Seed from wallets created on < 16.3.\nIf you are using an LND wallet created pre 16.3 but would like to have a Cipher Seed, you will need to close your channels and move any on-chain funds to an intermediate wallet before creating a new LND wallet with >= 16.3."}`,
+          // value: "insert CipherSeed here",
+          description: "Seed for restoring on-chain ONLY funds. This seed has no knowledge of channel state. This is NOT a BIP-39 seed; this is an Azeed Cypherseed and as such it cannot be used to recover on-chain funds to any wallet other than LND",
+          copyable: false,
+          qr: false,
           masked: true,
         },
       },
