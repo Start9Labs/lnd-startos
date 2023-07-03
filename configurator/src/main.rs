@@ -648,45 +648,18 @@ fn main() -> Result<(), anyhow::Error> {
             cipher_seed_mnemonic,
         } = serde_json::from_slice(&output.stdout)?;
         
-        // impl CipherSeedMnemonic {
-        //     pub fn save_to_file(&self, file_path: &str) -> Result<(), std::io::Error> {
-        //         let mut file = File::create(file_path)?;
-                
-        //         for word in &self.cipher_seed_mnemonic {
-        //             file.write_all(word.as_bytes())?;
-        //             file.write_all(b"\n")?;
-        //         }
-        //         Ok(())
-        //     }
-        // }
         fn save_to_file(cipher_seed_mnemonic: &[String], file_path: &str) -> io::Result<()> {
             let mut file = File::create(file_path)?;
-
-            for word in cipher_seed_mnemonic {
-                writeln!(file, "{}", word)?;
+            for (i, word) in cipher_seed_mnemonic.iter().enumerate() {
+                writeln!(file, "{} {}", i + 1, word)?;
             }
             Ok(())
         }
 
-
-
-        // fn save_to_file(cipher_seed_mnemonic: &[String], file_path: &str) -> io::Result<()> {
-        //     let mut file = File::create(file_path)?;
-            
-        //     for mnemonic in cipher_seed_mnemonic {
-        //         writeln!(file, "{}", mnemonic)?;
-        //     }
-            
-        //     Ok(())
-        // }
-
         println!("The cipherseed is:");
         println!("{:?}", &cipher_seed_mnemonic);
 
-
-        
-        // let cipher_seed_mnemonic: CipherSeedMnemonic = serde_json::from_slice(&output.stdout)?;
-        let file_path = "/root/.lnd/start9/CipherSeedMnemonic.txt";
+        let file_path = "/root/.lnd/start9/cipherSeedMnemonic.txt";
     
         if let Err(err) = save_to_file(&cipher_seed_mnemonic, file_path) {
             eprintln!("Failed to save the CipherSeedMnemonic: {}", err);
