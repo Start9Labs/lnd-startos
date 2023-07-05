@@ -45,7 +45,7 @@ const wrongShape = (wrongValue: unknown): T.ResultType<T.Properties> =>
 export const properties: T.ExpectedExports.properties = async (
   effects: T.Effects
 ) => {
-  const paths = ["start9/controlTorAddress", "start9/peerTorAddress"];
+  const paths = ["start9/controlTorAddress", "start9/peerTorAddress", "start9/admin.macaroon.hex", "start9/admin.macaroon.base64url", "start9/control.cert.pem.base64url", "start9/cipherSeedMnemonic.txt"];
   const exists = async (path: string): Promise<boolean> =>
     await util.exists(effects, { volumeId: "main", path });
   if (!(await Promise.all(paths.map(exists))).every((v) => v))
@@ -62,19 +62,6 @@ export const properties: T.ExpectedExports.properties = async (
     ...paths.map(async (path) =>
       (await effects.readFile({ volumeId: "main", path })).trim()
     ),
-    effects.readFile({ volumeId: "main", path: "start9/admin.macaroon.hex" }),
-    effects.readFile({
-      volumeId: "main",
-      path: "start9/admin.macaroon.base64url",
-    }),
-    effects.readFile({
-      volumeId: "main",
-      path: "start9/control.cert.pem.base64url",
-    }),
-    effects.readFile({
-      volumeId: "main",
-      path: "start9/cipherSeedMnemonic.txt",
-    }).catch(() => "no cypherSeed found"),
   ]);
 
   try {
