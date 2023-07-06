@@ -544,7 +544,7 @@ fn main() -> Result<(), anyhow::Error> {
                 None => (),
                 Some(backups) => {
                     while local_port_available(8080)? {
-                        std::thread::sleep(Duration::from_secs(10))
+                        std::thread::sleep(Duration::from_secs(20))
                     }
                     let mac = std::fs::read(Path::new(
                         "/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon",
