@@ -133,16 +133,17 @@ export const migration: T.ExpectedExports.migration = compat.migrations
         ),
         down: () => { throw new Error('Cannot downgrade') },
       },
-      "0.16.3": {
+      "0.16.4": {
         up: compat.migrations.updateConfig(
           (config: any) => {
+            if (config.bitcoind.type === 'internal-proxy') config.bitcoind.type = 'internal'
             return config;
           },
           true,
-          { version: "0.16.3", type: "up" },
+          { version: "0.16.4", type: "up" },
         ),
         down: () => { throw new Error('Cannot downgrade') },
       }
     },
-    "0.16.3",
+    "0.16.4",
   );
