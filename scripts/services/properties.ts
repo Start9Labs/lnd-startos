@@ -62,7 +62,10 @@ export const properties: T.ExpectedExports.properties = async (
     ...paths.map(async (path) =>
       (await effects.readFile({ volumeId: "main", path })).trim()
     ),
-    effects.readFile({ volumeId: "main", path: "start9/cipherSeedMnemonic"},).catch(() => "no cipherSeed found")
+    effects.readFile({
+      volumeId: "main",
+      path: "start9/cipherSeedMnemonic.txt",
+    }).catch(() => "no cipherSeed found"),
   ]);
 
   try {
