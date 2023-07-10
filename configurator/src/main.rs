@@ -259,6 +259,16 @@ pub fn local_port_available(port: u16) -> Result<bool, anyhow::Error> {
         }
     }
 }
+                
+fn save_to_file(cipher_seed_mnemonic: &[String], file_path: &str) -> io::Result<()> {
+    let mut file = File::create(file_path)?;
+    for (i, word) in cipher_seed_mnemonic.iter().enumerate() {
+        writeln!(file, "{} {}", i + 1, word)?;
+    }
+    Ok(())
+}
+
+let file_path = "/root/.lnd/start9/cipherSeedMnemonic.txt";
 
 struct WatchtowerUri {
     pubkey: String,
@@ -615,67 +625,71 @@ fn main() -> Result<(), anyhow::Error> {
             },
         }
     } else {
-        println!("creating password data");
+
+        let mut cipher_seed_created = false;
         let mut password_bytes = [0; 16];
         let mut dev_random = File::open("/dev/random")?;
-        dev_random.read_exact(&mut password_bytes)?;
-        let output = std::process::Command::new("curl")
-            .arg("--no-progress-meter")
-            .arg("-X")
-            .arg("GET")
-            .arg("--cacert")
-            .arg("/root/.lnd/tls.cert")
-            .arg("https://lnd.embassy:8080/v1/genseed")
-            .arg("-d")
-            .arg(format!("{}", serde_json::json!({})))
-            .output()?;
-        if !output.status.success() {
-            eprintln!("{}", std::str::from_utf8(&output.stderr)?);
-            return Err(anyhow::anyhow!("Error generating seed. Exiting."));
-        }
-        let CipherSeedMnemonic {
-            cipher_seed_mnemonic,
-        } = serde_json::from_slice(&output.stdout)?;
-        
-        fn save_to_file(cipher_seed_mnemonic: &[String], file_path: &str) -> io::Result<()> {
-            let mut file = File::create(file_path)?;
-            for (i, word) in cipher_seed_mnemonic.iter().enumerate() {
-                writeln!(file, "{} {}", i + 1, word)?;
+
+        while !cipher_seed_created {
+            println!("creating password data");
+            dev_random.read_exact(&mut password_bytes)?;
+            let output = std::process::Command::new("curl")
+                .arg("--no-progress-meter")
+                .arg("-X")
+                .arg("GET")
+                .arg("--cacert")
+                .arg("/root/.lnd/tls.cert")
+                .arg("https://lnd.embassy:8080/v1/genseed")
+                .arg("-d")
+                .arg(format!("{}", serde_json::json!({})))
+                .output()?;
+            if !output.status.success() {
+                eprintln!("{}", std::str::from_utf8(&output.stderr)?);
+                return Err(anyhow::anyhow!("Error generating seed. Exiting."));
             }
-            Ok(())
-        }
+            println!("{:?}", &output);
+            
+            if let Ok(CipherSeedMnemonic {
+                cipher_seed_mnemonic,
+            }) = serde_json::from_slice(&output.stdout) {
+                println!("CipherSeed successfully generated");
 
-        let file_path = "/root/.lnd/start9/cipherSeedMnemonic.txt";
-    
-        if let Err(err) = save_to_file(&cipher_seed_mnemonic, file_path) {
-            eprintln!("Failed to save the CipherSeedMnemonic: {}", err);
-        } else {
-            println!("CipherSeedMnemonic saved to '{}'", file_path);
-        }
-
-        let status = std::process::Command::new("curl")
-            .arg("--no-progress-meter")
-            .arg("-X")
-            .arg("POST")
-            .arg("--cacert")
-            .arg("/root/.lnd/tls.cert")
-            .arg("https://lnd.embassy:8080/v1/initwallet")
-            .arg("-d")
-            .arg(format!(
-                "{}",
-                serde_json::json!({
-                    "wallet_password": base64::encode(&password_bytes),
-                    "cipher_seed_mnemonic": cipher_seed_mnemonic,
-                })
-            ))
-            .status()?;
-        if status.success() {
-            let mut pass_file = File::create("/root/.lnd/pwd.dat")?;
-            pass_file.write_all(&password_bytes)?;
-        } else {
-            return Err(anyhow::anyhow!("Error creating wallet. Exiting."));
+                if let Err(err) = save_to_file(&cipher_seed_mnemonic, file_path) {
+                    eprintln!("Failed to save the CipherSeedMnemonic: {}", err);
+                } else {
+                    println!("CipherSeedMnemonic saved to '{}'", file_path);
+                }
+        
+                let status = std::process::Command::new("curl")
+                    .arg("--no-progress-meter")
+                    .arg("-X")
+                    .arg("POST")
+                    .arg("--cacert")
+                    .arg("/root/.lnd/tls.cert")
+                    .arg("https://lnd.embassy:8080/v1/initwallet")
+                    .arg("-d")
+                    .arg(format!(
+                        "{}",
+                        serde_json::json!({
+                            "wallet_password": base64::encode(&password_bytes),
+                            "cipher_seed_mnemonic": cipher_seed_mnemonic,
+                        })
+                    ))
+                    .status()?;
+                if status.success() {
+                    let mut pass_file = File::create("/root/.lnd/pwd.dat")?;
+                    pass_file.write_all(&password_bytes)?;
+                } else {
+                    return Err(anyhow::anyhow!("Error creating wallet. Exiting."));
+                }
+                cipher_seed_created = true
+            } else {
+                println!("Waiting for RPC to start...");
+                std::thread::sleep(Duration::from_secs(5));
+            }
         }
     }
+    
     println!("copying macaroon to public dir...");
     while !Path::new("/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon").exists() {
         std::thread::sleep(std::time::Duration::from_secs(1));
