@@ -5,7 +5,8 @@ release-notes: |-
   * Update upstream to lnd [v0.16.4-beta](https://github.com/lightningnetwork/lnd/releases/tag/v0.16.4-beta)
   * Add actions to migrate from myNode and RaspiBlitz
   * Remove Proxy as a dependency
-  * Expose Azeed CipherSeed in properties for wallets created on >= 16.4
+  * Expose Aezeed CipherSeed in properties for wallets created on >= 16.4
+  * Fix non-deterministic bug where a CipherSeed is not created on a fresh install
 license: mit
 wrapper-repo: "https://github.com/Start9Labs/lnd-wrapper"
 upstream-repo: "https://github.com/lightningnetwork/lnd"
