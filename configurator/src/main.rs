@@ -268,8 +268,6 @@ fn save_to_file(cipher_seed_mnemonic: &[String], file_path: &str) -> io::Result<
     Ok(())
 }
 
-let file_path = "/root/.lnd/start9/cipherSeedMnemonic.txt";
-
 struct WatchtowerUri {
     pubkey: String,
     address: String,
@@ -629,6 +627,7 @@ fn main() -> Result<(), anyhow::Error> {
         let mut cipher_seed_created = false;
         let mut password_bytes = [0; 16];
         let mut dev_random = File::open("/dev/random")?;
+        let file_path = "/root/.lnd/start9/cipherSeedMnemonic.txt";
 
         while !cipher_seed_created {
             println!("creating password data");
@@ -647,7 +646,6 @@ fn main() -> Result<(), anyhow::Error> {
                 eprintln!("{}", std::str::from_utf8(&output.stderr)?);
                 return Err(anyhow::anyhow!("Error generating seed. Exiting."));
             }
-            println!("{:?}", &output);
             
             if let Ok(CipherSeedMnemonic {
                 cipher_seed_mnemonic,
