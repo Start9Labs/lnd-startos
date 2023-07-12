@@ -159,6 +159,7 @@ struct AdvancedConfig {
     gc_canceled_invoices_on_startup: bool,
     allow_circular_route: bool,
     bitcoin: BitcoinChannelConfig,
+    extra_addresses: Vec<String>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -259,7 +260,7 @@ pub fn local_port_available(port: u16) -> Result<bool, anyhow::Error> {
         }
     }
 }
-                
+
 fn save_to_file(cipher_seed_mnemonic: &[String], file_path: &str) -> io::Result<()> {
     let mut file = File::create(file_path)?;
     for (i, word) in cipher_seed_mnemonic.iter().enumerate() {
@@ -368,6 +369,12 @@ fn main() -> Result<(), anyhow::Error> {
         include_str!("lnd.conf.template"),
         container_ip = container_ip.unwrap_or_else(|| [0, 0, 0, 0].into()),
         peer_tor_address = peer_tor_address,
+        more_external_hosts = config
+            .advanced
+            .extra_addresses
+            .into_iter()
+            .map(|s| format!("externalhosts={s}\n"))
+            .collect::<String>(),
         watchtower_tor_address = watchtower_tor_address,
         payments_expiration_grace_period = config.advanced.payments_expiration_grace_period,
         debug_level = config.advanced.debug_level,
@@ -623,7 +630,6 @@ fn main() -> Result<(), anyhow::Error> {
             },
         }
     } else {
-
         let mut cipher_seed_created = false;
         let mut password_bytes = [0; 16];
         let mut dev_random = File::open("/dev/random")?;
@@ -646,10 +652,11 @@ fn main() -> Result<(), anyhow::Error> {
                 eprintln!("{}", std::str::from_utf8(&output.stderr)?);
                 return Err(anyhow::anyhow!("Error generating seed. Exiting."));
             }
-            
+
             if let Ok(CipherSeedMnemonic {
                 cipher_seed_mnemonic,
-            }) = serde_json::from_slice(&output.stdout) {
+            }) = serde_json::from_slice(&output.stdout)
+            {
                 println!("CipherSeed successfully generated");
 
                 if let Err(err) = save_to_file(&cipher_seed_mnemonic, file_path) {
@@ -657,7 +664,7 @@ fn main() -> Result<(), anyhow::Error> {
                 } else {
                     println!("CipherSeedMnemonic saved to '{}'", file_path);
                 }
-        
+
                 let status = std::process::Command::new("curl")
                     .arg("--no-progress-meter")
                     .arg("-X")
@@ -687,7 +694,7 @@ fn main() -> Result<(), anyhow::Error> {
             }
         }
     }
-    
+
     println!("copying macaroon to public dir...");
     while !Path::new("/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon").exists() {
         std::thread::sleep(std::time::Duration::from_secs(1));
@@ -701,7 +708,6 @@ fn main() -> Result<(), anyhow::Error> {
             )?;
         }
     }
-
 
     if true {
         let mac = std::fs::read(Path::new(
@@ -814,7 +820,6 @@ fn main() -> Result<(), anyhow::Error> {
 
     Ok(())
 }
-
 
 #[derive(Serialize, Deserialize)]
 struct JsonRpc1Res {

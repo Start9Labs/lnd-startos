@@ -1,5 +1,6 @@
 [Application Options]
 externalhosts={peer_tor_address}
+{more_external_hosts}
 payments-expiration-grace-period={payments_expiration_grace_period}s
 listen=0.0.0.0:9735
 rpclisten={container_ip}:10009

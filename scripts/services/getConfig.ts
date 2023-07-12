@@ -501,6 +501,22 @@ export const getConfig: T.ExpectedExports.getConfig = compat.getConfig({
           },
         },
       },
+      "extra-addresses": {
+        name: "Extra Addresses",
+        description:
+          "Additional addresses that resolve to this lnd node",
+        type: "list",
+        subtype: "string",
+        range: "[0,*)",
+        default: [],
+        spec: {
+          type: "string",
+          placeholder: "lightning.example.com",
+          textarea: false,
+          copyable: false,
+          masked: false,
+        },
+      } as T.ValueSpecList as T.ValueSpecAny,
     },
   },
 });
