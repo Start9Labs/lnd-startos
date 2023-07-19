@@ -22,6 +22,15 @@ const configRules: Array<Check> = [
       }
     },
   },
+  {
+    currentError(config) {
+      if (config["max-chan-size"]) {
+        if (!config.advanced["protocol-wumbo-channels"] && config["max-chan-size"] > 16777215) {
+          return "'Advanced > Enable Wumbo Channels' must be enabled to set a max channel size larger than 0.16777215 BTC'";
+        }
+      }
+    },
+  },
 ];
 
 function checkConfigRules(config: Root): T.KnownError | void {
