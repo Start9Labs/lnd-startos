@@ -1,12 +1,8 @@
 id: lnd
 title: LND
-version: 0.16.4
+version: 0.16.4.1
 release-notes: |-
-  * Update upstream to lnd [v0.16.4-beta](https://github.com/lightningnetwork/lnd/releases/tag/v0.16.4-beta)
-  * Add actions to migrate from myNode and RaspiBlitz
-  * Remove Proxy as a dependency
-  * Expose Aezeed CipherSeed in properties for wallets created on >= 16.4
-  * Fix non-deterministic bug where a CipherSeed is not created on a fresh install
+  * Fix Umbrel migration actions to allow special characters
 license: mit
 wrapper-repo: "https://github.com/Start9Labs/lnd-wrapper"
 upstream-repo: "https://github.com/lightningnetwork/lnd"
