@@ -15,21 +15,27 @@ clean:
 	rm -fr docker-images/
 
 verify: $(PKG_ID).s9pk
-	embassy-sdk verify s9pk $(PKG_ID).s9pk
+	@start-sdk verify s9pk $(PKG_ID).s9pk
+	@echo " Done!"
+	@echo "   Filesize: $(shell du -h $(PKG_ID).s9pk) is ready"
 
-install: all $(PKG_ID).s9pk 
-	embassy-cli package install lnd.s9pk
+install:
+ifeq (,$(wildcard ~/.embassy/config.yaml))
+	@echo; echo "You must define \"host: http://server-name.local\" in ~/.embassy/config.yaml config file first"; echo
+else
+	start-cli package install $(PKG_ID).s9pk
+endif
 
 # for rebuilding just the arm image. will include docker-images/x86_64.tar into the s9pk if it exists
 arm: docker-images/aarch64.tar scripts/embassy.js
-	embassy-sdk pack
+	start-sdk pack
 
 # for rebuilding just the x86 image. will include docker-images/aarch64.tar into the s9pk if it exists
 x86: docker-images/x86_64.tar scripts/embassy.js
-	embassy-sdk pack
+	start-sdk pack
 
 $(PKG_ID).s9pk: manifest.yaml instructions.md LICENSE icon.png scripts/embassy.js docker-images/aarch64.tar docker-images/x86_64.tar actions/*.sh
-	embassy-sdk pack
+	start-sdk pack
 
 docker-images/x86_64.tar: Dockerfile docker_entrypoint.sh configurator/target/x86_64-unknown-linux-musl/release/configurator health-check/target/x86_64-unknown-linux-musl/release/health-check 
 	mkdir -p docker-images
