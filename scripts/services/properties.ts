@@ -80,32 +80,6 @@ export const properties: T.ExpectedExports.properties = async (
     const stats: T.Properties = {
       version: 2,
       data: {
-        "LND Sync Height": {
-          type: "string",
-          value: String(nodeInfoJson.block_height),
-          description: "The latest block height that has been processed by LND",
-          copyable: false,
-          qr: false,
-          masked: false,
-        },
-        "Synced To Chain": {
-          type: "string",
-          value: nodeInfoJson.synced_to_chain ? "✅" : "❌",
-          description:
-            "Until this value is ✅, you may not be able to see transactions sent to your on chain wallet.",
-          copyable: false,
-          qr: false,
-          masked: false,
-        },
-        "Synced To Graph": {
-          type: "string",
-          value: nodeInfoJson.synced_to_graph ? "✅" : "❌",
-          description:
-            "Until this value is ✅, you will experience problems sending payments over lightning.",
-          copyable: false,
-          qr: false,
-          masked: false,
-        },
         "Node Alias": {
           type: "string",
           value: nodeInfoJson.alias,
