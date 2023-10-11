@@ -1,8 +1,10 @@
 id: lnd
 title: LND
-version: 0.16.4.1
+version: 0.17.0
 release-notes: |-
-  * Fix Umbrel migration actions to allow special characters
+  * Prevent migration actions if there is an existing LND wallet
+  * Update README build instructions
+  * Minor bugfixes and refactoring
 license: mit
 wrapper-repo: "https://github.com/Start9Labs/lnd-wrapper"
 upstream-repo: "https://github.com/lightningnetwork/lnd"
@@ -158,7 +160,7 @@ actions:
   import-umbrel-five:
     name: "Import from Umbrel (0.5)"
     description: "Imports wallet and channel data from Umbrel 0.5"
-    warning: "This will destroy existing channel data, please make sure you have no funds on this node before running this action"
+    warning: "To avoid overwriting an existing LND wallet on StartOS, this action can only be run on a fresh installation of LND that has not yet been 'Started'."
     allowed-statuses:
       - stopped
     implementation:
@@ -189,7 +191,7 @@ actions:
   import-mynode:
     name: "Import from MyNode"
     description: "Imports wallet and channel data from MyNode"
-    warning: "This will destroy existing channel data, please make sure you have no funds on this node before running this action"
+    warning: "To avoid overwriting an existing LND wallet on StartOS, this action can only be run on a fresh installation of LND that has not yet been 'Started'."
     allowed-statuses:
       - stopped
     implementation:
@@ -220,7 +222,7 @@ actions:
   import-raspiblitz:
     name: "Import from RaspiBlitz"
     description: "Imports wallet and channel data from RaspiBlitz"
-    warning: "This will destroy existing channel data, please make sure you have no funds on this node before running this action"
+    warning: "To avoid overwriting an existing LND wallet on StartOS, this action can only be run on a fresh installation of LND that has not yet been 'Started'."
     allowed-statuses:
       - stopped
     implementation:
@@ -259,7 +261,7 @@ actions:
   import-umbrel:
     name: "Import from Umbrel (0.4)"
     description: "Imports wallet and channel data from Umbrel 0.4"
-    warning: "This will destroy existing channel data, please make sure you have no funds on this node before running this action"
+    warning: "To avoid overwriting an existing LND wallet on StartOS, this action can only be run on a fresh installation of LND that has not yet been 'Started'."
     allowed-statuses:
       - stopped
     implementation:
