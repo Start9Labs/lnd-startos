@@ -102,7 +102,7 @@ export const properties: T.ExpectedExports.properties = async (
             "The node identifier that other nodes can use to connect to this node",
           copyable: true,
           qr: false,
-          masked: false,
+          masked: true,
         },
         "Node URI": {
           type: "string",
@@ -111,7 +111,7 @@ export const properties: T.ExpectedExports.properties = async (
             "Give this to others to allow them to add your LND node as a peer",
           copyable: true,
           qr: true,
-          masked: false,
+          masked: true,
         },
         "LND Connect gRPC URL": {
           type: "string",
