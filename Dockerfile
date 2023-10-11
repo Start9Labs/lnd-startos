@@ -1,4 +1,4 @@
-FROM lightninglabs/lnd:v0.16.4-beta
+FROM lightninglabs/lnd:v0.17.0-beta
 
 ARG ARCH
 ARG PLATFORM

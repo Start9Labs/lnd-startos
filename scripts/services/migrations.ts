@@ -145,5 +145,5 @@ export const migration: T.ExpectedExports.migration = compat.migrations
         down: () => { throw new Error('Cannot downgrade') },
       }
     },
-    "0.16.4.1",
+    "0.17.0",
   );
