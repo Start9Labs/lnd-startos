@@ -8,6 +8,7 @@ const nodeInfoMatcher = shape({
   synced_to_chain: boolean,
   synced_to_graph: boolean,
 });
+
 const noPropertiesFound = {
   result: {
     version: 2,
@@ -23,6 +24,7 @@ const noPropertiesFound = {
     },
   },
 } as const;
+
 const wrongShape = (wrongValue: unknown): T.ResultType<T.Properties> =>
   ({
     result: {
@@ -57,11 +59,16 @@ export const properties: T.ExpectedExports.properties = async (
     macaroonHex,
     macaroonBase64URL,
     cert,
+    towerServerUrl,
     cipherSeedMnemonic,
   ] = await Promise.all([
     ...paths.map(async (path) =>
       (await effects.readFile({ volumeId: "main", path })).trim()
     ),
+    effects.readFile({
+      volumeId: "main",
+      path: "start9/towerServerUrl",
+    }).catch(() => "no Tower Server found"),
     effects.readFile({
       volumeId: "main",
       path: "start9/cipherSeedMnemonic.txt",
@@ -132,6 +139,17 @@ export const properties: T.ExpectedExports.properties = async (
           qr: false,
           masked: true,
         },
+        ...(towerServerUrl !== "no Tower Server found")
+        ? {
+          "Tower Server": {
+            type: "string",
+            value: towerServerUrl,
+            description: "Sharing this URL with other LND nodes will allow them to use your server as a watchtower.",
+            copyable: true,
+            qr: true,
+            masked: true,
+          }
+        } : {}
       },
     }; // Include the original stats object here
 
