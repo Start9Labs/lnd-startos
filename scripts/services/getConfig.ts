@@ -166,7 +166,8 @@ export const getConfig: T.ExpectedExports.getConfig = compat.getConfig({
         "type": "boolean",
         "name": "Enabled",
         "description":
-          "If the autopilot agent should be active or not. The autopilot agent will\nattempt to AUTOMATICALLY OPEN CHANNELS to put your node in an advantageous\nposition within the network graph.  DO NOT ENABLE THIS IF YOU WANT TO MANAGE \nCHANNELS MANUALLY OR DO NOT UNDERSTAND IT.\n",
+          "If the autopilot agent should be active or not. The autopilot agent will attempt to AUTOMATICALLY OPEN CHANNELS to put your node in an advantageous position within the network graph.",
+        "warning": "DO NOT ENABLE AUTOPILOT IF YOU WANT TO MANAGE CHANNELS MANUALLY OR IF YOU DO NOT UNDERSTAND THIS FEATURE.",
         "default": false,
       },
       "private": {

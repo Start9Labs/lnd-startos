@@ -6,6 +6,7 @@ release-notes: |-
   * Prevent migration actions if there is an existing LND wallet
   * Update README build instructions
   * Minor bugfixes and refactoring
+  * Update Properties to display Watchtower Server URL (if enabled) and remove duplicated information
 license: mit
 wrapper-repo: "https://github.com/Start9Labs/lnd-wrapper"
 upstream-repo: "https://github.com/lightningnetwork/lnd"
