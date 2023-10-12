@@ -8,16 +8,14 @@ RUN apk add \
     coreutils \
     curl \
     jq \
+    yq \
     netcat-openbsd \
     openssh-client \
     openssl \
     sshpass \
     xxd \
     ca-certificates \
-    make git wget
-
-RUN wget https://github.com/mikefarah/yq/releases/download/v4.25.3/yq_linux_${PLATFORM}.tar.gz -O - |\
-    tar xz && mv yq_linux_${PLATFORM} /usr/bin/yq
+    make git
 
 WORKDIR /root/lnd
 
