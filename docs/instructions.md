@@ -19,7 +19,7 @@ On StartOS, you have 3 options with regard to Bitcoin
 
 ### Selecting a Wallet
 
-For a list of compatible wallets and related instructions, see <a href="https://github.com/start9labs/lnd-wrapper/blob/master/docs/wallets.md" target="_blank" noreferrer>https://github.com/start9labs/lnd-wrapper/blob/master/docs/wallets.md</a>.
+For a list of compatible wallets and related instructions, see <a href="https://docs.start9.com/latest/guides/service-guides/lightning/connecting-lnd" target="_blank" noreferrer>https://docs.start9.com/latest/guides/service-guides/lightning/connecting-lnd</a>.
 
 ### Getting On-Chain Funds
 
@@ -60,15 +60,14 @@ You can make your LND node a watchtower for others by clicking the toggle `Enabl
 Be advised, your watchtower’s public key is *different* from lnd’s node public key. It is not known the network. We recommend NOT disclosing this public key openly, unless you are prepared to open your tower up to the entire Internet.
 
 To obtain your full LND Watchtower URI:
-1. SSH into your server
-1. Run `sudo docker exec -ti lnd.embassy lncli --rpcserver=lnd.embassy tower info`
-1. Copy the entry under `uris` and give it to anyone for whom you would like to be a watchtower
+1. Enable the Watchtower Server in Config > Watchtowers
+1. After the Watchtower Server config has been enabled, you can find your Watchtower Server URL in `Properties`; Give this URL to whomever you would like to have access your Watchtower Server.
 
 ### Using a Watchtower
 
-You can enlist watchtowers to watch your node by using `Add a watchtower to your LND Node` in Actions or in Config options. This will back up your LND node state to the remote watchtower you entered.
+You can enlist watchtowers to watch your node by using `Add a watchtower to your LND Node` in Config options. This will back up your LND node state to the remote watchtower you entered.
 
-After adding a watchtower URI through Actions or Config, you can confirm it is working by:
+After adding a watchtower(s) URI through Config, you can confirm the watchtower is working by:
 1. SSH into your server
 1. Run `sudo docker exec -ti lnd.embassy lncli --rpcserver=lnd.embassy wtclient towers`
 1. If you see `"active_session_candidate": true`, it worked. If not, double check the watchtower URI you were provided and try again.
