@@ -10,7 +10,7 @@ Before building the LND package, your build environment must be setup for buildi
 - [docker](https://docs.docker.com/get-docker)
 - [docker-buildx](https://docs.docker.com/buildx/working-with-buildx/)
 - [yq (version 4)](https://mikefarah.gitbook.io/yq)
-- [start-sdk](https://github.com/Start9Labs/embassy-os/blob/master/backend/install-sdk.sh)
+- [start-sdk](https://github.com/Start9Labs/start-os/tree/sdk/backend)
 - [make](https://www.gnu.org/software/make/)
 - [deno](https://deno.land/)
 
