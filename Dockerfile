@@ -1,9 +1,7 @@
 FROM lightninglabs/lnd:v0.17.0-beta
 
 ARG ARCH
-ARG PLATFORM
-RUN apk update
-RUN apk add \
+RUN apk add --no-cache \
     bash \
     coreutils \
     curl \
@@ -15,7 +13,8 @@ RUN apk add \
     sshpass \
     xxd \
     ca-certificates \
-    make git
+    make \
+    git
 
 WORKDIR /root/lnd
 
