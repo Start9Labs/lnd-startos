@@ -10,7 +10,6 @@ all: verify
 
 clean:
 	rm -f $(PKG_ID).s9pk
-	rm -f image.tar
 	rm -f scripts/*.js
 	rm -fr docker-images/
 
