@@ -120,7 +120,7 @@ export const getConfig: T.ExpectedExports.getConfig = compat.getConfig({
       "<p>The Bitcoin Core node to connect to:</p><ul><li><strong>None</strong>: Use the light bitcoin backend built into LND, Neutrino. If using Neutrino, please switch to using Bitcoin Core as soon as possible. Neutrino uses the BIP157/8 light client protocol, which has security risks.</li><br><li><strong>Bitcoin Core</strong>: service installed on your server. Neutrino will also be used during IBD.</li></ul>",
     "tag": {
       "id": "type",
-      "name": "Type",
+      "name": "Bitcoin Node Type",
       "variant-names": {
         "none": "None (Built-in LND Neutrino)",
         "internal": "Bitcoin Core",

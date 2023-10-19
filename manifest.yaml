@@ -313,9 +313,9 @@ actions:
     warning: "This will delete and recreate all existing macaroon files, so you may need to restart other services using LND."
     allowed-statuses:
       - running
-      - stopped
     implementation:
       type: docker
+      inject: true
       image: main
       system: false
       entrypoint: recreate-macaroons.sh
