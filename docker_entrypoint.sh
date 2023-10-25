@@ -53,9 +53,20 @@ while ! [ -e /root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon ]; do
 done
 
 if $WATCHTOWER_SERVER_ENABLED; then
-  TOWER_INFO=$(lncli --rpcserver=lnd.embassy tower info)
-  TOWER_SERVER=$(echo "$TOWER_INFO" | jq -r '.uris[0]')
-  echo "$TOWER_SERVER" > /root/.lnd/start9/towerServerUrl
+  while true; do
+    echo "Looking for Tower Info..."
+    TOWER_INFO=$(lncli --rpcserver=lnd.embassy tower info) || true
+
+    if [ $TOWER_INFO == true ]; then
+      echo "Tower Info not found. Trying again..."
+      sleep 10
+    else
+      TOWER_SERVER=$(echo "$TOWER_INFO" | jq -r '.uris[0]')
+      echo "$TOWER_SERVER" > /root/.lnd/start9/towerServerUrl
+      echo "Tower Info saved"
+      break
+    fi
+  done
 fi
 
 cat /root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon | basenc --base16 -w0  > /root/.lnd/start9/admin.macaroon.hex
