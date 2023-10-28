@@ -124,7 +124,7 @@ export const properties: T.ExpectedExports.properties = async (
         },
         "LND Connect REST URL": {
           type: "string",
-          value: `lndconnect://${controlTorAddress}:8080?cert=${cert}&macaroon=${macaroonBase64URL}`,
+          value: `lndconnect://${controlTorAddress}:8080?macaroon=${macaroonBase64URL}`,
           description:
             "Use this for other applications that require a REST connection",
           copyable: true,
