@@ -131,7 +131,7 @@ export const properties: T.ExpectedExports.properties = async (
           qr: true,
           masked: true,
         },
-        "LND Aezeed Cypherseed": {
+        "LND Aezeed Cipher Seed": {
           type: "string",
           value: `${cipherSeedMnemonic !== "no cipherSeed found"? cipherSeedMnemonic : "The Aezeed Cipher Seed is only available on StartOS for LND wallets created with >= 16.4. It is not possible to retreive the Seed from wallets created on < 16.4.\nIf you are using a LND wallet created pre 16.4 but would like to have a Cipher Seed backup, you will need to close your existing channels and move any on-chain funds to an intermediate wallet before creating a new LND wallet with >= 16.4."}`,
           description: "Seed for restoring on-chain ONLY funds. This seed has no knowledge of channel state. This is NOT a BIP-39 seed; As such it cannot be used to recover on-chain funds to any wallet other than LND.",
