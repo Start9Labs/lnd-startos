@@ -1,8 +1,8 @@
 id: lnd
 title: LND
-version: 0.17.0.1
+version: 0.17.0.2
 release-notes: |-
-  * Update upstream to v0.17.0 including Taproot Channels! - [Release Notes](https://github.com/lightningnetwork/lnd/releases/tag/v0.17.0-beta)
+  * Update upstream to v0.17.0 including experimental Taproot Channels! - [Release Notes](https://github.com/lightningnetwork/lnd/releases/tag/v0.17.0-beta)
   * Prevent migration actions if there is an existing LND wallet
   * Update README build instructions
   * Minor bugfixes and refactoring

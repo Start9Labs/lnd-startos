@@ -90,14 +90,30 @@ struct TorConfig {
     use_tor_only: bool,
     stream_isolation: bool,
 }
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+#[serde(tag = "enabled")]
+#[serde(rename_all = "kebab-case")]
+enum WtClient {
+    #[serde(rename_all = "kebab-case")]
+    Disabled,
+    #[serde(rename_all = "kebab-case")]
+    Enabled {
+        add_watchtowers: Vec<String>
+    }
+}
+
+// impl std::fmt::Display for WtClient {
+//     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+//         write!(f, "{}", serde_json::to_string(self).unwrap())
+//     }
+// }
 
 #[derive(Debug, Clone, serde::Deserialize)]
 #[serde(tag = "type")]
 #[serde(rename_all = "kebab-case")]
 struct WatchtowerConfig {
     wt_server: bool,
-    wt_client: bool,
-    add_watchtowers: Vec<String>,
+    wt_client: WtClient,
 }
 
 #[derive(serde::Deserialize)]
@@ -427,7 +443,10 @@ fn main() -> Result<(), anyhow::Error> {
         tor_enable_clearnet = !config.tor.use_tor_only,
         tor_stream_isolation = config.tor.stream_isolation,
         wt_server = config.watchtowers.wt_server,
-        wt_client = config.watchtowers.wt_client
+        wt_client = match config.watchtowers.wt_client {
+            WtClient::Disabled => false,
+            _ => true
+        }
     )?;
     let public_path = Path::new("/root/.lnd/public");
     // Create public directory to make accessible to dependents through the bindmounts interface
@@ -704,85 +723,44 @@ fn main() -> Result<(), anyhow::Error> {
 
 
     if true {
-        let mac = std::fs::read(Path::new(
-            "/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon",
-        ))?;
-        let mac_encoded = hex::encode_upper(mac);
-
-        for watchtower_uri in config.watchtowers.add_watchtowers.iter() {
-            let parsed_watchtower_uri: WatchtowerUri = watchtower_uri.parse()?;
-            let _status = {
-                use std::process;
-                let mut res;
-                let stat;
-                loop {
-                    println!("Configuring Watchtower for {}... ", alias);
-                    println!(
-                        "pubkey: {} || host: {}",
-                        &parsed_watchtower_uri.pubkey, &parsed_watchtower_uri.address
-                    );
-                    let bytes: Vec<u8> = hex::decode(&parsed_watchtower_uri.pubkey)?;
-                    let hex_encoded: String =
-                        base64::encode_config(&bytes, base64::URL_SAFE_NO_PAD);
-                    std::thread::sleep(Duration::from_secs(5));
-                    let cmd = process::Command::new("curl")
-                        .arg("--no-progress-meter")
-                        .arg("-X")
-                        .arg("POST")
-                        .arg("--header")
-                        .arg(format!("Grpc-Metadata-macaroon: {}", mac_encoded))
-                        .arg("--cacert")
-                        .arg("/root/.lnd/tls.cert")
-                        .arg("https://lnd.embassy:8080/v2/watchtower/client")
-                        .arg("-d")
-                        .arg(format!(
-                            "{}",
-                            serde_json::json!({
-                                "pubkey": hex_encoded,
-                                "address": &parsed_watchtower_uri.address,
-                            })
-                        ))
-                        .stdin(process::Stdio::piped())
-                        .stdout(process::Stdio::piped())
-                        .stderr(process::Stdio::piped())
-                        .spawn()?;
-                    res = cmd.wait_with_output()?;
-                    let output = String::from_utf8(res.stdout)?.parse::<Value>()?;
-                    match output.as_object() {
-                        None => {
-                            stat = Err(anyhow::anyhow!(
-                                "Invalid Watchtower Configuration: {:?}",
-                                output
-                            ));
-                            break;
-                        }
-                        Some(o) => match o.get("message") {
-                            None => {
-                                stat = Ok(output);
+        match config.watchtowers.wt_client {
+            WtClient::Disabled => {
+                println!("Watchtower Client Disabled");
+            }
+            WtClient::Enabled {add_watchtowers} => {
+                for watchtower_uri in add_watchtowers.iter() {
+                    let parsed_watchtower_uri: WatchtowerUri = watchtower_uri.parse()?;
+                    loop {
+                        println!("Configuring Watchtower for {}... ", alias);
+                        println!(
+                            "pubkey: {} || host: {}",
+                            &parsed_watchtower_uri.pubkey, &parsed_watchtower_uri.address
+                        );
+                        let output = Command::new("lncli")
+                            .arg("--rpcserver=lnd.embassy")
+                            .arg("wtclient")
+                            .arg("add")
+                            .arg(&watchtower_uri)
+                            .output();
+                        println!("The lncli command ran for {}", &watchtower_uri);
+                        match output {
+                            Ok(output) if output.status.success() => {
+                                println!("Added watchtower {}.", &watchtower_uri);
                                 break;
                             }
-                            Some(v) => match v.as_str() {
-                                None => {
-                                    stat = Err(anyhow::anyhow!(
-                                        "Invalid Watchtower Configuration: {:?}",
-                                        v
-                                    ));
-                                    break;
-                                }
-                                Some(s) => {
-                                    if s.contains("waiting to start") {
-                                        continue;
-                                    } else {
-                                        stat = Err(anyhow::anyhow!("{}", s));
-                                        break;
-                                    }
-                                }
-                            },
-                        },
-                    }
+                            Ok(output) => {
+                                let stderr = String::from_utf8_lossy(&output.stderr);
+                                println!("Failed to add watchtower {} with error: {}", &watchtower_uri, stderr);
+                                std::thread::sleep(Duration::from_secs(10));
+                            }
+                            Err(_) => {
+                                println!("Error running the command: lncli --rpcserver=lnd.embassy wtclient add {}.", &watchtower_uri);
+                                std::thread::sleep(Duration::from_secs(10));
+                            }
+                        }
+                    };
                 }
-                stat
-            };
+            }
         }
     };
 

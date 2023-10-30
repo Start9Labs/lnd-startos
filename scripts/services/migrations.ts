@@ -155,7 +155,45 @@ export const migration: T.ExpectedExports.migration = compat.migrations
         down: () => {
           throw new Error("Cannot downgrade");
         },
-      }
+      },
+      "0.17.0.2": {
+        up: compat.migrations.updateConfig(
+          (config) => {
+            if (matches.shape({
+                watchtowers: matches.shape({
+                  "wt-server": matches.any,
+                  "wt-client": matches.any,
+                  "add-watchtowers": matches.any
+                })
+              }).test(config)
+            ) {
+              let existing_watchtowers = config.watchtowers["add-watchtowers"]
+              let server_enabled = config.watchtowers["wt-server"]
+
+              delete config.watchtowers["add-watchtowers"];
+
+              if (existing_watchtowers.length >= 1) {
+                config.watchtowers["wt-server"] = server_enabled
+                config.watchtowers["wt-client"] = {
+                    enabled: "enabled",
+                    "add-watchtowers": existing_watchtowers
+                  }
+              } else {
+                config.watchtowers["wt-server"] = server_enabled
+                config.watchtowers["wt-client"] = {
+                    enabled: "disabled"
+                }
+              }
+            }
+            return config;
+          },
+          true,
+          { version: "0.17.0.2", type: "up" }
+        ),
+        down: () => {
+          throw new Error("Cannot downgrade");
+        },
+      },
     },
-    "0.17.0.1",
+    "0.17.0.2",
   );
