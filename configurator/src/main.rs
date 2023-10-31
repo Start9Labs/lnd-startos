@@ -102,18 +102,19 @@ enum WtClient {
     }
 }
 
-// impl std::fmt::Display for WtClient {
-//     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-//         write!(f, "{}", serde_json::to_string(self).unwrap())
-//     }
-// }
-
 #[derive(Debug, Clone, serde::Deserialize)]
 #[serde(tag = "type")]
 #[serde(rename_all = "kebab-case")]
 struct WatchtowerConfig {
     wt_server: bool,
     wt_client: WtClient,
+}
+
+#[derive(Deserialize, Serialize)]
+struct TowerInfo {
+    pubkey: String,
+    listeners: Vec<String>,
+    uris: Vec<String>,
 }
 
 #[derive(serde::Deserialize)]
@@ -721,6 +722,47 @@ fn main() -> Result<(), anyhow::Error> {
         }
     }
 
+    match config.watchtowers.wt_server {
+        false => {
+            println!("Watchtower Server disabled");
+            if let Err(_) = std::fs::remove_file("/root/.lnd/start9/towerServerUrl") {
+                println!("The towerServerUrl file does not exist or cannot be deleted.");
+            } else {
+                println!("The towerServerUrl file has been deleted successfully.");
+            }
+        }
+        true => {
+            loop {
+                let output =Command::new("lncli")
+                    .arg("--rpcserver=lnd.embassy")
+                    .arg("tower")
+                    .arg("info")
+                    .output();
+                match output {
+                    Ok(output) if output.status.success() => {
+                        println!("Tower server {:?} started", &output);
+                        let tower_info_response = String::from_utf8_lossy(&output.stdout);
+                        let tower_server: TowerInfo = serde_json::from_str(&tower_info_response).expect("Failed to parse Tower Info JSON response");
+                        let result = std::fs::write("/root/.lnd/start9/towerServerUrl", &tower_server.uris[0]);
+                        match result {
+                            Ok(_) => {println!("Tower {} written towerServerUrl", &tower_server.uris[0]);}
+                            Err(err) => {println!("Error writing Tower server to Properties: {}", err);}
+                        }
+                        break;
+                    }
+                    Ok(output) => {
+                        let stderr = String::from_utf8_lossy(&output.stderr);
+                        println!("Failed to retreive tower info with error: {}", stderr);
+                        std::thread::sleep(Duration::from_secs(10));
+                    }
+                    Err(_) => {
+                        println!("Error running the command: lncli --rpcserver=lnd.embassy tower info");
+                        std::thread::sleep(Duration::from_secs(10));
+                    }
+                }
+            }
+        }
+    }
 
     if true {
         match config.watchtowers.wt_client {

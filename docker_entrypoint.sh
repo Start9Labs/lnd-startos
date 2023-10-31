@@ -15,7 +15,6 @@ export HOST_IP=$(ip -4 route list match 0/0 | awk '{print $3}')
 export CONTAINER_IP=$(ifconfig | sed -En 's/127.0.0.1//;s/.*inet (addr:)?(([0-9]*\.){3}[0-9]*).*/\2/p')
 export PEER_TOR_ADDRESS=$(yq e '.peer-tor-address' /root/.lnd/start9/config.yaml)
 export CONTROL_TOR_ADDRESS=$(yq e '.control-tor-address' /root/.lnd/start9/config.yaml)
-export WATCHTOWER_SERVER_ENABLED=$(yq e '.watchtowers."wt-server"' /root/.lnd/start9/config.yaml)
 
 mkdir -p /root/.lnd/start9/ && mkdir -p /root/.lnd/public
 echo $PEER_TOR_ADDRESS > /root/.lnd/start9/peerTorAddress
@@ -51,23 +50,6 @@ while ! [ -e /root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon ]; do
   echo "Waiting for lnd to create macaroon..."
   sleep 30
 done
-
-if $WATCHTOWER_SERVER_ENABLED; then
-  while true; do
-    echo "Looking for Tower Info..."
-    TOWER_INFO=$(lncli --rpcserver=lnd.embassy tower info) || true
-
-    if [ $TOWER_INFO == true ]; then
-      echo "Tower Info not found. Trying again..."
-      sleep 10
-    else
-      TOWER_SERVER=$(echo "$TOWER_INFO" | jq -r '.uris[0]')
-      echo "$TOWER_SERVER" > /root/.lnd/start9/towerServerUrl
-      echo "Tower Info saved"
-      break
-    fi
-  done
-fi
 
 cat /root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon | basenc --base16 -w0  > /root/.lnd/start9/admin.macaroon.hex
 cat /root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon | basenc --base64url -w0  > /root/.lnd/start9/admin.macaroon.base64url
