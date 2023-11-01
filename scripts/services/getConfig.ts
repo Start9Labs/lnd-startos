@@ -253,7 +253,7 @@ export const getConfig: T.ExpectedExports.getConfig = compat.getConfig({
   "watchtowers": {
     "type": "object",
     "name": "Watchtowers",
-    "description": "Watchtower Settings",
+    "description": "Watchtower Settings: A watchtower is a feature of a Lightning node that allows you to watch a node for potential channel breaches (the watchtower server). This functionality comes bundled in LND, but needs to be specifically enabled. Two nodes can act as each other’s watchtowers, meaning they simultaneously operate in server and client mode.",
     "spec": {
       "wt-server": {
         "type": "boolean",
@@ -271,7 +271,7 @@ export const getConfig: T.ExpectedExports.getConfig = compat.getConfig({
         tag: {
           id: "enabled",
           name: "Watchtower Client Enabled",
-          description: "- Disabled: Disable Watchtower Client\n-Enable Watchtower Client",
+          description: "Enable or disable Watchtower Client",
           "variant-names": {
             disabled: "Disabled",
             enabled: "Enabled",
