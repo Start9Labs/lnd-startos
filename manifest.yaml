@@ -1,13 +1,8 @@
 id: lnd
 title: LND
-version: 0.17.0.2
+version: 0.17.0.3
 release-notes: |-
-  * Update upstream to v0.17.0 including experimental Taproot Channels! - [Release Notes](https://github.com/lightningnetwork/lnd/releases/tag/v0.17.0-beta)
-  * Prevent migration actions if there is an existing LND wallet
-  * Update README build instructions
-  * Minor bugfixes and refactoring
-  * Update Properties to display Watchtower Server URL (if enabled) and remove duplicated information
-  * Fix Watchtower Server bug
+  * Fix reset-txs action
 license: mit
 wrapper-repo: "https://github.com/Start9Labs/lnd-wrapper"
 upstream-repo: "https://github.com/lightningnetwork/lnd"
