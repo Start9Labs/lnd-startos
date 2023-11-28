@@ -1,5 +1,4 @@
 use bitcoincore_rpc::RpcApi;
-use der_parser::nom::Err;
 use rand::Rng;
 use serde_json::Value;
 use std::fs::File;
@@ -226,14 +225,6 @@ pub struct Property<T> {
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct CipherSeedMnemonic {
     cipher_seed_mnemonic: Vec<String>,
-}
-
-#[derive(serde::Deserialize, Debug)]
-pub struct LndGetInfoRes {
-    identity_pubkey: String,
-    block_height: u32,
-    synced_to_chain: bool,
-    synced_to_graph: bool,
 }
 
 fn get_alias(config: &Config) -> Result<String, anyhow::Error> {
