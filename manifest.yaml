@@ -3,6 +3,7 @@ title: LND
 version: 0.17.2
 release-notes: |-
   * Update upstream to 0.17.2 [Release Notes](https://github.com/lightningnetwork/lnd/releases/tag/v0.17.2-beta)
+  * Fix bug where SCB restore could be unsuccessful.
 license: mit
 wrapper-repo: "https://github.com/Start9Labs/lnd-wrapper"
 upstream-repo: "https://github.com/lightningnetwork/lnd"

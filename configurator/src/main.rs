@@ -1,4 +1,5 @@
 use bitcoincore_rpc::RpcApi;
+use der_parser::nom::Err;
 use rand::Rng;
 use serde_json::Value;
 use std::fs::File;
@@ -570,73 +571,35 @@ fn main() -> Result<(), anyhow::Error> {
             // wallet unlocking has to happen while LND running (encrypted on disk) creds are stored in separate place on disk (pwd.dat in our case - in data volume)
             Ok(_) => match use_channel_backup_data {
                 None => (),
-                Some(backups) => {
-                    while local_port_available(8080)? {
-                        std::thread::sleep(Duration::from_secs(20))
-                    }
-                    let mac = std::fs::read(Path::new(
-                        "/root/.lnd/data/chain/bitcoin/mainnet/admin.macaroon",
-                    ))?;
-                    let mac_encoded = hex::encode_upper(mac);
-                    let stat;
+                Some(_backups) => {
                     loop {
                         std::thread::sleep(Duration::from_secs(5));
-                        let output = std::process::Command::new("curl")
-                            .arg("--no-progress-meter")
-                            .arg("-X")
-                            .arg("POST")
-                            .arg("--header")
-                            .arg(format!("Grpc-Metadata-macaroon: {}", mac_encoded))
-                            .arg("--cacert")
-                            .arg("/root/.lnd/tls.cert")
-                            .arg("https://lnd.embassy:8080/v1/channels/backup/restore")
-                            .arg("-d")
-                            .arg(serde_json::to_string(&backups)?)
-                            .output()?;
-                        let output = String::from_utf8(output.stdout)?.parse::<Value>()?;
-                        println!("{}", output);
-                        match output.as_object() {
-                            None => {
-                                stat = Err(anyhow::anyhow!(
-                                    "Invalid output from backup restoration attempt: {:?}",
-                                    output
-                                ));
+                        let output =Command::new("lncli")
+                            .arg("--rpcserver=lnd.embassy")
+                            .arg("restorechanbackup")
+                            .arg("--multi_file")
+                            .arg("/root/.lnd/data/chain/bitcoin/mainnet/channel.backup")
+                            .output();
+                        match output {
+                            Ok(output) if output.status.success() => {
+                                println!("SCB recovery initiated.");
+                                reset_restore(Path::new("/root/.lnd"))?;
                                 break;
                             }
-                            Some(o) => match o.get("message") {
-                                None => {
-                                    stat = Ok(output);
-                                    break;
+                            Ok(output) => {
+                                let stderr = String::from_utf8_lossy(&output.stderr);
+                                println!("Failed to restore backup with error: {}", stderr);
+                                return Err(anyhow::anyhow!("{}", stderr));
+                            }
+                            Err(e) => {
+                                let error_msg = format!("{}", e);
+                                if error_msg.contains("waiting to start") {
+                                    continue;
+                                } else {
+                                    println!("Error initiating SCB recovery: {}", error_msg);
+                                    return Err(anyhow::anyhow!("{}", e));
                                 }
-                                Some(v) => match v.as_str() {
-                                    None => {
-                                        stat = Err(anyhow::anyhow!(
-                                            "Invalid error output from backup restoration attempt: {:?}",
-                                            v
-                                        ));
-                                        break;
-                                    }
-                                    Some(s) => {
-                                        if s.contains("server is still in the process of starting")
-                                        {
-                                            continue;
-                                        } else {
-                                            stat = Err(anyhow::anyhow!("{}", s));
-                                            break;
-                                        }
-                                    }
-                                },
-                            },
-                        }
-                    }
-                    match stat {
-                        Err(e) => {
-                            eprintln!("Error restoring wallet. Exiting.");
-                            return Err(e);
-                        }
-                        Ok(_) => {
-                            println!("Successfully restored wallet.");
-                            reset_restore(Path::new("/root/.lnd"))?;
+                            }
                         }
                     }
                 }
