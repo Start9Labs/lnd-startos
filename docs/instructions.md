@@ -19,7 +19,7 @@ On StartOS, you have 3 options with regard to Bitcoin
 
 ### Selecting a Wallet
 
-For a list of compatible wallets and related instructions, see <a href="https://docs.start9.com/latest/guides/service-guides/lightning/connecting-lnd" target="_blank" noreferrer>https://docs.start9.com/latest/guides/service-guides/lightning/connecting-lnd</a>.
+For a list of compatible wallets and related instructions, refer to the <a href="https://docs.start9.com/0.3.5.x/service-guides/lightning/connecting-lnd" target="_blank" noreferrer>LND Docs</a>.
 
 ### Getting On-Chain Funds
 
