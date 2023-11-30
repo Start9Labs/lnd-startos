@@ -408,7 +408,7 @@ export const getConfig: T.ExpectedExports.getConfig = compat.getConfig({
         "nullable": false,
         "range": "[1,*)",
         "integral": true,
-        "default": 10,
+        "default": 50,
       },
       "protocol-wumbo-channels": {
         "type": "boolean",
