@@ -9,6 +9,7 @@ version = "0.1.0"
 [dependencies]
 anyhow = "1.0.33"
 base64 = "0.13.0"
+base32 = "0.4.0"
 bitcoincore-rpc = "0.15.0"
 der-parser = "5.0.0"
 emver = { version = "0.1.0", features = ["serde"] }

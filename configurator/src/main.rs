@@ -1,3 +1,4 @@
+use base32::Alphabet;
 use bitcoincore_rpc::RpcApi;
 use rand::Rng;
 use serde_json::Value;
@@ -38,6 +39,20 @@ pub fn get_iface_ipv4_addr(iface: &str) -> Result<Option<Ipv4Addr>, anyhow::Erro
     )?)?
     .map(|s| Ok::<_, anyhow::Error>(s.split("/").next().unwrap().parse()?))
     .transpose()?)
+}
+
+fn pw_is_ascii(file_path: &str) -> Result<bool, anyhow::Error> {
+    let mut file = File::open(file_path)?;
+    let mut buffer = Vec::new();
+    let read = file.read_to_end(&mut buffer);
+    match read {
+        Ok(_) => {
+            Ok(buffer.iter().all(|&byte| byte.is_ascii()))
+        }
+        Err(e) => {
+            Err(anyhow::anyhow!(e))
+        }
+    }
 }
 
 struct SkipNulls(Value);
@@ -495,65 +510,147 @@ fn main() -> Result<(), anyhow::Error> {
         let pass_size = pass_file.metadata().unwrap().len();
         let mut password_bytes = Vec::with_capacity(pass_size as usize);
         pass_file.take(pass_size).read_to_end(&mut password_bytes)?;
-        let status = {
-            use std::process;
-            let mut res;
-            let stat;
-            loop {
-                std::thread::sleep(Duration::from_secs(5));
-                let cmd = process::Command::new("curl")
-                    .arg("--no-progress-meter")
-                    .arg("-X")
-                    .arg("POST")
-                    .arg("--cacert")
-                    .arg("/root/.lnd/tls.cert")
-                    .arg("https://lnd.embassy:8080/v1/unlockwallet")
-                    .arg("-d")
-                    .arg(serde_json::to_string(&SkipNulls(serde_json::json!({
-                        "wallet_password": base64::encode(&password_bytes),
-                        "recovery_window": config.advanced.recovery_window,
-                    })))?)
-                    .stdin(process::Stdio::piped())
-                    .stdout(process::Stdio::piped())
-                    .stderr(process::Stdio::piped())
-                    .spawn()?;
-                res = cmd.wait_with_output()?;
-                let output = String::from_utf8(res.stdout)?.parse::<Value>()?;
-                match output.as_object() {
-                    None => {
-                        stat = Err(anyhow::anyhow!(
-                            "Invalid output from wallet unlock attempt: {:?}",
-                            output
-                        ));
-                        break;
-                    }
-                    Some(o) => match o.get("message") {
+        let pw_ascii = pw_is_ascii("/root/.lnd/pwd.dat").map_err(|e| {
+            return anyhow::anyhow!(e);
+        });
+        let status;
+        if !pw_ascii.unwrap() {
+            let base_32_pw = base32::encode(Alphabet::RFC4648 { padding: (true) }, &password_bytes);
+            status = {
+                use std::process;
+                let mut res;
+                let stat;
+                loop {
+                    std::thread::sleep(Duration::from_secs(5));
+                    let cmd = process::Command::new("curl")
+                        .arg("--no-progress-meter")
+                        .arg("-X")
+                        .arg("POST")
+                        .arg("--cacert")
+                        .arg("/root/.lnd/tls.cert")
+                        .arg("https://lnd.embassy:8080/v1/changepassword")
+                        .arg("-d")
+                        .arg(serde_json::to_string(&SkipNulls(serde_json::json!({
+                            "current_password": base64::encode(&password_bytes),
+                            "new_password": base64::encode(&base_32_pw),
+                        })))?)
+                        .stdin(process::Stdio::piped())
+                        .stdout(process::Stdio::piped())
+                        .stderr(process::Stdio::piped())
+                        .spawn()?;
+                    res = cmd.wait_with_output()?;
+                    let output = String::from_utf8(res.stdout)?.parse::<Value>()?;
+                    match output.as_object() {
                         None => {
-                            stat = Ok(output);
+                            stat = Err(anyhow::anyhow!(
+                                "Invalid output from changepassword attempt: {:?}",
+                                output
+                            ));
                             break;
                         }
-                        Some(v) => match v.as_str() {
+                        Some(o) => match o.get("message") {
                             None => {
-                                stat = Err(anyhow::anyhow!(
-                                    "Invalid error output from wallet unlock attempt: {:?}",
-                                    v
-                                ));
+                                stat = Ok(output);
+                                let mut new_pwd_file = File::create("/root/.lnd/new_pwd.dat")?;
+                                write!(new_pwd_file, "{}", &base_32_pw)?;
+                                std::fs::remove_file("/root/.lnd/pwd.dat")?;
+                                std::fs::rename("/root/.lnd/new_pwd.dat", "/root/.lnd/pwd.dat")?;
+                                println!("Wallet password successfully converted to base32");
                                 break;
                             }
-                            Some(s) => {
-                                if s.contains("waiting to start") {
-                                    continue;
-                                } else {
-                                    stat = Err(anyhow::anyhow!("{}", s));
+                            Some(v) => match v.as_str() {
+                                None => {
+                                    stat = Err(anyhow::anyhow!(
+                                        "Invalid error output from changepassword attempt: {:?}",
+                                        v
+                                    ));
                                     break;
                                 }
-                            }
+                                Some(s) => {
+                                    if s.contains("waiting to start") {
+                                        continue;
+                                    } else {
+                                        stat = Err(anyhow::anyhow!("{}", s));
+                                        break;
+                                    }
+                                }
+                            },
                         },
-                    },
+                    }
+                }
+                stat
+            };
+        } else {
+            let pwd_file = String::from("/root/.lnd/pwd.dat");
+            let pwd_parse = std::fs::read_to_string(pwd_file);
+
+            match pwd_parse {
+                Err(e) => {
+                    return Err(anyhow::anyhow!(e));
+                }
+                Ok(pwd) => {
+                    status = {
+                        use std::process;
+                        let mut res;
+                        let stat;
+                        loop {
+                            std::thread::sleep(Duration::from_secs(5));
+                            let cmd = process::Command::new("curl")
+                                .arg("--no-progress-meter")
+                                .arg("-X")
+                                .arg("POST")
+                                .arg("--cacert")
+                                .arg("/root/.lnd/tls.cert")
+                                .arg("https://lnd.embassy:8080/v1/unlockwallet")
+                                .arg("-d")
+                                .arg(serde_json::to_string(&SkipNulls(serde_json::json!({
+                                    "wallet_password": base64::encode(&pwd),
+                                    "recovery_window": config.advanced.recovery_window,
+                                })))?)
+                                .stdin(process::Stdio::piped())
+                                .stdout(process::Stdio::piped())
+                                .stderr(process::Stdio::piped())
+                                .spawn()?;
+                            res = cmd.wait_with_output()?;
+                            let output = String::from_utf8(res.stdout)?.parse::<Value>()?;
+                            match output.as_object() {
+                                None => {
+                                    stat = Err(anyhow::anyhow!(
+                                        "Invalid output from wallet unlock attempt: {:?}",
+                                        output
+                                    ));
+                                    break;
+                                }
+                                Some(o) => match o.get("message") {
+                                    None => {
+                                        stat = Ok(output);
+                                        break;
+                                    }
+                                    Some(v) => match v.as_str() {
+                                        None => {
+                                            stat = Err(anyhow::anyhow!(
+                                                "Invalid error output from wallet unlock attempt: {:?}",
+                                                v
+                                            ));
+                                            break;
+                                        }
+                                        Some(s) => {
+                                            if s.contains("waiting to start") {
+                                                continue;
+                                            } else {
+                                                stat = Err(anyhow::anyhow!("{}", s));
+                                                break;
+                                            }
+                                        }
+                                    },
+                                },
+                            }
+                        }
+                        stat
+                    };
                 }
             }
-            stat
-        };
+        }
         match status {
             Err(e) => {
                 println!("{}", e);
@@ -594,18 +691,18 @@ fn main() -> Result<(), anyhow::Error> {
                         }
                     }
                 }
-            },
+            }
         }
-    } else {
-
+        } else {
         let mut cipher_seed_created = false;
         let mut password_bytes = [0; 16];
         let mut dev_random = File::open("/dev/random")?;
         let file_path = "/root/.lnd/start9/cipherSeedMnemonic.txt";
-
+        
         while !cipher_seed_created {
             println!("creating password data");
             dev_random.read_exact(&mut password_bytes)?;
+            let base_32_pw = base32::encode(Alphabet::RFC4648 { padding: (true) }, &password_bytes);
             let output = std::process::Command::new("curl")
                 .arg("--no-progress-meter")
                 .arg("-X")
@@ -643,14 +740,14 @@ fn main() -> Result<(), anyhow::Error> {
                     .arg(format!(
                         "{}",
                         serde_json::json!({
-                            "wallet_password": base64::encode(&password_bytes),
+                            "wallet_password": base64::encode(&base_32_pw),
                             "cipher_seed_mnemonic": cipher_seed_mnemonic,
                         })
                     ))
                     .status()?;
                 if status.success() {
                     let mut pass_file = File::create("/root/.lnd/pwd.dat")?;
-                    pass_file.write_all(&password_bytes)?;
+                    write!(pass_file, "{}", &base_32_pw)?;
                 } else {
                     return Err(anyhow::anyhow!("Error creating wallet. Exiting."));
                 }
