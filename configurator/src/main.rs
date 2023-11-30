@@ -41,18 +41,8 @@ pub fn get_iface_ipv4_addr(iface: &str) -> Result<Option<Ipv4Addr>, anyhow::Erro
     .transpose()?)
 }
 
-fn pw_is_ascii(file_path: &str) -> Result<bool, anyhow::Error> {
-    let mut file = File::open(file_path)?;
-    let mut buffer = Vec::new();
-    let read = file.read_to_end(&mut buffer);
-    match read {
-        Ok(_) => {
-            Ok(buffer.iter().all(|&byte| byte.is_ascii()))
-        }
-        Err(e) => {
-            Err(anyhow::anyhow!(e))
-        }
-    }
+fn pw_is_ascii(pw: &[u8]) -> bool {
+    pw.iter().all(|&byte| byte.is_ascii())
 }
 
 struct SkipNulls(Value);
@@ -510,11 +500,9 @@ fn main() -> Result<(), anyhow::Error> {
         let pass_size = pass_file.metadata().unwrap().len();
         let mut password_bytes = Vec::with_capacity(pass_size as usize);
         pass_file.take(pass_size).read_to_end(&mut password_bytes)?;
-        let pw_ascii = pw_is_ascii("/root/.lnd/pwd.dat").map_err(|e| {
-            return anyhow::anyhow!(e);
-        });
+        let pw_ascii = pw_is_ascii(&password_bytes).map_err(|e| anyhow::anyhow!(e));
         let status;
-        if !pw_ascii.unwrap() {
+        if !pw_ascii {
             let base_32_pw = base32::encode(Alphabet::RFC4648 { padding: (true) }, &password_bytes);
             status = {
                 use std::process;
@@ -553,7 +541,6 @@ fn main() -> Result<(), anyhow::Error> {
                                 stat = Ok(output);
                                 let mut new_pwd_file = File::create("/root/.lnd/new_pwd.dat")?;
                                 write!(new_pwd_file, "{}", &base_32_pw)?;
-                                std::fs::remove_file("/root/.lnd/pwd.dat")?;
                                 std::fs::rename("/root/.lnd/new_pwd.dat", "/root/.lnd/pwd.dat")?;
                                 println!("Wallet password successfully converted to base32");
                                 break;
