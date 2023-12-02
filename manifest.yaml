@@ -5,7 +5,7 @@ release-notes: |-
   * Update upstream to 0.17.2 [Release Notes](https://github.com/lightningnetwork/lnd/releases/tag/v0.17.2-beta)
   * Fix bug where SCB restore could be unsuccessful.
   * Convert pwd.dat to base32 and save pwd.dat as base32 for fresh installs.
-  * Update default max-commit-fee-rate-anchors to 50 sats/vB.
+  * Update default max-commit-fee-rate-anchors to 100 sats/vB.
 license: mit
 wrapper-repo: "https://github.com/Start9Labs/lnd-wrapper"
 upstream-repo: "https://github.com/lightningnetwork/lnd"
