@@ -198,7 +198,7 @@ export const migration: T.ExpectedExports.migration = compat.migrations
         up: compat.migrations.updateConfig(
           (config: any) => {
             if (config.advanced["max-commit-fee-rate-anchors"] == 10) {
-              config.advanced["max-commit-fee-rate-anchors"] = 50;
+              config.advanced["max-commit-fee-rate-anchors"] = 100;
             }
             return config;
           },
