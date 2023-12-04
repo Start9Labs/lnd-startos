@@ -11,6 +11,7 @@ debuglevel={debug_level}
 default-remote-max-htlcs={default_remote_max_htlcs}
 rejecthtlc={reject_htlc}
 max-channel-fee-allocation={max_channel_fee_allocation}
+maxpendingchannels={max_pending_channels}
 max-commit-fee-rate-anchors={max_commit_fee_rate_anchors}
 accept-keysend={accept_keysend}
 accept-amp={accept_amp}

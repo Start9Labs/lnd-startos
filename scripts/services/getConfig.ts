@@ -400,6 +400,16 @@ export const getConfig: T.ExpectedExports.getConfig = compat.getConfig({
         "integral": false,
         "default": 0.5,
       },
+      "max-pending-channels": {
+        "type": "number",
+        "name": "Maximum Pending Channels",
+        "description":
+          "The maximum number of incoming pending channels permitted per peer.",
+        "nullable": false,
+        "range": "[0,*)",
+        "integral": true,
+        "default": 5,
+      },
       "max-commit-fee-rate-anchors": {
         "type": "number",
         "name": "Maximum Commitment Fee for Anchor Channels",

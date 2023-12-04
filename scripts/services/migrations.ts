@@ -200,6 +200,7 @@ export const migration: T.ExpectedExports.migration = compat.migrations
             if (config.advanced["max-commit-fee-rate-anchors"] == 10) {
               config.advanced["max-commit-fee-rate-anchors"] = 100;
             }
+            config.advanced["max-pending-channels"] = 5;
             return config;
           },
           true,
