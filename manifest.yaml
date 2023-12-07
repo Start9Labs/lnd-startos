@@ -1,8 +1,8 @@
 id: lnd
 title: LND
-version: 0.17.2
+version: 0.17.3
 release-notes: |-
-  * Update upstream to 0.17.2 [Release Notes](https://github.com/lightningnetwork/lnd/releases/tag/v0.17.2-beta)
+  * Update upstream to 0.17.3 [Release Notes](https://github.com/lightningnetwork/lnd/releases/tag/v0.17.3-beta)
   * Fix bug where SCB restore could be unsuccessful.
   * Convert pwd.dat to base32 and save pwd.dat as base32 for fresh installs.
   * Update default max-commit-fee-rate-anchors to 100 sats/vB.
