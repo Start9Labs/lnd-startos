@@ -162,7 +162,7 @@ actions:
   import-umbrel-five:
     name: "Import from Umbrel (0.5)"
     description: "Imports wallet and channel data from Umbrel 0.5"
-    warning: "To avoid overwriting an existing LND wallet on StartOS, this action can only be run on a fresh installation of LND that has not yet been 'Started'."
+    warning: "Warning!!! After running this action, be sure to NEVER re-start your Umbrel with the same LND seed! You should never run two different lnd nodes with the same seed! This will lead to strange/unpredictable behavior or even loss of funds."
     allowed-statuses:
       - stopped
     implementation:
@@ -193,7 +193,7 @@ actions:
   import-mynode:
     name: "Import from MyNode"
     description: "Imports wallet and channel data from MyNode"
-    warning: "To avoid overwriting an existing LND wallet on StartOS, this action can only be run on a fresh installation of LND that has not yet been 'Started'."
+    warning: "Warning!!! After running this action, be sure to NEVER re-start your MyNode with the same LND seed! You should never run two different lnd nodes with the same seed! This will lead to strange/unpredictable behavior or even loss of funds."
     allowed-statuses:
       - stopped
     implementation:
@@ -224,7 +224,7 @@ actions:
   import-raspiblitz:
     name: "Import from RaspiBlitz"
     description: "Imports wallet and channel data from RaspiBlitz"
-    warning: "To avoid overwriting an existing LND wallet on StartOS, this action can only be run on a fresh installation of LND that has not yet been 'Started'."
+    warning: "Warning!!! After running this action, be sure to NEVER re-start your Raspiblitz with the same LND seed! You should never run two different lnd nodes with the same seed! This will lead to strange/unpredictable behavior or even loss of funds."
     allowed-statuses:
       - stopped
     implementation:
@@ -263,7 +263,7 @@ actions:
   import-umbrel:
     name: "Import from Umbrel (0.4)"
     description: "Imports wallet and channel data from Umbrel 0.4"
-    warning: "To avoid overwriting an existing LND wallet on StartOS, this action can only be run on a fresh installation of LND that has not yet been 'Started'."
+    warning: "Warning!!! After running this action, be sure to NEVER re-start your Umbrel with the same LND seed! You should never run two different lnd nodes with the same seed! This will lead to strange/unpredictable behavior or even loss of funds."
     allowed-statuses:
       - stopped
     implementation:

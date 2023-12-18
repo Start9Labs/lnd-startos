@@ -16,7 +16,7 @@ if [ ! -e "/root/.lnd/pwd.dat" ]; then
 
   LN_CLI_PASS=$(sshpass -p "$MYNODE_PASS" ssh -o StrictHostKeyChecking=no admin@$MYNODE_HOST "echo \"$MYNODE_PASS\" | sudo -S cat /mnt/hdd/mynode/settings/.lndpw")
   echo -n "$LN_CLI_PASS" > /root/.lnd/pwd.dat
-  echo '{"version":"0","message":"Successfully Imported MyNode Data","value":null,"copyable":false,"qr":false}'
+  echo '{"version":"0","message":"Successfully Imported MyNode Data. Warning!!! With the Migration of LND complete, be sure to NEVER re-start your MyNode using the same LND seed! You should never run two different lnd nodes with the same seed! This will lead to strange/unpredictable behavior or even loss of funds.","value":null,"copyable":false,"qr":false}'
 else
   echo "Error: Existing LND data found on StartOS. MyNode LND Data has not been migrated to StartOS. If you are CERTAIN there are no LND funds on StartOS and you would like to migrate data from another node, you will need to uninstall LND from StartOS and re-run this action on a fresh install of LND BEFORE ever starting the LND service on StartOS." >&2
   exit 1

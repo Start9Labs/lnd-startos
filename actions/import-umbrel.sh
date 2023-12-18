@@ -13,7 +13,7 @@ if [ ! -e "/root/.lnd/pwd.dat" ]; then
   >&2 echo "Copying LND Data"
   sshpass -p "$UMBREL_PASS" scp -o StrictHostKeyChecking=no -r -v umbrel@$UMBREL_HOST:/home/umbrel/umbrel/lnd/* /root/.lnd
   echo -n 'moneyprintergobrrr' > /root/.lnd/pwd.dat
-  echo '{"version":"0","message":"Successfully Imported Umbrel Data","value":null,"copyable":false,"qr":false}'
+  echo '{"version":"0","message":"Successfully Imported Umbrel Data. Warning!!! With the Migration of LND complete, be sure to NEVER re-start your Umbrel with the same LND seed! You should never run two different lnd nodes with the same seed! This will lead to strange/unpredictable behavior or even loss of funds.","value":null,"copyable":false,"qr":false}'
 else
   echo "Error: Existing LND data found on StartOS. Umbrel LND Data has not been migrated to StartOS. If you are CERTAIN there are no LND funds on StartOS and you would like to migrate data from another node, you will need to uninstall LND from StartOS and re-run this action on a fresh install of LND BEFORE ever starting the LND service on StartOS." >&2
   exit 1
