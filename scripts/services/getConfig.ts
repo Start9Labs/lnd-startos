@@ -120,7 +120,7 @@ export const getConfig: T.ExpectedExports.getConfig = compat.getConfig({
       "<p>The Bitcoin Core node to connect to:</p><ul><li><strong>None</strong>: Use the light bitcoin backend built into LND, Neutrino. If using Neutrino, please switch to using Bitcoin Core as soon as possible. Neutrino uses the BIP157/8 light client protocol, which has security risks.</li><br><li><strong>Bitcoin Core</strong>: service installed on your server. Neutrino will also be used during IBD.</li></ul>",
     "tag": {
       "id": "type",
-      "name": "Type",
+      "name": "Bitcoin Node Type",
       "variant-names": {
         "none": "None (Built-in LND Neutrino)",
         "internal": "Bitcoin Core",
@@ -166,7 +166,8 @@ export const getConfig: T.ExpectedExports.getConfig = compat.getConfig({
         "type": "boolean",
         "name": "Enabled",
         "description":
-          "If the autopilot agent should be active or not. The autopilot agent will\nattempt to AUTOMATICALLY OPEN CHANNELS to put your node in an advantageous\nposition within the network graph.  DO NOT ENABLE THIS IF YOU WANT TO MANAGE \nCHANNELS MANUALLY OR DO NOT UNDERSTAND IT.\n",
+          "If the autopilot agent should be active or not. The autopilot agent will attempt to AUTOMATICALLY OPEN CHANNELS to put your node in an advantageous position within the network graph.",
+        "warning": "DO NOT ENABLE AUTOPILOT IF YOU WANT TO MANAGE CHANNELS MANUALLY OR IF YOU DO NOT UNDERSTAND THIS FEATURE.",
         "default": false,
       },
       "private": {
@@ -252,7 +253,7 @@ export const getConfig: T.ExpectedExports.getConfig = compat.getConfig({
   "watchtowers": {
     "type": "object",
     "name": "Watchtowers",
-    "description": "Watchtower Settings",
+    "description": "Watchtower Settings: A watchtower is a feature of a Lightning node that allows you to watch a node for potential channel breaches (the watchtower server). This functionality comes bundled in LND, but needs to be specifically enabled. Two nodes can act as each other’s watchtowers, meaning they simultaneously operate in server and client mode.",
     "spec": {
       "wt-server": {
         "type": "boolean",
@@ -262,24 +263,41 @@ export const getConfig: T.ExpectedExports.getConfig = compat.getConfig({
         "default": false,
       },
       "wt-client": {
-        "type": "boolean",
+        "type": "union",
         "name": "Enable Watchtower Client",
         "description":
           "Allow your node to find other watchtower servers on the network.",
-        "default": false,
-      },
-      "add-watchtowers": {
-        "type": "list",
-        "name": "Add Watchtowers",
-        "description": "Add URIs of Watchtowers to connect to.",
-        "range": "[0,*)",
-        "subtype": "string",
-        "spec": {
-          "masked": false,
-          "copyable": true,
-          "placeholder": "pubkey@host",
+        // "nullable": true,
+        tag: {
+          id: "enabled",
+          name: "Watchtower Client Enabled",
+          description: "Enable or disable Watchtower Client",
+          "variant-names": {
+            disabled: "Disabled",
+            enabled: "Enabled",
+          },
         },
-        "default": [],
+        "default": "disabled",
+        variants: {
+          disabled: {},
+          enabled: {
+            "add-watchtowers": {
+              "type": "list",
+              "name": "Add Watchtowers",
+              "description":
+                "Add URIs of Watchtowers to connect to.",
+              "range": "[1,*)",
+              "subtype": "string",
+              "spec": {
+                "masked": false,
+                "copyable": true,
+                "placeholder":
+                  "pubkey@host:9911",
+              },
+              "default": Array<string>(),
+            },
+          }
+        }
       },
     },
   },
@@ -382,6 +400,16 @@ export const getConfig: T.ExpectedExports.getConfig = compat.getConfig({
         "integral": false,
         "default": 0.5,
       },
+      "max-pending-channels": {
+        "type": "number",
+        "name": "Maximum Pending Channels",
+        "description":
+          "The maximum number of incoming pending channels permitted per peer.",
+        "nullable": false,
+        "range": "[0,*)",
+        "integral": true,
+        "default": 5,
+      },
       "max-commit-fee-rate-anchors": {
         "type": "number",
         "name": "Maximum Commitment Fee for Anchor Channels",
@@ -390,7 +418,7 @@ export const getConfig: T.ExpectedExports.getConfig = compat.getConfig({
         "nullable": false,
         "range": "[1,*)",
         "integral": true,
-        "default": 10,
+        "default": 100,
       },
       "protocol-wumbo-channels": {
         "type": "boolean",

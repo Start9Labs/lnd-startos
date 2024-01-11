@@ -1,23 +1,20 @@
-FROM lightninglabs/lnd:v0.16.4-beta
+FROM lightninglabs/lnd:v0.17.3-beta
 
 ARG ARCH
-ARG PLATFORM
-RUN apk update
-RUN apk add \
+RUN apk add --no-cache \
     bash \
     coreutils \
     curl \
     jq \
+    yq \
     netcat-openbsd \
     openssh-client \
     openssl \
     sshpass \
     xxd \
     ca-certificates \
-    make git wget
-
-RUN wget https://github.com/mikefarah/yq/releases/download/v4.25.3/yq_linux_${PLATFORM}.tar.gz -O - |\
-    tar xz && mv yq_linux_${PLATFORM} /usr/bin/yq
+    make \
+    git
 
 WORKDIR /root/lnd
 

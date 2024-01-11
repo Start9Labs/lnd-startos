@@ -11,6 +11,7 @@ Your LND node is highly configurable. Many settings are considered _advanced_ an
 ### Dependencies
 
 On StartOS, you have 3 options with regard to Bitcoin
+
 1. Run an archival node. This is the default (recommended)
 1. Run a pruned node.
 1. Do not run a Bitcoin node. LND will use Neutrino instead (not recommended)
@@ -19,7 +20,7 @@ On StartOS, you have 3 options with regard to Bitcoin
 
 ### Selecting a Wallet
 
-For a list of compatible wallets and related instructions, see <a href="https://github.com/start9labs/lnd-wrapper/blob/master/docs/wallets.md" target="_blank" noreferrer>https://github.com/start9labs/lnd-wrapper/blob/master/docs/wallets.md</a>.
+For a list of compatible wallets and related instructions, refer to the <a href="https://docs.start9.com/0.3.5.x/service-guides/lightning/connecting-lnd" target="_blank" noreferrer>LND Docs</a>.
 
 ### Getting On-Chain Funds
 
@@ -37,7 +38,7 @@ It is not recommended to open a channel less than 100,000 satoshis, or .001 BTC.
 
 If you want to receive payments, you will need some inbound liquidity.
 
-The first, easiest, and best way to get inbound liquidity is to use your outbound liquidity to buy something. Any Bitcoin you spend using your outbound liquidity is Bitcoin you can now receive back. So if there is something you want to buy, like a Start9 server or a t-shirt from the [Start9 store](https://bitcoin-store.start9.com/), simply make the purchase by paying a Lightning invoice, and you will then have inbound liquidity equal to the amount of Satoshis you spend.  You may also sell some Bitcoin to a friend that already has established Lightning channels.
+The first, easiest, and best way to get inbound liquidity is to use your outbound liquidity to buy something. Any Bitcoin you spend using your outbound liquidity is Bitcoin you can now receive back. So if there is something you want to buy, like a Start9 server or a t-shirt from the [Start9 store](https://bitcoin-store.start9.com/), simply make the purchase by paying a Lightning invoice, and you will then have inbound liquidity equal to the amount of Satoshis you spend. You may also sell some Bitcoin to a friend that already has established Lightning channels.
 
 You can also use services like Lightning Pool to obtain inbound liquidity for a fee. This service is available inside of Lightning Terminal, which you can download from the Marketplace.
 
@@ -45,7 +46,7 @@ The only way to get inbound liquidity without spending or selling Bitcoin is to 
 
 ## Backups
 
-Your Lightning node stores funds in two places: on-chain and in channels that you have opened. The only way to back up the funds in the channels is to back up the entire node. On StartOS, this is a simple matter of creating a backup in the `System` menu and selecting LND. This backup _automatically_ includes your on-chain funds as well. As the the system created backup is comprehensive and easy, this is the recommended backup process. For LND wallets created on >= 16.3 the Aezeed Cipher Seed is exposed in the `Properties` of LND. *WARNING* The seed in properties has no knowledge of channel state, as such it can only be used to recover on-chain funds. Despite the Aezeed Cipher Seed appearing similar to a BIP39 seed, the Azeez Cipher Seed is *NOT* the same and cannot be used to recover on-chain funds to any wallet other than LND.
+Your Lightning node stores funds in two places: on-chain and in channels that you have opened. The only way to back up the funds in the channels is to back up the entire node. On StartOS, this is a simple matter of creating a backup in the `System` menu and selecting LND. This backup _automatically_ includes your on-chain funds as well. As the the system created backup is comprehensive and easy, this is the recommended backup process. For LND wallets created on >= 16.3 the Aezeed Cipher Seed is exposed in the `Properties` of LND. _WARNING_ The seed in properties has no knowledge of channel state, as such it can only be used to recover on-chain funds. Despite the Aezeed Cipher Seed appearing similar to a BIP39 seed, the Azeez Cipher Seed is _NOT_ the same and cannot be used to recover on-chain funds to any wallet other than LND.
 
 Be advised, if you ever need to recover from backup, _your channels will be closed_ and all channel funds will be moved to your on-chain balance. This is a necessary aspect of the way LND works and backups are created.
 
@@ -57,18 +58,19 @@ In LND, watchtowers act as a second line of defense in responding to malicious o
 
 You can make your LND node a watchtower for others by clicking the toggle `Enable Watchtower Server` in settings. There is no immediate economic reason to do this, but you may want to do it for friends or family, or a second LND node of your own. Once enabled, you share your watchtower public key with whomever you want to use it.
 
-Be advised, your watchtower’s public key is *different* from lnd’s node public key. It is not known the network. We recommend NOT disclosing this public key openly, unless you are prepared to open your tower up to the entire Internet.
+Be advised, your watchtower’s public key is _different_ from lnd’s node public key. It is not known the network. We recommend NOT disclosing this public key openly, unless you are prepared to open your tower up to the entire Internet.
 
 To obtain your full LND Watchtower URI:
-1. SSH into your server
-1. Run `sudo docker exec -ti lnd.embassy lncli --rpcserver=lnd.embassy tower info`
-1. Copy the entry under `uris` and give it to anyone for whom you would like to be a watchtower
+
+1. Enable the Watchtower Server in Config > Watchtowers
+1. After the Watchtower Server config has been enabled, you can find your Watchtower Server URL in `Properties`; Give this URL to whomever you would like to have access your Watchtower Server.
 
 ### Using a Watchtower
 
-You can enlist watchtowers to watch your node by using `Add a watchtower to your LND Node` in Actions or in Config options. This will back up your LND node state to the remote watchtower you entered.
+You can enlist watchtowers to watch your node by using `Add a watchtower to your LND Node` in Config options. This will back up your LND node state to the remote watchtower you entered.
 
-After adding a watchtower URI through Actions or Config, you can confirm it is working by:
+After adding a watchtower(s) URI through Config, you can confirm the watchtower is working by:
+
 1. SSH into your server
 1. Run `sudo docker exec -ti lnd.embassy lncli --rpcserver=lnd.embassy wtclient towers`
 1. If you see `"active_session_candidate": true`, it worked. If not, double check the watchtower URI you were provided and try again.

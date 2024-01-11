@@ -46,6 +46,7 @@ export const matchAdvanced2 = shape({
   "payments-expiration-grace-period": number,
   "default-remote-max-htlcs": number,
   "max-channel-fee-allocation": number,
+  "max-pending-channels": number,
   "max-commit-fee-rate-anchors": number,
   "protocol-wumbo-channels": boolean,
   "protocol-no-anchors": boolean,

@@ -38,8 +38,8 @@ sed -i 's/\(BEGIN\|END\) PRIVATE KEY/\1 EC PRIVATE KEY/g' /root/.lnd/tls.key
 
 configurator
 configurator_child=$!
-if test -f /root/.lnd/requires.reset-txs; then
-  rm /root/.lnd/requires.reset-txs &
+if [ -e /root/.lnd/requires.reset_txs ]; then
+  rm /root/.lnd/requires.reset_txs
   lnd --reset-wallet-transactions &
 else
   lnd &

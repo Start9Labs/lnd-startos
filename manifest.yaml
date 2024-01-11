@@ -1,12 +1,12 @@
 id: lnd
 title: LND
-version: 0.16.4
+version: 0.17.3
 release-notes: |-
-  * Update upstream to lnd [v0.16.4-beta](https://github.com/lightningnetwork/lnd/releases/tag/v0.16.4-beta)
-  * Add actions to migrate from myNode and RaspiBlitz
-  * Remove Proxy as a dependency
-  * Expose Aezeed CipherSeed in properties for wallets created on >= 16.4
-  * Fix non-deterministic bug where a CipherSeed is not created on a fresh install
+  * Update upstream to 0.17.3 [Release Notes](https://github.com/lightningnetwork/lnd/releases/tag/v0.17.3-beta)
+  * Fix bug where SCB restore could be unsuccessful.
+  * Convert pwd.dat to base32 and save pwd.dat as base32 for fresh installs.
+  * Update default max-commit-fee-rate-anchors to 100 sats/vB.
+  * Add config option for maxpendingchannels.
 license: mit
 wrapper-repo: "https://github.com/Start9Labs/lnd-wrapper"
 upstream-repo: "https://github.com/lightningnetwork/lnd"
@@ -162,7 +162,7 @@ actions:
   import-umbrel-five:
     name: "Import from Umbrel (0.5)"
     description: "Imports wallet and channel data from Umbrel 0.5"
-    warning: "This will destroy existing channel data, please make sure you have no funds on this node before running this action"
+    warning: "Warning!!! After running this action, be sure to NEVER re-start your Umbrel with the same LND seed! You should never run two different lnd nodes with the same seed! This will lead to strange/unpredictable behavior or even loss of funds."
     allowed-statuses:
       - stopped
     implementation:
@@ -193,7 +193,7 @@ actions:
   import-mynode:
     name: "Import from MyNode"
     description: "Imports wallet and channel data from MyNode"
-    warning: "This will destroy existing channel data, please make sure you have no funds on this node before running this action"
+    warning: "Warning!!! After running this action, be sure to NEVER re-start your MyNode with the same LND seed! You should never run two different lnd nodes with the same seed! This will lead to strange/unpredictable behavior or even loss of funds."
     allowed-statuses:
       - stopped
     implementation:
@@ -224,7 +224,7 @@ actions:
   import-raspiblitz:
     name: "Import from RaspiBlitz"
     description: "Imports wallet and channel data from RaspiBlitz"
-    warning: "This will destroy existing channel data, please make sure you have no funds on this node before running this action"
+    warning: "Warning!!! After running this action, be sure to NEVER re-start your Raspiblitz with the same LND seed! You should never run two different lnd nodes with the same seed! This will lead to strange/unpredictable behavior or even loss of funds."
     allowed-statuses:
       - stopped
     implementation:
@@ -263,7 +263,7 @@ actions:
   import-umbrel:
     name: "Import from Umbrel (0.4)"
     description: "Imports wallet and channel data from Umbrel 0.4"
-    warning: "This will destroy existing channel data, please make sure you have no funds on this node before running this action"
+    warning: "Warning!!! After running this action, be sure to NEVER re-start your Umbrel with the same LND seed! You should never run two different lnd nodes with the same seed! This will lead to strange/unpredictable behavior or even loss of funds."
     allowed-statuses:
       - stopped
     implementation:
@@ -291,30 +291,6 @@ actions:
         placeholder: password
         nullable: false
         default: ""
-  add-watchtower:
-    name: "Add a watchtower to your LND Node"
-    description: "Register a watchtower to use for future sessions/backups"
-    warning: "Make sure the target is a watchtower pubkey, rather than an LND node pubkey!"
-    allowed-statuses:
-      - running
-    implementation:
-      type: docker
-      image: main
-      system: false
-      entrypoint: add-watchtower.sh
-      args: []
-      io-format: json
-      mounts:
-        main: /root/.lnd
-    input-spec:
-      wt-uri:
-        type: string
-        name: Peer Lightning Network Daemon Watchtower URI
-        description: "The Watchtower URI (pubkey@host) of the Lightning Network Daemon Node you are adding as a watchtower"
-        masked: false
-        placeholder: "pubkey@host"
-        nullable: false
-        default: ""
   reset-txs:
     name: "Reset Wallet Transactions"
     description: "Resets the best synced height of the wallet back to its birthday, or genesis if the birthday isn't known. This is useful for picking up on-chain transactions that may have been missed by LND."
@@ -337,9 +313,9 @@ actions:
     warning: "This will delete and recreate all existing macaroon files, so you may need to restart other services using LND."
     allowed-statuses:
       - running
-      - stopped
     implementation:
       type: docker
+      inject: true
       image: main
       system: false
       entrypoint: recreate-macaroons.sh

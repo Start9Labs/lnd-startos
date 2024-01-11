@@ -1,5 +1,4 @@
-image.tar
-lnd.s9pk
+*.s9pk
 scripts/embassy.js
 .vscode/
 docker-images/
