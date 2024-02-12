@@ -5,7 +5,7 @@ release-notes: |-
   * Update upstream to 0.17.4 [Release Notes](https://github.com/lightningnetwork/lnd/releases/tag/v0.17.4-beta)
   * Add warnings for migration actions
 license: mit
-wrapper-repo: "https://github.com/Start9Labs/lnd-wrapper"
+wrapper-repo: "https://github.com/Start9Labs/lnd-startos"
 upstream-repo: "https://github.com/lightningnetwork/lnd"
 support-site: "https://lightning.engineering/slack.html"
 marketing-site: "https://lightning.engineering/"
