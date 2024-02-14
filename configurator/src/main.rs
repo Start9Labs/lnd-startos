@@ -648,7 +648,7 @@ fn main() -> Result<(), anyhow::Error> {
                         }
                         Ok(output) => {
                             let stderr = String::from_utf8_lossy(&output.stderr);
-                            if stderr.contains("waiting to start") {
+                            if stderr.contains("server is still in the process of starting") {
                                 continue;
                             } else {
                                 eprintln!("Error initiating SCB recovery: {}", stderr);
