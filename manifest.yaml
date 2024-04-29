@@ -3,6 +3,7 @@ title: LND
 version: 0.17.5
 release-notes: |-
   * Update upstream to 0.17.5 [Release Notes](https://github.com/lightningnetwork/lnd/releases/tag/v0.17.5-beta)
+  * Bump Bitcoin dependency to <29.0.0
 license: mit
 wrapper-repo: "https://github.com/Start9Labs/lnd-startos"
 upstream-repo: "https://github.com/lightningnetwork/lnd"
@@ -98,7 +99,7 @@ interfaces:
       - http
 dependencies:
   bitcoind:
-    version: ">=0.21.1.2 <27.0.0"
+    version: ">=0.21.1.2 <29.0.0"
     requirement:
       type: "opt-out"
       how: "Can alternatively use Neutrino"
