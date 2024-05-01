@@ -22,9 +22,8 @@ jobs:
       - name: Debug
         run: |
           pwd
-          ls -al
-          ls -l health-check/target/aarch64-unknown-linux-musl/release
-          ls -al ./health-check/target
+          ls -alR
+
 
       - name: Build the service package
         id: build

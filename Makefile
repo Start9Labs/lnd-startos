@@ -1,6 +1,6 @@
 ASSET_PATHS := $(shell find ./assets/*)
-CONFIGURATOR_SRC := $(shell find ./configurator/src) configurator/Cargo.toml configurator/Cargo.lock
-HEALTH_CHECK_SRC := $(shell find ./health-check/src) health-check/Cargo.toml health-check/Cargo.lock
+CONFIGURATOR_SRC := $(shell find ./configurator) configurator/Cargo.toml configurator/Cargo.lock
+HEALTH_CHECK_SRC := $(shell find ./health-check) health-check/Cargo.toml health-check/Cargo.lock
 PKG_VERSION := $(shell yq e ".version" manifest.yaml)
 PKG_ID := $(shell yq e ".id" manifest.yaml)
 
