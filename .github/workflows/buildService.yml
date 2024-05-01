@@ -28,7 +28,12 @@ jobs:
           PACKAGE_ID=$(yq -oy ".id" manifest.*)
           echo "package_id=$PACKAGE_ID" >> $GITHUB_ENV
         shell: bash
-
+      - name: Debug
+        run: |
+          pwd
+          ls -al
+          ls -l health-check/target/aarch64-unknown-linux-musl/release
+          ls -al ./health-check/target
       - name: Upload .s9pk
         uses: actions/upload-artifact@v4
         with:
