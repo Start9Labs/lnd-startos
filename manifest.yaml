@@ -259,8 +259,8 @@ actions:
         nullable: false
         default: ""
   import-umbrel:
-    name: "Import from Umbrel (0.4)"
-    description: "Imports wallet and channel data from Umbrel 0.4"
+    name: "Import from Umbrel (1.0)"
+    description: "Imports wallet and channel data from Umbrel 1.0"
     warning: "Warning!!! After running this action, be sure to NEVER re-start your Umbrel with the same LND seed! You should never run two different lnd nodes with the same seed! This will lead to strange/unpredictable behavior or even loss of funds."
     allowed-statuses:
       - stopped
