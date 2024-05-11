@@ -1,10 +1,10 @@
 id: lnd
 title: LND
-version: 0.17.5
+version: 0.17.5.1
 release-notes: |-
-  * Update upstream to 0.17.5 [Release Notes](https://github.com/lightningnetwork/lnd/releases/tag/v0.17.5-beta)
-  * Bump Bitcoin dependency to <29.0.0
-license: mit
+  * Add Umbrel 1.0 migration action
+  * Minor changes
+license: MIT
 wrapper-repo: "https://github.com/Start9Labs/lnd-startos"
 upstream-repo: "https://github.com/lightningnetwork/lnd"
 support-site: "https://lightning.engineering/slack.html"
