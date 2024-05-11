@@ -9,7 +9,7 @@ rm input.json
 
 if [ ! -e "/root/.lnd/pwd.dat" ]; then
   >&2 echo "Stopping Umbrel Services"
-  sshpass -p "$UMBREL_PASS" ssh -o StrictHostKeyChecking=no umbrel@$UMBREL_HOST "echo '$UMBREL_PASS' | >&2 sudo systemctl stop umbrel"
+  echo "$UMBREL_PASS" | sshpass -p "$UMBREL_PASS" ssh -o StrictHostKeyChecking=no -tt umbrel@$UMBREL_HOST "sudo -S systemctl stop umbrel"
   >&2 echo "Copying LND Data"
   sshpass -p "$UMBREL_PASS" scp -o StrictHostKeyChecking=no -r -v umbrel@$UMBREL_HOST:/home/umbrel/umbrel/app-data/lightning/data/lnd/* /root/.lnd
   echo -n 'moneyprintergobrrr' > /root/.lnd/pwd.dat
