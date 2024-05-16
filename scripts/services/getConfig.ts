@@ -432,6 +432,8 @@ export const getConfig: T.ExpectedExports.getConfig = compat.getConfig({
         "name": "Enable zero-conf Channels",
         "description":
           "Set to enable support for zero-conf channels. This requires the option-scid-alias flag to also be set.\n",
+        "warning": 
+          "Zero-conf channels are channels that do not require confirmations to be used. Because of this, the fundee must trust the funder to not double-spend the channel and steal the balance of the channel.",
         "default": false,
       },
       "protocol-option-scid-alias": {
