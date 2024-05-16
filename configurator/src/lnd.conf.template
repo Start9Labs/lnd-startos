@@ -70,6 +70,8 @@ healthcheck.chainbackend.attempts=5
 protocol.wumbo-channels={protocol_wumbo_channels}
 protocol.no-anchors={protocol_no_anchors}
 protocol.no-script-enforced-lease={protocol_disable_script_enforced_lease}
+protocol.option-scid-alias={protocol_option_scid_alias}
+protocol.zero-conf={protocol_zero_conf}
 
 [bolt]
 db.bolt.nofreelistsync={db_bolt_no_freelist_sync}

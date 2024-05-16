@@ -175,6 +175,8 @@ struct AdvancedConfig {
     max_commit_fee_rate_anchors: usize,
     max_pending_channels: usize,
     protocol_wumbo_channels: bool,
+    protocol_zero_conf: bool,
+    protocol_option_scid_alias: bool,
     protocol_no_anchors: bool,
     protocol_disable_script_enforced_lease: bool,
     gc_canceled_invoices_on_startup: bool,
@@ -431,6 +433,8 @@ fn main() -> Result<(), anyhow::Error> {
         autopilot_min_confirmations = config.autopilot.advanced.min_confirmations,
         autopilot_confirmation_target = config.autopilot.advanced.confirmation_target,
         protocol_wumbo_channels = config.advanced.protocol_wumbo_channels,
+        protocol_zero_conf = config.advanced.protocol_zero_conf,
+        protocol_option_scid_alias = config.advanced.protocol_option_scid_alias,
         protocol_no_anchors = config.advanced.protocol_no_anchors,
         protocol_disable_script_enforced_lease =
             config.advanced.protocol_disable_script_enforced_lease,
