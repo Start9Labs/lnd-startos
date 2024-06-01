@@ -49,6 +49,8 @@ export const matchAdvanced2 = shape({
   "max-pending-channels": number,
   "max-commit-fee-rate-anchors": number,
   "protocol-wumbo-channels": boolean,
+  "protocol-zero-conf": boolean,
+  "protocol-option-scid-alias": boolean,
   "protocol-no-anchors": boolean,
   "protocol-disable-script-enforced-lease": boolean,
   "gc-canceled-invoices-on-startup": boolean,

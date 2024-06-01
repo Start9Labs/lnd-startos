@@ -427,6 +427,22 @@ export const getConfig: T.ExpectedExports.getConfig = compat.getConfig({
           "If set, then lnd will create and accept requests for channels larger than 0.16 BTC\n",
         "default": false,
       },
+      "protocol-zero-conf": {
+        "type": "boolean",
+        "name": "Enable zero-conf Channels",
+        "description":
+          "Set to enable support for zero-conf channels. This requires the option-scid-alias flag to also be set.\n",
+        "warning": 
+          "Zero-conf channels are channels that do not require confirmations to be used. Because of this, the fundee must trust the funder to not double-spend the channel and steal the balance of the channel.",
+        "default": false,
+      },
+      "protocol-option-scid-alias": {
+        "type": "boolean",
+        "name": "Enable option-scid-alias Channels",
+        "description":
+          "Set to enable support for option_scid_alias channels, which can be referred to by an alias instead of the confirmed ShortChannelID. Additionally, is needed to open zero-conf channels.\n",
+        "default": false,
+      },
       "protocol-no-anchors": {
         "type": "boolean",
         "name": "Disable Anchor Channels",

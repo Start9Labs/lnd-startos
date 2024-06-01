@@ -31,6 +31,20 @@ const configRules: Array<Check> = [
       }
     },
   },
+  {
+    currentError(config) {
+      if (config.advanced["protocol-zero-conf"] && !config.advanced["protocol-option-scid-alias"]) {
+        return "'Advanced > Enable option-scid-alias Channels' must be enabled to enable zero-conf channels'";
+      }
+    },
+  },
+  {
+    currentError(config) {
+      if (config.advanced["protocol-zero-conf"] && config.advanced["protocol-no-anchors"]) {
+        return "'Advanced > Disable Anchor Channels' must be disabled to enable zero-conf channels'";
+      }
+    },
+  },
 ];
 
 function checkConfigRules(config: Root): T.KnownError | void {

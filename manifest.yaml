@@ -1,14 +1,11 @@
 id: lnd
 title: LND
-version: 0.17.3
+version: 0.17.5.1
 release-notes: |-
-  * Update upstream to 0.17.3 [Release Notes](https://github.com/lightningnetwork/lnd/releases/tag/v0.17.3-beta)
-  * Fix bug where SCB restore could be unsuccessful.
-  * Convert pwd.dat to base32 and save pwd.dat as base32 for fresh installs.
-  * Update default max-commit-fee-rate-anchors to 100 sats/vB.
-  * Add config option for maxpendingchannels.
-license: mit
-wrapper-repo: "https://github.com/Start9Labs/lnd-wrapper"
+  * Add Umbrel 1.0 migration action
+  * Minor changes
+license: MIT
+wrapper-repo: "https://github.com/Start9Labs/lnd-startos"
 upstream-repo: "https://github.com/lightningnetwork/lnd"
 support-site: "https://lightning.engineering/slack.html"
 marketing-site: "https://lightning.engineering/"
@@ -62,10 +59,11 @@ volumes:
     interface-id: control
 alerts:
   install: |
-    READ CAREFULLY! LND and the Lightning Network are considered beta software. Please use with caution and do not risk more money than you are willing to lose. We encourage frequent backups. If for any reason, you need to restore LND from a backup, your on-chain wallet will be restored, but all your channels will be closed and their funds returned to your on-chain wallet, minus fees. It may also take some time for this process to occur.
-  uninstall: "READ CAREFULLY! Uninstalling LND will result in permanent loss of data, including its private keys for its on-chain wallet and all channel states. Please make a backup if you have any funds in your on-chain wallet or in any channels. Recovering from backup will restore your on-chain wallet, but due to the architecture of the Lightning Network, your channels cannot be recovered. All your channels will be closed and their funds returned to your on-chain wallet, minus fees. \n"
+    READ CAREFULLY! LND and the Lightning Network are considered beta software. Please use with caution and do not risk more money than you are willing to lose. We encourage frequent backups, particularly after opening or closing channels. If for any reason, you need to restore LND from a backup, your on-chain wallet will be restored. Any channels in the backup will be closed and their funds returned to your on-chain wallet, minus fees. It may also take some time for this process to occur. Any channels opened after the last backup CANNOT be recovered by backup restore.
+  uninstall: |
+    "READ CAREFULLY! Uninstalling LND will result in permanent loss of data, including its private keys for its on-chain wallet and all channel states. Please make a backup if you have any funds in your on-chain wallet or in any channels. Recovering from backup will restore your on-chain wallet, but due to the architecture of the Lightning Network, your channels cannot be recovered. All channels included in the backup will be closed and their funds returned to your on-chain wallet, minus fees". Any channels opened after the last backup CANNOT be recovered by backup restore
   restore: |
-    Restoring LND will overwrite its current data, including its on-chain wallet and channels. Any channels opened since the last backup will be forgotten and may linger indefinitely, and channels contained in the backup will be closed and their funds returned to your on-chain wallet, minus fees.
+    READ CAREFULLY! Any channels opened since the last backup will be forgotten and may linger indefinitely, and channels contained in the backup will be closed and their funds returned to your on-chain wallet, minus fees. After all recoverable funds are available in your on-chain wallet, all funds should be swept to a different wallet. NEVER use a restored LND wallet to open new channels. If you would like to use LND after a backup restore you will first need to sweep all on-chain funds to a different wallet, next LND can be safely uninstalled, and finally LND can be installed fresh from the marketplace.
 interfaces:
   control:
     name: Control Interface
@@ -102,7 +100,7 @@ interfaces:
       - http
 dependencies:
   bitcoind:
-    version: ">=0.21.1.2 <27.0.0"
+    version: ">=0.21.1.2 <29.0.0"
     requirement:
       type: "opt-out"
       how: "Can alternatively use Neutrino"
@@ -261,8 +259,8 @@ actions:
         nullable: false
         default: ""
   import-umbrel:
-    name: "Import from Umbrel (0.4)"
-    description: "Imports wallet and channel data from Umbrel 0.4"
+    name: "Import from Umbrel (1.0)"
+    description: "Imports wallet and channel data from Umbrel 1.0"
     warning: "Warning!!! After running this action, be sure to NEVER re-start your Umbrel with the same LND seed! You should never run two different lnd nodes with the same seed! This will lead to strange/unpredictable behavior or even loss of funds."
     allowed-statuses:
       - stopped
