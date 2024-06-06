@@ -210,6 +210,33 @@ export const migration: T.ExpectedExports.migration = compat.migrations
           throw new Error("Cannot downgrade");
         },
       },
+      "0.18.0": {
+        up: compat.migrations.updateConfig(
+          (config: any) => {
+            config.advanced["protocol-zero-conf"] = false;
+            config.advanced["protocol-option-scid-alias"] = false;
+            return config;
+          },
+          false,
+          { version: "0.18.0", type: "up" }
+        ),
+        down: compat.migrations.updateConfig(
+          (config) => {
+            if (matches.shape({
+              advanced: matches.shape({
+                "protocol-zero-conf": matches.any,
+                "protocol-option-scid-alias": matches.any,
+              })
+            }).test(config)) {
+              delete config.advanced["protocol-zero-conf"];
+              delete config.advanced["protocol-option-scid-alias"];
+            }
+            return config;
+          },
+          true,
+          { version: "0.18.0", type: "down" }
+        )
+      }
     },
     "0.18.0",
   );
