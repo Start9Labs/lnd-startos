@@ -406,7 +406,7 @@ fn main() -> Result<(), anyhow::Error> {
         alias = alias,
         color = config.color,
         feeurl_row = if use_neutrino {
-            "feeurl=https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json"
+            "fee.url=https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json"
         } else {
             ""
         },
