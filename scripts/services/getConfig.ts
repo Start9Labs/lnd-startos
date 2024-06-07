@@ -457,6 +457,13 @@ export const getConfig: T.ExpectedExports.getConfig = compat.getConfig({
           "Set to disable support for script enforced lease channel commitments. If not set, lnd will accept these channels by default if the remote channel party proposes them. Note that lnd will require 1 UTXO to be reserved for this channel type if it is enabled.\nNote: This may cause you to be unable to close a channel and your wallets may not understand why",
         "default": false,
       },
+      "protocol-simple-taproot-chans": {
+        "type": "boolean",
+        "name": "Experimental Taproot Channels",
+        "description":
+          "Taproot Channels improve both privacy and cost efficiency of on-chain transactions. Note: Taproot Channels are experimental and only available for unannounced (private) channels at this time.",
+        "default": false,
+      },
       "gc-canceled-invoices-on-startup": {
         "type": "boolean",
         "name": "Cleanup Canceled Invoices on Startup",

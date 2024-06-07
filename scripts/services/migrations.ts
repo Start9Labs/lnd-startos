@@ -215,6 +215,7 @@ export const migration: T.ExpectedExports.migration = compat.migrations
           (config: any) => {
             config.advanced["protocol-zero-conf"] = false;
             config.advanced["protocol-option-scid-alias"] = false;
+            config.advanced["protocol-simple-taproot-chans"] = false;
             return config;
           },
           false,
@@ -226,10 +227,12 @@ export const migration: T.ExpectedExports.migration = compat.migrations
               advanced: matches.shape({
                 "protocol-zero-conf": matches.any,
                 "protocol-option-scid-alias": matches.any,
+                "protocol-simple-taproot-chans": matches.any,
               })
             }).test(config)) {
               delete config.advanced["protocol-zero-conf"];
               delete config.advanced["protocol-option-scid-alias"];
+              delete config.advanced["protocol-simple-taproot-chans"];
             }
             return config;
           },

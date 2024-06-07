@@ -179,6 +179,7 @@ struct AdvancedConfig {
     protocol_option_scid_alias: bool,
     protocol_no_anchors: bool,
     protocol_disable_script_enforced_lease: bool,
+    protocol_simple_taproot_chans: bool,
     gc_canceled_invoices_on_startup: bool,
     allow_circular_route: bool,
     bitcoin: BitcoinChannelConfig,
@@ -438,6 +439,7 @@ fn main() -> Result<(), anyhow::Error> {
         protocol_no_anchors = config.advanced.protocol_no_anchors,
         protocol_disable_script_enforced_lease =
             config.advanced.protocol_disable_script_enforced_lease,
+        protocol_simple_taproot_chans = config.advanced.protocol_simple_taproot_chans,
         db_bolt_no_freelist_sync = config.advanced.db_bolt_no_freelist_sync,
         db_bolt_auto_compact = config.advanced.db_bolt_auto_compact,
         db_bolt_auto_compact_min_age = config.advanced.db_bolt_auto_compact_min_age,

@@ -53,6 +53,7 @@ export const matchAdvanced2 = shape({
   "protocol-option-scid-alias": boolean,
   "protocol-no-anchors": boolean,
   "protocol-disable-script-enforced-lease": boolean,
+  "protocol-simple-taproot-chans": boolean,
   "gc-canceled-invoices-on-startup": boolean,
   bitcoin: matchBitcoin,
 }, ["recovery-window"]);
