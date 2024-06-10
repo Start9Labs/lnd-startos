@@ -216,6 +216,14 @@ export const migration: T.ExpectedExports.migration = compat.migrations
             config.advanced["protocol-zero-conf"] = false;
             config.advanced["protocol-option-scid-alias"] = false;
             config.advanced["protocol-simple-taproot-chans"] = false;
+            config.advanced.sweeper = {
+              "sweeper-maxfeerate": 1000,
+              "sweeper-nodeadlineconftarget": 1008,
+              "sweeper-budget-tolocalratio": 0.5,
+              "sweeper-budget-anchorcpfpratio": 0.5,
+              "sweeper-budget-deadlinehtlcratio": 0.5,
+              "sweeper-budget-nodeadlinehtlcratio": 0.5,
+            }
             return config;
           },
           false,
@@ -228,11 +236,13 @@ export const migration: T.ExpectedExports.migration = compat.migrations
                 "protocol-zero-conf": matches.any,
                 "protocol-option-scid-alias": matches.any,
                 "protocol-simple-taproot-chans": matches.any,
+              sweeper: matches.any,
               })
             }).test(config)) {
               delete config.advanced["protocol-zero-conf"];
               delete config.advanced["protocol-option-scid-alias"];
               delete config.advanced["protocol-simple-taproot-chans"];
+              delete config.advanced.sweeper;
             }
             return config;
           },

@@ -552,6 +552,76 @@ export const getConfig: T.ExpectedExports.getConfig = compat.getConfig({
           },
         },
       },
+      "sweeper": {
+        "type": "object",
+        "name": "Sweeper Options",
+        "description":
+          "'Sweep' is a LND subservice that handles funds sent from dispute resolution contracts to the internal wallet.\nThese config values help inform the sweeper to make decisions regarding how much it burns in on-chain fees in order to recover possibly contested outputs (HTLCs and Breach outputs).\n<b>WARNING: These settings can result in loss of funds if poorly congifured. Refer to the LND documentation for more information: https://docs.lightning.engineering/lightning-network-tools/lnd/sweeper</b>",
+        "spec": {
+          "sweeper-maxfeerate": {
+            "type": "number",
+            "name": "Max Fee Rate",
+            "description":
+              "The max fee rate in sat/vb which can be used when sweeping funds. Setting this value too low can result in transactions not being confirmed in time, causing HTLCs to expire hence potentially losing funds.",
+            "nullable": false,
+            "range": "[1,*)",
+            "integral": true,
+            "default": 1000,
+            "units": "Sats/vb"
+          },
+          "sweeper-nodeadlineconftarget": {
+            "type": "number",
+            "name": "Non-time-sensitive Sweep Confirmation Target",
+            "description":
+              "The conf target to use when sweeping non-time-sensitive outputs. This is useful for sweeping outputs that are not time-sensitive, and can be swept at a lower fee rate.",
+            "nullable": false,
+            "range": "[1,*)",
+            "integral": true,
+            "default": 1008,
+            "units": "Confirmations"
+          },
+          "sweeper-budget-tolocalratio": {
+            "type": "number",
+            "name": "Budget to Local Ratio",
+            "description":
+              "The ratio (expressed as a decimal) of the value in to_local output to allocate as the budget to pay fees when sweeping it.",
+            "nullable": false,
+            "range": "[0,1)",
+            "integral": false,
+            "default": 0.5,
+          },
+          "sweeper-budget-anchorcpfpratio": {
+            "type": "number",
+            "name": "Anchor CPFP Ratio",
+            "description":
+              "The ratio of a special value to allocate as the budget to pay fees when CPFPing a force close tx using the anchor output. The special value is the sum of all time-sensitive HTLCs on this commitment subtracted by their budgets.",
+            "nullable": false,
+            "range": "[0,1)",
+            "integral": false,
+            "default": 0.5,
+          },
+          "sweeper-budget-deadlinehtlcratio": {
+            "type": "number",
+            "name": "Time-Sensitive HTLC Budget Ratio",
+            "description":
+              "The ratio of the value in a time-sensitive (first-level) HTLC to allocate as the budget to pay fees when sweeping it.",
+            "nullable": false,
+            "range": "[0,1)",
+            "integral": false,
+            "default": 0.5,
+          },
+          "sweeper-budget-nodeadlinehtlcratio": {
+            "type": "number",
+            "name": "Non-Time-Sensitive HTLC Budget Ratio",
+            "description":
+              "The ratio of the value in a non-time-sensitive (second-level) HTLC to allocate as the budget to pay fees when sweeping it.",
+            "nullable": false,
+            "range": "[0,1)",
+            "integral": false,
+            "default": 0.5,
+          },
+        }
+      },
     },
   },
 });

@@ -131,6 +131,17 @@ struct BitcoinChannelConfig {
     time_lock_delta: usize,
 }
 
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+struct SweeperConfig {
+    sweeper_maxfeerate: u64,
+    sweeper_nodeadlineconftarget: usize,
+    sweeper_budget_tolocalratio: f64,
+    sweeper_budget_anchorcpfpratio: f64,
+    sweeper_budget_deadlinehtlcratio: f64,
+    sweeper_budget_nodeadlinehtlcratio: f64,
+}
+
 #[derive(serde::Deserialize, PartialEq, Eq)]
 #[serde(tag = "type")]
 #[serde(rename_all = "kebab-case")]
@@ -183,6 +194,7 @@ struct AdvancedConfig {
     gc_canceled_invoices_on_startup: bool,
     allow_circular_route: bool,
     bitcoin: BitcoinChannelConfig,
+    sweeper: SweeperConfig,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -440,6 +452,12 @@ fn main() -> Result<(), anyhow::Error> {
         protocol_disable_script_enforced_lease =
             config.advanced.protocol_disable_script_enforced_lease,
         protocol_simple_taproot_chans = config.advanced.protocol_simple_taproot_chans,
+        sweeper_maxfeerate = config.advanced.sweeper.sweeper_maxfeerate,
+        sweeper_nodeadlineconftarget = config.advanced.sweeper.sweeper_nodeadlineconftarget,
+        sweeper_budget_tolocalratio = config.advanced.sweeper.sweeper_budget_tolocalratio,
+        sweeper_budget_anchorcpfpratio = config.advanced.sweeper.sweeper_budget_anchorcpfpratio,
+        sweeper_budget_deadlinehtlcratio = config.advanced.sweeper.sweeper_budget_deadlinehtlcratio,
+        sweeper_budget_nodeadlinehtlcratio = config.advanced.sweeper.sweeper_budget_nodeadlinehtlcratio,
         db_bolt_no_freelist_sync = config.advanced.db_bolt_no_freelist_sync,
         db_bolt_auto_compact = config.advanced.db_bolt_auto_compact,
         db_bolt_auto_compact_min_age = config.advanced.db_bolt_auto_compact_min_age,

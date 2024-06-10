@@ -74,6 +74,14 @@ protocol.option-scid-alias={protocol_option_scid_alias}
 protocol.zero-conf={protocol_zero_conf}
 protocol.simple-taproot-chans={protocol_simple_taproot_chans}
 
+[sweeeper]
+sweeper.maxfeerate={sweeper_maxfeerate}
+sweeper.nodeadlineconftarget={sweeper_nodeadlineconftarget}
+sweeper.budget.tolocalratio={sweeper_budget_tolocalratio}
+sweeper.budget.anchorcpfpratio={sweeper_budget_anchorcpfpratio}
+sweeper.budget.deadlinehtlcratio={sweeper_budget_deadlinehtlcratio}
+sweeper.budget.nodeadlinehtlcratio={sweeper_budget_nodeadlinehtlcratio}
+
 [bolt]
 db.bolt.nofreelistsync={db_bolt_no_freelist_sync}
 db.bolt.auto-compact={db_bolt_auto_compact}
