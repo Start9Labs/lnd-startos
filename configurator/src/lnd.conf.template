@@ -74,7 +74,7 @@ protocol.option-scid-alias={protocol_option_scid_alias}
 protocol.zero-conf={protocol_zero_conf}
 protocol.simple-taproot-chans={protocol_simple_taproot_chans}
 
-[sweeeper]
+[sweeper]
 sweeper.maxfeerate={sweeper_maxfeerate}
 sweeper.nodeadlineconftarget={sweeper_nodeadlineconftarget}
 sweeper.budget.tolocalratio={sweeper_budget_tolocalratio}
