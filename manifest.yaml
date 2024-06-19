@@ -1,12 +1,11 @@
 id: lnd
 title: LND
-version: 0.18.0
+version: 0.18.0.1
 release-notes: |-
   * Update to 0.18.0 [Release Notes](https://github.com/lightningnetwork/lnd/releases/tag/v0.18.0-beta)
   * Add Umbrel 1.0 migration action
   * Add config options for zero-conf channels, taproot channels, and sweeper settings
   * Minor fixes
-  * Notice! If LND gets stuck in "Stopping" status after the update, the solution is to restart your server. System -> Restart.
 
 license: MIT
 wrapper-repo: "https://github.com/Start9Labs/lnd-startos"

@@ -210,7 +210,7 @@ export const migration: T.ExpectedExports.migration = compat.migrations
           throw new Error("Cannot downgrade");
         },
       },
-      "0.18.0": {
+      "0.18.0.1": {
         up: compat.migrations.updateConfig(
           (config: any) => {
             config.advanced["protocol-zero-conf"] = false;
@@ -226,8 +226,8 @@ export const migration: T.ExpectedExports.migration = compat.migrations
             }
             return config;
           },
-          false,
-          { version: "0.18.0", type: "up" }
+          true,
+          { version: "0.18.0.1", type: "up" }
         ),
         down: compat.migrations.updateConfig(
           (config) => {
@@ -247,9 +247,9 @@ export const migration: T.ExpectedExports.migration = compat.migrations
             return config;
           },
           true,
-          { version: "0.18.0", type: "down" }
+          { version: "0.18.0.1", type: "down" }
         )
       }
     },
-    "0.18.0",
+    "0.18.0.1",
   );
