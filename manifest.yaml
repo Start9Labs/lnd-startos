@@ -3,7 +3,7 @@ title: LND
 version: 0.18.3
 release-notes: |-
   * Update to 0.18.3 [Release Notes](https://github.com/lightningnetwork/lnd/releases/tag/v0.18.3-beta)
-
+  * Update README
 license: MIT
 wrapper-repo: "https://github.com/Start9Labs/lnd-startos"
 upstream-repo: "https://github.com/lightningnetwork/lnd"
