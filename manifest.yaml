@@ -1,11 +1,8 @@
 id: lnd
 title: LND
-version: 0.18.0.1
+version: 0.18.3
 release-notes: |-
-  * Update to 0.18.0 [Release Notes](https://github.com/lightningnetwork/lnd/releases/tag/v0.18.0-beta)
-  * Add Umbrel 1.0 migration action
-  * Add config options for zero-conf channels, taproot channels, and sweeper settings
-  * Minor fixes
+  * Update to 0.18.3 [Release Notes](https://github.com/lightningnetwork/lnd/releases/tag/v0.18.3-beta)
 
 license: MIT
 wrapper-repo: "https://github.com/Start9Labs/lnd-startos"
