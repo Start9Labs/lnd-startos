@@ -42,7 +42,7 @@ if [ -e /root/.lnd/requires.reset_txs ]; then
   rm /root/.lnd/requires.reset_txs
   lnd --reset-wallet-transactions &
 else
-  lnd &
+  lnd --profile=9736 &
 fi
 lnd_child=$!
 
