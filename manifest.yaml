@@ -1,9 +1,9 @@
 id: lnd
 title: LND
-version: 0.17.5.1
+version: 0.18.3
 release-notes: |-
-  * Add Umbrel 1.0 migration action
-  * Minor changes
+  * Update to 0.18.3 [Release Notes](https://github.com/lightningnetwork/lnd/releases/tag/v0.18.3-beta)
+  * Update README
 license: MIT
 wrapper-repo: "https://github.com/Start9Labs/lnd-startos"
 upstream-repo: "https://github.com/lightningnetwork/lnd"

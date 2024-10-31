@@ -7,29 +7,25 @@ Before building the LND package, your build environment must be setup for buildi
 
 ## Dependencies
 
+- [deno](https://deno.land/)
 - [docker](https://docs.docker.com/get-docker)
 - [docker-buildx](https://docs.docker.com/buildx/working-with-buildx/)
-- [yq (version 4)](https://mikefarah.gitbook.io/yq)
-- [start-sdk](https://github.com/Start9Labs/start-os/tree/sdk/backend)
 - [make](https://www.gnu.org/software/make/)
-- [deno](https://deno.land/)
+- [start-sdk](https://github.com/Start9Labs/start-os/blob/v0.3.5.1/core/install-sdk.sh)
+- [yq (version 4)](https://mikefarah.gitbook.io/yq)
 
 ## Cloning
 
 Clone the project locally.
 
 ```
-git clone git@github.com:Start9Labs/lnd-wrapper.git
-cd lnd-wrapper
+git clone git@github.com:Start9Labs/lnd-startos.git
+cd lnd-startos
 ```
 
 ## Building
 
-To build the project, run the following commands:
-
-```
-make
-```
+To build the project run the command: `make`
 
 Alternatively the package can be built for individual architectures by specifying the architecture as follows:
 
@@ -49,6 +45,12 @@ make arm
 start-cli auth login
 #Enter your StartOS password
 start-cli --host https://server-name.local package install lnd.s9pk
+```
+
+If you already have your `start-cli` config file setup with a default `host`, you can install simply by running:
+
+```
+make install
 ```
 
 **Tip:** You can also install the lnd.s9pk using **Sideload Service** under the **StartOS > SETTINGS** section.

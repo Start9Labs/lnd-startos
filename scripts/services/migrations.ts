@@ -240,6 +240,46 @@ export const migration: T.ExpectedExports.migration =
           throw new Error("Cannot downgrade");
         },
       },
+      "0.18.0.1": {
+        up: compat.migrations.updateConfig(
+          (config: any) => {
+            config.advanced["protocol-zero-conf"] = false;
+            config.advanced["protocol-option-scid-alias"] = false;
+            config.advanced["protocol-simple-taproot-chans"] = false;
+            config.advanced.sweeper = {
+              "sweeper-maxfeerate": 1000,
+              "sweeper-nodeadlineconftarget": 1008,
+              "sweeper-budget-tolocalratio": 0.5,
+              "sweeper-budget-anchorcpfpratio": 0.5,
+              "sweeper-budget-deadlinehtlcratio": 0.5,
+              "sweeper-budget-nodeadlinehtlcratio": 0.5,
+            }
+            return config;
+          },
+          true,
+          { version: "0.18.0.1", type: "up" }
+        ),
+        down: compat.migrations.updateConfig(
+          (config) => {
+            if (matches.shape({
+              advanced: matches.shape({
+                "protocol-zero-conf": matches.any,
+                "protocol-option-scid-alias": matches.any,
+                "protocol-simple-taproot-chans": matches.any,
+              sweeper: matches.any,
+              })
+            }).test(config)) {
+              delete config.advanced["protocol-zero-conf"];
+              delete config.advanced["protocol-option-scid-alias"];
+              delete config.advanced["protocol-simple-taproot-chans"];
+              delete config.advanced.sweeper;
+            }
+            return config;
+          },
+          true,
+          { version: "0.18.0.1", type: "down" }
+        )
+      }
     },
-    "0.17.5.1",
+    "0.18.3",
   );

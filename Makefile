@@ -49,27 +49,27 @@ docker-images/aarch64.tar: Dockerfile docker_entrypoint.sh configurator/target/a
 configurator/target/aarch64-unknown-linux-musl/release/configurator: $(CONFIGURATOR_SRC)
 	docker run --user $(UID):$(GID) --rm -v ~/.cargo/registry:/root/.cargo/registry -v "$(shell pwd)"/configurator:/home/rust/src messense/rust-musl-cross:aarch64-musl cargo build --release
 	docker run --user $(UID):$(GID) --rm -v ~/.cargo/registry:/root/.cargo/registry -v "$(shell pwd)"/configurator:/home/rust/src messense/rust-musl-cross:aarch64-musl musl-strip target/aarch64-unknown-linux-musl/release/configurator
-	# Docker 26 + buildkit 0.13.2 seem to have issues with building a context that contains multiple hardlinked files, work-around that by breaking the hardlink
-	cp --remove-destination configurator/target/aarch64-unknown-linux-musl/release/configurator configurator/target/aarch64-unknown-linux-musl/release/configurator.tmp
-	mv --force configurator/target/aarch64-unknown-linux-musl/release/configurator.tmp configurator/target/aarch64-unknown-linux-musl/release/configurator
+# Docker 26 + buildkit 0.13.2 seem to have issues with building a context that contains multiple hardlinked files, work-around that by breaking the hardlink
+	cp configurator/target/aarch64-unknown-linux-musl/release/configurator configurator/target/aarch64-unknown-linux-musl/release/configurator.tmp
+	mv configurator/target/aarch64-unknown-linux-musl/release/configurator.tmp configurator/target/aarch64-unknown-linux-musl/release/configurator
 
 health-check/target/aarch64-unknown-linux-musl/release/health-check: $(HEALTH_CHECK_SRC)
 	docker run --user $(UID):$(GID) --rm -v ~/.cargo/registry:/root/.cargo/registry -v "$(shell pwd)"/health-check:/home/rust/src messense/rust-musl-cross:aarch64-musl cargo build --release
 	docker run --user $(UID):$(GID) --rm -v ~/.cargo/registry:/root/.cargo/registry -v "$(shell pwd)"/health-check:/home/rust/src messense/rust-musl-cross:aarch64-musl musl-strip target/aarch64-unknown-linux-musl/release/health-check
-	cp --remove-destination health-check/target/aarch64-unknown-linux-musl/release/health-check health-check/target/aarch64-unknown-linux-musl/release/health-check.tmp
-	mv --force health-check/target/aarch64-unknown-linux-musl/release/health-check.tmp health-check/target/aarch64-unknown-linux-musl/release/health-check
+	cp health-check/target/aarch64-unknown-linux-musl/release/health-check health-check/target/aarch64-unknown-linux-musl/release/health-check.tmp
+	mv health-check/target/aarch64-unknown-linux-musl/release/health-check.tmp health-check/target/aarch64-unknown-linux-musl/release/health-check
 
 configurator/target/x86_64-unknown-linux-musl/release/configurator: $(CONFIGURATOR_SRC)
 	docker run --user $(UID):$(GID) --rm -v ~/.cargo/registry:/root/.cargo/registry -v "$(shell pwd)"/configurator:/home/rust/src messense/rust-musl-cross:x86_64-musl cargo build --release
 	docker run --user $(UID):$(GID) --rm -v ~/.cargo/registry:/root/.cargo/registry -v "$(shell pwd)"/configurator:/home/rust/src messense/rust-musl-cross:x86_64-musl musl-strip target/x86_64-unknown-linux-musl/release/configurator
-	cp --remove-destination configurator/target/x86_64-unknown-linux-musl/release/configurator configurator/target/x86_64-unknown-linux-musl/release/configurator.tmp
-	mv --force configurator/target/x86_64-unknown-linux-musl/release/configurator.tmp configurator/target/x86_64-unknown-linux-musl/release/configurator
+	cp configurator/target/x86_64-unknown-linux-musl/release/configurator configurator/target/x86_64-unknown-linux-musl/release/configurator.tmp
+	mv configurator/target/x86_64-unknown-linux-musl/release/configurator.tmp configurator/target/x86_64-unknown-linux-musl/release/configurator
 
 health-check/target/x86_64-unknown-linux-musl/release/health-check: $(HEALTH_CHECK_SRC)
 	docker run --user $(UID):$(GID) --rm -v ~/.cargo/registry:/root/.cargo/registry -v "$(shell pwd)"/health-check:/home/rust/src messense/rust-musl-cross:x86_64-musl cargo build --release
 	docker run --user $(UID):$(GID) --rm -v ~/.cargo/registry:/root/.cargo/registry -v "$(shell pwd)"/health-check:/home/rust/src messense/rust-musl-cross:x86_64-musl musl-strip target/x86_64-unknown-linux-musl/release/health-check
-	cp --remove-destination health-check/target/x86_64-unknown-linux-musl/release/health-check health-check/target/x86_64-unknown-linux-musl/release/health-check.tmp
-	mv --force health-check/target/x86_64-unknown-linux-musl/release/health-check.tmp health-check/target/x86_64-unknown-linux-musl/release/health-check
+	cp health-check/target/x86_64-unknown-linux-musl/release/health-check health-check/target/x86_64-unknown-linux-musl/release/health-check.tmp
+	mv health-check/target/x86_64-unknown-linux-musl/release/health-check.tmp health-check/target/x86_64-unknown-linux-musl/release/health-check
 
 scripts/embassy.js: scripts/**/*.ts
 	deno bundle scripts/embassy.ts scripts/embassy.js

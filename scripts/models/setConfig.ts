@@ -36,6 +36,15 @@ export const matchBitcoin = shape({
   "time-lock-delta": number,
 });
 
+export const matchSweeperOptions = shape({
+  "sweeper-maxfeerate": number,
+  "sweeper-nodeadlineconftarget": number,
+  "sweeper-budget-tolocalratio": number,
+  "sweeper-budget-anchorcpfpratio": number,
+  "sweeper-budget-deadlinehtlcratio": number,
+  "sweeper-budget-nodeadlinehtlcratio": number,
+});
+
 export const matchAdvanced2 = shape({
   "debug-level": string,
   "db-bolt-no-freelist-sync": boolean,
@@ -53,8 +62,10 @@ export const matchAdvanced2 = shape({
   "protocol-option-scid-alias": boolean,
   "protocol-no-anchors": boolean,
   "protocol-disable-script-enforced-lease": boolean,
+  "protocol-simple-taproot-chans": boolean,
   "gc-canceled-invoices-on-startup": boolean,
   bitcoin: matchBitcoin,
+  "sweeper": matchSweeperOptions,
 }, ["recovery-window"]);
 
 export const matchRoot = shape({
