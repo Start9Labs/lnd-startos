@@ -72,7 +72,7 @@ You can enlist watchtowers to watch your node by using `Add a watchtower to your
 After adding a watchtower(s) URI through Config, you can confirm the watchtower is working by:
 
 1. SSH into your server
-1. Run `sudo docker exec -ti lnd.embassy lncli --rpcserver=lnd.embassy wtclient towers`
+1. Run `sudo podman exec -ti lnd.embassy lncli --rpcserver=lnd.embassy wtclient towers`
 1. If you see `"active_session_candidate": true`, it worked. If not, double check the watchtower URI you were provided and try again.
 
 NOTE: For now, watchtowers will only backup the `to_local` and `to_remote` outputs from revoked commitments; backing up HTLC outputs is slated to be deployed in a future release, as the protocol can be extended to include the extra signature data in the encrypted blobs.
