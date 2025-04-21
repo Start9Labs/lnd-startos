@@ -1,3 +1,7 @@
+export const controlPort = 10009
+export const peerPort = 9735
+export const watchtowerPort = 9911
+
 export const randomPassword = {
   charset: 'a-z,A-Z,1-9,+,/',
   len: 22,
@@ -7,7 +11,7 @@ const bitcoindHost = 'bitcoind.startos'
 
 export const lndConfDefaults = {
   // Application Options
-  externalhosts: [],
+  externalhosts: [] as string[],
   'payments-expiration-grace-period': '30s',
   listen: '0.0.0.0:9735',
   rpclisten: 'lnd.startos:10009', // TODO test
@@ -28,7 +32,6 @@ export const lndConfDefaults = {
   alias: undefined,
   color: undefined,
   'fee.url': '',
-  
 
   // Bitcoin
   'bitcoin.active': true,
@@ -65,7 +68,7 @@ export const lndConfDefaults = {
 
   // Watchtower
   'watchtower.active': false,
-  'watchtower.listen': [],
+  'watchtower.listen': [] as string[],
   'watchtower.externalip': undefined,
 
   // Wt Client
@@ -94,6 +97,5 @@ export const lndConfDefaults = {
   'db.bolt.nofreelistsync': false,
   'db.bolt.auto-compact': false,
   'db.bolt.auto-compact-min-age': '168h',
-  'db.bolt.dbtimeout': '1m'
-
-}
+  'db.bolt.dbtimeout': '1m',
+} as const

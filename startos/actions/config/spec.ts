@@ -1,4 +1,4 @@
-import { sdk } from '../sdk'
+import { sdk } from '../../sdk'
 const { Config, List, Value, Variants } = sdk
 
 export const configSpec = Config.of({
@@ -57,14 +57,14 @@ export const configSpec = Config.of({
       'If enabled, spontaneous payments through AMP will be accepted. Payments to AMP\ninvoices will be accepted regardless of this setting.\n',
     warning: null,
   }),
-  'rejecthtlc': Value.toggle({
+  rejecthtlc: Value.toggle({
     name: 'Reject Routing Requests',
     default: false,
     description:
       "If true, LND will not forward any HTLCs that are meant as onward payments. This option will still allow LND to send\nHTLCs and receive HTLCs but lnd won't be used as a hop.\n",
     warning: null,
   }),
-  'minchansize': Value.number({
+  minchansize: Value.number({
     name: 'Minimum Channel Size',
     description:
       'The smallest channel size that we should accept. Incoming channels smaller than this will be rejected.\n',
@@ -77,7 +77,7 @@ export const configSpec = Config.of({
     units: 'satoshis',
     placeholder: null,
   }),
-  'maxchansize': Value.number({
+  maxchansize: Value.number({
     name: 'Maximum Channel Size',
     description:
       "The largest channel size that we should accept. Incoming channels larger than this will be rejected.\nFor non-Wumbo channels this limit remains 16777215 satoshis by default as specified in BOLT-0002. For wumbo\nchannels this limit is 1,000,000,000 satoshis (10 BTC). Set this config option explicitly to restrict your maximum\nchannel size to better align with your risk tolerance.  Don't forget to enable Wumbo channels under 'Advanced,' if desired.\n",
@@ -98,14 +98,14 @@ export const configSpec = Config.of({
       warning: null,
     },
     Config.of({
-      'usetoronly': Value.toggle({
+      usetoronly: Value.toggle({
         name: 'Use Tor for all traffic',
         default: false,
         description:
           "Use the tor proxy even for connections that are reachable on clearnet. This will hide your node's public IP address, but will slow down your node's performance",
         warning: null,
       }),
-      'streamisolation': Value.toggle({
+      streamisolation: Value.toggle({
         name: 'Stream Isolation',
         default: false,
         description:
@@ -187,7 +187,7 @@ export const configSpec = Config.of({
         units: '%',
         placeholder: null,
       }),
-      'minchannelsize': Value.number({
+      minchannelsize: Value.number({
         name: 'Minimum Channel Size',
         description:
           'The smallest channel that the autopilot agent should create.',
@@ -202,7 +202,7 @@ export const configSpec = Config.of({
         units: 'satoshis',
         placeholder: null,
       }),
-      'maxchannelsize': Value.number({
+      maxchannelsize: Value.number({
         name: 'Maximum Channel Size',
         description:
           'The largest channel that the autopilot agent should create.',
@@ -224,7 +224,7 @@ export const configSpec = Config.of({
           warning: null,
         },
         Config.of({
-          'minconfirmations': Value.number({
+          minconfirmations: Value.number({
             name: 'Minimum Confirmations',
             description:
               'The minimum number of confirmations each of your inputs in funding transactions\ncreated by the autopilot agent must have.\n',
@@ -239,7 +239,7 @@ export const configSpec = Config.of({
             units: 'blocks',
             placeholder: null,
           }),
-          'confirmationtarget': Value.number({
+          confirmationtarget: Value.number({
             name: 'Confirmation Target',
             description:
               'The confirmation target (in blocks) for channels opened by autopilot.',
@@ -266,14 +266,14 @@ export const configSpec = Config.of({
       warning: null,
     },
     Config.of({
-      'wtserver': Value.toggle({
+      wtserver: Value.toggle({
         name: 'Enable Watchtower Server',
         default: false,
         description:
           'Allow other nodes to find your watchtower server on the network.',
         warning: null,
       }),
-      'wtclient': Value.union(
+      wtclient: Value.union(
         {
           name: 'Enable Watchtower Client',
           description: 'Enable or disable Watchtower Client',
@@ -287,7 +287,7 @@ export const configSpec = Config.of({
           enabled: {
             name: 'Enabled',
             spec: Config.of({
-              'addwatchtowers': Value.list(
+              addwatchtowers: Value.list(
                 List.text(
                   {
                     name: 'Add Watchtowers',
@@ -319,7 +319,7 @@ export const configSpec = Config.of({
       warning: null,
     },
     Config.of({
-      'debuglevel': Value.select({
+      debuglevel: Value.select({
         name: 'Log Verbosity',
         description:
           'Sets the level of log filtration. Trace is the most verbose, Critical is the least.\n',
@@ -380,7 +380,7 @@ export const configSpec = Config.of({
         units: 'seconds',
         placeholder: null,
       }),
-      'recoverywindow': Value.number({
+      recoverywindow: Value.number({
         name: 'Recovery Window',
         description:
           "Optional address 'look-ahead' when scanning for used keys during an on-chain recovery.  For example, a value of 2 would mean LND would stop looking for funds after finding 2 consecutive addresses that were generated but never used.  If an LND on-chain wallet was extensively used, then users may want to increase this value.  2500 is the default.",
@@ -423,7 +423,7 @@ export const configSpec = Config.of({
         units: 'htlcs',
         placeholder: null,
       }),
-      'maxchannelfeeallocation': Value.number({
+      maxchannelfeeallocation: Value.number({
         name: 'Maximum Channel Fee Allocation',
         description:
           "The maximum percentage of total funds that can be allocated to a channel's commitment fee. This only applies for\nthe initiator of the channel.\n",
@@ -438,7 +438,7 @@ export const configSpec = Config.of({
         units: null,
         placeholder: null,
       }),
-      'maxpendingchannels': Value.number({
+      maxpendingchannels: Value.number({
         name: 'Maximum Pending Channels',
         description:
           'The maximum number of incoming pending channels permitted per peer.',

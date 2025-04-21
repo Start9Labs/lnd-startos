@@ -1,33 +1,31 @@
 import { sdk } from './sdk'
-import { exposedStore } from './store'
-import { setDependencies } from './dependencies/dependencies'
+import { exposedStore, initStore } from './store'
+import { setDependencies } from './dependencies'
 import { setInterfaces } from './interfaces'
-import { migrations } from './migrations'
-import { utils } from '@start9labs/start-sdk'
-import { randomPassword } from './utils'
+import { versions } from './versions'
+import { actions } from './actions'
+import { lndConfFile } from './file-models/lnd.conf'
+import { lndConfDefaults } from './utils'
 
-const install = sdk.setupInstall(async ({ effects }) => {
-  const walletPassword = utils.getDefaultString(randomPassword)
-
-  await sdk.store.setOwn(
-    effects, sdk.StorePath, {
-      walletPassword,
-      recoveryWindow: 200 // TODO default
-
-    }
-  )
+const preInstall = sdk.setupPreInstall(async ({ effects }) => {
+  await lndConfFile.write(effects, lndConfDefaults)
 })
+
+const postInstall = sdk.setupPostInstall(async ({ effects }) => {})
 
 const uninstall = sdk.setupUninstall(async ({ effects }) => {})
 
 /**
  * Plumbing. DO NOT EDIT.
  */
-export const { init, uninit } = sdk.setupInit(
-  migrations,
-  install,
+export const { packageInit, packageUninit, containerInit } = sdk.setupInit(
+  versions,
+  preInstall,
+  postInstall,
   uninstall,
   setInterfaces,
   setDependencies,
+  actions,
+  initStore,
   exposedStore,
 )

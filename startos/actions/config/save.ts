@@ -1,8 +1,8 @@
-import { sdk } from '../sdk'
+import { sdk } from '../../sdk'
 import { setDependencies } from '../dependencies/dependencies'
-import { setInterfaces } from '../interfaces'
+import { setInterfaces } from '../../interfaces'
 import { configSpec } from './spec'
-import { lndConfFile } from '../file-models/lnd.conf'
+import { lndConfFile } from '../../file-models/lnd.conf'
 
 export const save = sdk.setupConfigSave(
   configSpec,
@@ -59,14 +59,8 @@ export const save = sdk.setupConfigSave(
     let test = input['accept-keysend']
 
     await Promise.all([
-      sdk.store.setOwn(
-        effects,
-        sdk.StorePath.recoveryWindow,
-        recoverywindow,
-      ),
+      sdk.store.setOwn(effects, sdk.StorePath.recoveryWindow, recoverywindow),
     ])
-
-
 
     return {
       interfacesReceipt: await setInterfaces({ effects, input }), // Plumbing. DO NOT EDIT. This line causes setInterfaces() to run whenever config is saved.

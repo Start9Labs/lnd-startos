@@ -1,22 +1,32 @@
 import { FileHelper, matches } from '@start9labs/start-sdk'
 import { lndConfDefaults } from '../utils'
 
-const { object, anyOf } = matches
+const {
+  object,
+  string,
+  boolean,
+  natural,
+  number,
+  arrayOf,
+  anyOf,
+  oneOf,
+  literal,
+} = matches
 
-const stringArray = matches.array(matches.string)
-const string = stringArray.map(([a]) => a).orParser(matches.string)
-const number = stringArray.map(([a]) => Number(a)).orParser(matches.number)
-const numLiteral = (val: any) => {
-  return stringArray.map(([val]) => Number(val)).orParser(matches.literal(val))
-}
-const boolean = anyOf(numLiteral(0), numLiteral(1))
-  .map((a) => !!a)
-  .orParser(matches.boolean)
-const literal = (val: string) => {
-  return stringArray
-    .map(([val]) => matches.literal(val))
-    .orParser(matches.literal(val))
-}
+// const stringArray = matches.array(matches.string)
+// const string = stringArray.map(([a]) => a).orParser(matches.string)
+// const number = stringArray.map(([a]) => Number(a)).orParser(matches.number)
+// const numLiteral = (val: any) => {
+//   return stringArray.map(([val]) => Number(val)).orParser(matches.literal(val))
+// }
+// const boolean = anyOf(numLiteral(0), numLiteral(1))
+//   .map((a) => !!a)
+//   .orParser(matches.boolean)
+// const literal = (val: string) => {
+//   return stringArray
+//     .map(([val]) => matches.literal(val))
+//     .orParser(matches.literal(val))
+// }
 
 const {
   externalhosts,
@@ -90,7 +100,7 @@ const {
 
 export const shape = object({
   // Application Options
-  externalhosts: stringArray.onMismatch(externalhosts), // Default peer tor address
+  externalhosts: arrayOf(string).onMismatch(externalhosts), // Default peer tor address
   'payments-expiration-grace-period': string
     .optional()
     .onMismatch(paymentsExpirationGracePeriod),
@@ -106,13 +116,13 @@ export const shape = object({
     literal('error'),
     literal('critical'),
   ).onMismatch(debuglevel),
-  minchansize: number.optional().onMismatch(minchansize),
-  maxchansize: number.optional().onMismatch(maxchansize),
-  'default-remote-max-htlcs': number.onMismatch(defaultRemoteMaxHtlcs),
+  minchansize: natural.optional().onMismatch(minchansize),
+  maxchansize: natural.optional().onMismatch(maxchansize),
+  'default-remote-max-htlcs': natural.onMismatch(defaultRemoteMaxHtlcs),
   rejecthtlc: boolean.onMismatch(rejecthtlc),
   'max-channel-fee-allocation': number.onMismatch(maxChannelFeeAllocation),
-  maxpendingchannels: number.onMismatch(maxpendingchannels),
-  'max-commit-fee-rate-anchors': number.onMismatch(maxCommitFeeRateAnchors),
+  maxpendingchannels: natural.onMismatch(maxpendingchannels),
+  'max-commit-fee-rate-anchors': natural.onMismatch(maxCommitFeeRateAnchors),
   'accept-keysend': boolean.onMismatch(acceptKeysend),
   'accept-amp': boolean.onMismatch(acceptAmp),
   'gc-canceled-invoices-on-startup': boolean.onMismatch(
@@ -126,13 +136,15 @@ export const shape = object({
   // Bitcoin
   'bitcoin.active': boolean.onMismatch(bitcoinActive),
   'bitcoin.mainnet': boolean.onMismatch(bitcoinMainnet),
-  'bitcoin.node': string.onMismatch(bitcoinNode),
-  'bitcoin.defaultchanconfs': number.onMismatch(bitcoinDefaultchanconfs),
-  'bitcoin.minhtlc': number.onMismatch(bitcoinMinhtlc),
-  'bitcoin.minhtlcout': number.onMismatch(bitcoinMinhtlcout),
-  'bitcoin.basefee': number.onMismatch(bitcoinBasefee),
-  'bitcoin.feerate': number.onMismatch(bitcoinFeerate),
-  'bitcoin.timelockdelta': number.onMismatch(bitcoinTimelockdelta),
+  'bitcoin.node': oneOf(literal('bitcoind'), literal('neutrino')).onMismatch(
+    bitcoinNode,
+  ),
+  'bitcoin.defaultchanconfs': natural.onMismatch(bitcoinDefaultchanconfs),
+  'bitcoin.minhtlc': natural.onMismatch(bitcoinMinhtlc),
+  'bitcoin.minhtlcout': natural.onMismatch(bitcoinMinhtlcout),
+  'bitcoin.basefee': natural.onMismatch(bitcoinBasefee),
+  'bitcoin.feerate': natural.onMismatch(bitcoinFeerate),
+  'bitcoin.timelockdelta': natural.onMismatch(bitcoinTimelockdelta),
 
   // Bitcoind
   'bitcoind.rpchost': literal(bitcoindRpchost),
@@ -142,13 +154,13 @@ export const shape = object({
 
   // Autopilot
   'autopilot.active': boolean.onMismatch(autopilotActive),
-  'autopilot.maxchannels': number.onMismatch(autopilotMaxchannels),
-  'autopilot.allocation': number.onMismatch(autopilotAllocation),
-  'autopilot.minchansize': number.onMismatch(autopilotMinchansize),
-  'autopilot.maxchansize': number.onMismatch(autopilotMaxchansize),
+  'autopilot.maxchannels': natural.onMismatch(autopilotMaxchannels),
+  'autopilot.allocation': natural.onMismatch(autopilotAllocation),
+  'autopilot.minchansize': natural.onMismatch(autopilotMinchansize),
+  'autopilot.maxchansize': natural.onMismatch(autopilotMaxchansize),
   'autopilot.private': boolean.onMismatch(autopilotPrivate),
-  'autopilot.minconfs': number.onMismatch(autopilotMinconfs),
-  'autopilot.conftarget': number.onMismatch(autopilotConftarget),
+  'autopilot.minconfs': natural.onMismatch(autopilotMinconfs),
+  'autopilot.conftarget': natural.onMismatch(autopilotConftarget),
 
   // Tor
   'tor.active': boolean.onMismatch(torActive),
@@ -160,14 +172,14 @@ export const shape = object({
 
   // Watchtower
   'watchtower.active': boolean.onMismatch(watchtowerActive),
-  'watchtower.listen': stringArray.onMismatch(watchtowerListen),
+  'watchtower.listen': arrayOf(string).onMismatch(watchtowerListen),
   'watchtower.externalip': string.optional().onMismatch(watchtowerExternalip),
 
   // Wt Client
   'wtclient.active': boolean.optional().onMismatch(wtclientActive),
 
   // Healthcheck
-  'healthcheck.chainbackend.attempts': number
+  'healthcheck.chainbackend.attempts': natural
     .optional()
     .onMismatch(healthcheckChainbackendAttempts),
 
@@ -188,8 +200,8 @@ export const shape = object({
     .onMismatch(protocolSimpleTaprootChans),
 
   // Sweeper
-  'sweeper.maxfeerate': number.optional().onMismatch(sweeperMaxfeerate),
-  'sweeper.nodeadlineconftarget': number
+  'sweeper.maxfeerate': natural.optional().onMismatch(sweeperMaxfeerate),
+  'sweeper.nodeadlineconftarget': natural
     .optional()
     .onMismatch(sweeperNodeadlineconftarget),
   'sweeper.budget.tolocalratio': number
@@ -214,57 +226,4 @@ export const shape = object({
   'db.bolt.dbtimeout': string.optional().onMismatch(dbBoltDbtimeout),
 })
 
-export function fromLndConf(text: string): Record<string, string[]> {
-  const lines = text.split('\n')
-  const dictionary = {} as Record<string, string[]>
-
-  for (const line of lines) {
-    const [key, value] = line.split('=', 2)
-    if (key === '') {
-      return dictionary
-    } else if (key.startsWith('#')) {
-      continue
-    }
-    const trimmedKey = key.trim()
-    const trimmedValue = value.trim()
-
-    if (!dictionary[trimmedKey]) {
-      dictionary[trimmedKey] = []
-    }
-
-    dictionary[trimmedKey].push(trimmedValue)
-  }
-
-  return dictionary
-}
-
-function toLndConf(conf: typeof shape._TYPE): string {
-  let lndConfStr = ''
-  const toString = (a: any) => {
-    if (a === true) {
-      return '1'
-    } else if (a === false) {
-      return '0'
-    } else {
-      return a.toString()
-    }
-  }
-
-  Object.entries(conf).forEach(([key, value]) => {
-    if (Array.isArray(value)) {
-      for (const subValue of value) {
-        lndConfStr += `${key}=${toString(subValue)}\n`
-      }
-    } else if (value !== undefined) {
-      lndConfStr += `${key}=${toString(value)}\n`
-    }
-  })
-
-  return lndConfStr
-}
-
-export const lndConfFile = FileHelper.raw(
-  './lnd/lnd.conf',
-  (obj: LndConf) => parseLndConfToString(obj),
-  (str) => parseStringToObj(str),
-)
+export const lndConfFile = FileHelper.ini('./lnd/lnd.conf', shape)
