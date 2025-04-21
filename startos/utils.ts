@@ -1,0 +1,99 @@
+export const randomPassword = {
+  charset: 'a-z,A-Z,1-9,+,/',
+  len: 22,
+}
+
+const bitcoindHost = 'bitcoind.startos'
+
+export const lndConfDefaults = {
+  // Application Options
+  externalhosts: [],
+  'payments-expiration-grace-period': '30s',
+  listen: '0.0.0.0:9735',
+  rpclisten: 'lnd.startos:10009', // TODO test
+  restlisten: 'lnd.startos:8080', // TODO test
+  'rpcmiddleware.enable': true,
+  debuglevel: 'info',
+  minchansize: undefined,
+  maxchansize: undefined,
+  'default-remote-max-htlcs': 483,
+  rejecthtlc: false,
+  'max-channel-fee-allocation': 0.5,
+  maxpendingchannels: 5,
+  'max-commit-fee-rate-anchors': 100,
+  'accept-keysend': true,
+  'accept-amp': false,
+  'gc-canceled-invoices-on-startup': false,
+  'allow-circular-route': false,
+  alias: undefined,
+  color: undefined,
+  'fee.url': '',
+  
+
+  // Bitcoin
+  'bitcoin.active': true,
+  'bitcoin.mainnet': true,
+  'bitcoin.node': 'bitcoind',
+  'bitcoin.defaultchanconfs': 3,
+  'bitcoin.minhtlc': 1,
+  'bitcoin.minhtlcout': 1_000,
+  'bitcoin.basefee': 1_000,
+  'bitcoin.feerate': 1,
+  'bitcoin.timelockdelta': 40,
+
+  // Bitcoind
+  'bitcoind.rpchost': `${bitcoindHost}:8332`,
+  'bitcoind.rpccookie': '/mnt/bitcoin/.cookie', // TODO Test this
+  'bitcoind.zmqpubrawblock': `${bitcoindHost}:28332`,
+  'bitcoind.zmqpubrawtx': `${bitcoindHost}:28333`,
+
+  // Autopilot
+  'autopilot.active': false,
+  'autopilot.maxchannels': 5,
+  'autopilot.allocation': 60,
+  'autopilot.minchansize': 20_000,
+  'autopilot.maxchansize': 16_777_215,
+  'autopilot.private': false,
+  'autopilot.minconfs': 1,
+  'autopilot.conftarget': 1,
+
+  // Tor
+  'tor.active': true,
+  'tor.socks': undefined, // TODO set in main or postinit?
+  'tor.skip-proxy-for-clearnet-targets': true,
+  'tor.streamisolation': false,
+
+  // Watchtower
+  'watchtower.active': false,
+  'watchtower.listen': [],
+  'watchtower.externalip': undefined,
+
+  // Wt Client
+  'wtclient.active': false,
+
+  // Healthcheck
+  'healthcheck.chainbackend.attempts': 3,
+
+  // Protocol
+  'protocol.wumbo-channels': false,
+  'protocol.no-anchors': false,
+  'protocol.no-script-enforced-lease': false,
+  'protocol.option-scid-alias': false,
+  'protocol.zero-conf': false,
+  'protocol.simple-taproot-chans': false,
+
+  // Sweeper
+  'sweeper.maxfeerate': 1_000,
+  'sweeper.nodeadlineconftarget': 1_008,
+  'sweeper.budget.tolocalratio': 0.5,
+  'sweeper.budget.anchorcpfpratio': 0.5,
+  'sweeper.budget.deadlinehtlcratio': 0.5,
+  'sweeper.budget.nodeadlinehtlcratio': 0.5,
+
+  // Bolt
+  'db.bolt.nofreelistsync': false,
+  'db.bolt.auto-compact': false,
+  'db.bolt.auto-compact-min-age': '168h',
+  'db.bolt.dbtimeout': '1m'
+
+}
