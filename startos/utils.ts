@@ -10,6 +10,9 @@ export const randomPassword = {
 const bitcoindHost = 'bitcoind.startos'
 
 export const lndConfDefaults = {
+  // hard coded
+  'healthcheck.chainbackend.attempts': 0,
+
   // Application Options
   externalhosts: [] as string[],
   'payments-expiration-grace-period': '30s',
@@ -73,9 +76,6 @@ export const lndConfDefaults = {
 
   // Wt Client
   'wtclient.active': false,
-
-  // Healthcheck
-  'healthcheck.chainbackend.attempts': 3,
 
   // Protocol
   'protocol.wumbo-channels': false,

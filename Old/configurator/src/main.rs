@@ -457,7 +457,8 @@ fn main() -> Result<(), anyhow::Error> {
         sweeper_budget_tolocalratio = config.advanced.sweeper.sweeper_budget_tolocalratio,
         sweeper_budget_anchorcpfpratio = config.advanced.sweeper.sweeper_budget_anchorcpfpratio,
         sweeper_budget_deadlinehtlcratio = config.advanced.sweeper.sweeper_budget_deadlinehtlcratio,
-        sweeper_budget_nodeadlinehtlcratio = config.advanced.sweeper.sweeper_budget_nodeadlinehtlcratio,
+        sweeper_budget_nodeadlinehtlcratio =
+            config.advanced.sweeper.sweeper_budget_nodeadlinehtlcratio,
         db_bolt_no_freelist_sync = config.advanced.db_bolt_no_freelist_sync,
         db_bolt_auto_compact = config.advanced.db_bolt_auto_compact,
         db_bolt_auto_compact_min_age = config.advanced.db_bolt_auto_compact_min_age,

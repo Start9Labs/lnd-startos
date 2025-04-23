@@ -99,6 +99,11 @@ const {
 } = lndConfDefaults
 
 export const shape = object({
+  // hard coded
+  'healthcheck.chainbackend.attempts': literal(
+    healthcheckChainbackendAttempts,
+  ).onMismatch(healthcheckChainbackendAttempts),
+
   // Application Options
   externalhosts: arrayOf(string).onMismatch(externalhosts), // Default peer tor address
   'payments-expiration-grace-period': string
@@ -147,10 +152,14 @@ export const shape = object({
   'bitcoin.timelockdelta': natural.onMismatch(bitcoinTimelockdelta),
 
   // Bitcoind
-  'bitcoind.rpchost': literal(bitcoindRpchost),
-  'bitcoind.rpccookie': literal(bitcoindRpccookie),
-  'bitcoind.zmqpubrawblock': literal(bitcoindZmqpubrawblock),
-  'bitcoind.zmqpubrawtx': literal(bitcoindZmqpubrawtx),
+  'bitcoind.rpchost': literal(bitcoindRpchost).onMismatch(bitcoindRpchost),
+  'bitcoind.rpccookie':
+    literal(bitcoindRpccookie).onMismatch(bitcoindRpccookie),
+  'bitcoind.zmqpubrawblock': literal(bitcoindZmqpubrawblock).onMismatch(
+    bitcoindZmqpubrawblock,
+  ),
+  'bitcoind.zmqpubrawtx':
+    literal(bitcoindZmqpubrawtx).onMismatch(bitcoindZmqpubrawtx),
 
   // Autopilot
   'autopilot.active': boolean.onMismatch(autopilotActive),
@@ -170,18 +179,13 @@ export const shape = object({
   ),
   'tor.streamisolation': boolean.onMismatch(torStreamisolation),
 
-  // Watchtower
+  // Watchtower Server
   'watchtower.active': boolean.onMismatch(watchtowerActive),
   'watchtower.listen': arrayOf(string).onMismatch(watchtowerListen),
   'watchtower.externalip': string.optional().onMismatch(watchtowerExternalip),
 
-  // Wt Client
+  // Watchtower Client
   'wtclient.active': boolean.optional().onMismatch(wtclientActive),
-
-  // Healthcheck
-  'healthcheck.chainbackend.attempts': natural
-    .optional()
-    .onMismatch(healthcheckChainbackendAttempts),
 
   // Protocol
   'protocol.wumbo-channels': boolean

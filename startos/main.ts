@@ -9,6 +9,8 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
    */
   console.info('Starting LND!')
 
+  await sdk.store.setOwn(effects, sdk.StorePath.hasStarted, true)
+
   /**
    * ======================== Additional Health Checks (optional) ========================
    *
