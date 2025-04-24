@@ -2,6 +2,8 @@ import { sdk } from './sdk'
 import { lndConfFile } from './file-models/lnd.conf'
 import { controlPort, peerPort, watchtowerPort } from './utils'
 
+export const peerInterfaceId = 'peer'
+
 export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
   // control
   const controlMulti = sdk.MultiHost.of(effects, 'control-multi')
@@ -34,7 +36,7 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
   })
   const peer = sdk.createInterface(effects, {
     name: 'Peer Interface',
-    id: 'peer',
+    id: peerInterfaceId,
     description: 'Used for connecting with peers',
     type: 'p2p',
     masked: false,

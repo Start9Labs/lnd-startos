@@ -50,7 +50,6 @@ const {
   alias,
   color,
   'fee.url': feeUrl,
-  'bitcoin.active': bitcoinActive,
   'bitcoin.mainnet': bitcoinMainnet,
   'bitcoin.node': bitcoinNode,
   'bitcoin.defaultchanconfs': bitcoinDefaultchanconfs,
@@ -100,9 +99,24 @@ const {
 
 export const shape = object({
   // hard coded
+
+  // Bitcoind
+  'bitcoind.rpchost': literal(bitcoindRpchost).onMismatch(bitcoindRpchost),
+  'bitcoind.rpccookie':
+    literal(bitcoindRpccookie).onMismatch(bitcoindRpccookie),
+  'bitcoind.zmqpubrawblock': literal(bitcoindZmqpubrawblock).onMismatch(
+    bitcoindZmqpubrawblock,
+  ),
+  'bitcoind.zmqpubrawtx':
+    literal(bitcoindZmqpubrawtx).onMismatch(bitcoindZmqpubrawtx),
+  // TODO eventually expose other net options primarily testnet4 
+  'bitcoin.mainnet': literal(bitcoinMainnet).onMismatch(bitcoinMainnet),
+  rpclisten: literal(rpclisten).onMismatch(rpclisten),
+  restlisten: literal(restlisten).onMismatch(restlisten),
   'healthcheck.chainbackend.attempts': literal(
     healthcheckChainbackendAttempts,
   ).onMismatch(healthcheckChainbackendAttempts),
+  'tor.active': literal(torActive).onMismatch(torActive),
 
   // Application Options
   externalhosts: arrayOf(string).onMismatch(externalhosts), // Default peer tor address
@@ -110,8 +124,6 @@ export const shape = object({
     .optional()
     .onMismatch(paymentsExpirationGracePeriod),
   listen: string.onMismatch(listen),
-  rpclisten: string.onMismatch(rpclisten),
-  restlisten: string.onMismatch(restlisten),
   'rpcmiddleware.enable': boolean.onMismatch(rpcmiddlewareEnable),
   debuglevel: anyOf(
     literal('trace'),
@@ -139,8 +151,6 @@ export const shape = object({
   'fee.url': string.optional().onMismatch(feeUrl),
 
   // Bitcoin
-  'bitcoin.active': boolean.onMismatch(bitcoinActive),
-  'bitcoin.mainnet': boolean.onMismatch(bitcoinMainnet),
   'bitcoin.node': oneOf(literal('bitcoind'), literal('neutrino')).onMismatch(
     bitcoinNode,
   ),
@@ -150,16 +160,6 @@ export const shape = object({
   'bitcoin.basefee': natural.onMismatch(bitcoinBasefee),
   'bitcoin.feerate': natural.onMismatch(bitcoinFeerate),
   'bitcoin.timelockdelta': natural.onMismatch(bitcoinTimelockdelta),
-
-  // Bitcoind
-  'bitcoind.rpchost': literal(bitcoindRpchost).onMismatch(bitcoindRpchost),
-  'bitcoind.rpccookie':
-    literal(bitcoindRpccookie).onMismatch(bitcoindRpccookie),
-  'bitcoind.zmqpubrawblock': literal(bitcoindZmqpubrawblock).onMismatch(
-    bitcoindZmqpubrawblock,
-  ),
-  'bitcoind.zmqpubrawtx':
-    literal(bitcoindZmqpubrawtx).onMismatch(bitcoindZmqpubrawtx),
 
   // Autopilot
   'autopilot.active': boolean.onMismatch(autopilotActive),
@@ -172,7 +172,6 @@ export const shape = object({
   'autopilot.conftarget': natural.onMismatch(autopilotConftarget),
 
   // Tor
-  'tor.active': boolean.onMismatch(torActive),
   'tor.socks': string.optional().onMismatch(torSocks), // TODO set in main
   'tor.skip-proxy-for-clearnet-targets': boolean.onMismatch(
     torSkipProxyForClearnetTargets,
@@ -224,6 +223,15 @@ export const shape = object({
   // Bolt
   'db.bolt.nofreelistsync': boolean.optional().onMismatch(dbBoltNofreelistsync),
   'db.bolt.auto-compact': boolean.optional().onMismatch(dbBoltAutoCompact),
+  /*
+    TODO:
+    It doesn't seem like ts-matches can help provide protection with strings
+    like '168h' or '60s'
+
+    Our spec accepts a number and we interpolate with the unit when writing to
+    lnd.conf - is there a better way to do this or protect against users setting such values
+    to arbitrary strings via SSH?
+  */
   'db.bolt.auto-compact-min-age': string
     .optional()
     .onMismatch(dbBoltAutoCompactMinAge),

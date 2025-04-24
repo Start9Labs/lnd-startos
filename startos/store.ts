@@ -6,13 +6,15 @@ export type Store = {
   aezeedCipherSeed: string[] | null
   walletPassword: string
   recoveryWindow: number | null | undefined
+  bitcoindSelected: boolean
 }
 
 export const initStore: Store = {
   hasStarted: false,
   aezeedCipherSeed: null,
   walletPassword: utils.getDefaultString(randomPassword),
-  recoveryWindow: 200, // @TODO do we need this or what should it be set to?
+  recoveryWindow: 2_500,
+  bitcoindSelected: false,
 }
 
 export const exposedStore = setupExposeStore<Store>(() => [])

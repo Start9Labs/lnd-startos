@@ -7,7 +7,7 @@ export const randomPassword = {
   len: 22,
 }
 
-const bitcoindHost = 'bitcoind.startos'
+export const bitcoindHost = 'bitcoind.startos'
 
 export const lndConfDefaults = {
   // hard coded
@@ -37,7 +37,6 @@ export const lndConfDefaults = {
   'fee.url': '',
 
   // Bitcoin
-  'bitcoin.active': true,
   'bitcoin.mainnet': true,
   'bitcoin.node': 'bitcoind',
   'bitcoin.defaultchanconfs': 3,
@@ -97,5 +96,5 @@ export const lndConfDefaults = {
   'db.bolt.nofreelistsync': false,
   'db.bolt.auto-compact': false,
   'db.bolt.auto-compact-min-age': '168h',
-  'db.bolt.dbtimeout': '1m',
+  'db.bolt.dbtimeout': '60s',
 } as const
