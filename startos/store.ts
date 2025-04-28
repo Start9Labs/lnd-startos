@@ -7,6 +7,7 @@ export type Store = {
   walletPassword: string
   recoveryWindow: number | null | undefined
   bitcoindSelected: boolean
+  restore: boolean
 }
 
 export const initStore: Store = {
@@ -15,6 +16,7 @@ export const initStore: Store = {
   walletPassword: utils.getDefaultString(randomPassword),
   recoveryWindow: 2_500,
   bitcoindSelected: false,
+  restore: false,
 }
 
 export const exposedStore = setupExposeStore<Store>(() => [])

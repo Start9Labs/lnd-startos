@@ -1,6 +1,6 @@
-import { lndConfFile } from '../file-models/lnd.conf'
-import { sdk } from '../sdk'
-import { lndConfDefaults } from '../utils'
+import { lndConfFile } from '../../file-models/lnd.conf'
+import { sdk } from '../../sdk'
+import { lndConfDefaults } from '../../utils'
 
 const { InputSpec, Value } = sdk
 
@@ -285,13 +285,17 @@ async function write(effects: any, input: GeneralSpec) {
   await sdk.store.setOwn(effects, sdk.StorePath.recoveryWindow, recoveryWindow)
 
   const generalSettings = {
-    'alias': input.alias ? input.alias : lndConfDefaults.alias,
-    'color': input.color,
+    alias: input.alias ? input.alias : lndConfDefaults.alias,
+    color: input.color,
     'accept-keysend': input['accept-keysend'],
     'accept-amp': input['accept-amp'],
     rejecthtlc: input['reject-htlc'],
-    minchansize: input['min-chan-size'] ? input['min-chan-size'] : lndConfDefaults.minchansize,
-    maxchansize: input['max-chan-size'] ? input['max-chan-size'] : lndConfDefaults.maxchansize,
+    minchansize: input['min-chan-size']
+      ? input['min-chan-size']
+      : lndConfDefaults.minchansize,
+    maxchansize: input['max-chan-size']
+      ? input['max-chan-size']
+      : lndConfDefaults.maxchansize,
     'tor.skip-proxy-for-clearnet-targets': !input.tor['use-tor-only'],
     'tor.streamisolation': input.tor['stream-isolation'],
     debuglevel: debugLevel,

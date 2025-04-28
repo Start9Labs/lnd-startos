@@ -1,6 +1,6 @@
-import { lndConfFile } from '../file-models/lnd.conf'
-import { sdk } from '../sdk'
-import { lndConfDefaults } from '../utils'
+import { lndConfFile } from '../../file-models/lnd.conf'
+import { sdk } from '../../sdk'
+import { lndConfDefaults } from '../../utils'
 
 const { InputSpec, Value } = sdk
 

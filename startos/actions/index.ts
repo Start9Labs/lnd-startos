@@ -1,13 +1,13 @@
 import { sdk } from '../sdk'
-import { autopilotConfig } from './autopilot'
-import { backendConfig } from './backend'
-import { bitcoinConfig } from './bitcoin'
-import { dbBoltConfig } from './dbBolt'
-import { general } from './general'
-import { protocolConfig } from './protocol'
-import { sweeperConfig } from './sweeper'
-import { wtClientConfig } from './watchtowerClient'
-import { watchtowerServerConfig } from './watchtowerServer'
+import { autopilotConfig } from './config/autopilot'
+import { backendConfig } from './config/backend'
+import { bitcoinConfig } from './config/bitcoin'
+import { dbBoltConfig } from './config/dbBolt'
+import { general } from './config/general'
+import { protocolConfig } from './config/protocol'
+import { sweeperConfig } from './config/sweeper'
+import { wtClientConfig } from './config/watchtowerClient'
+import { watchtowerServerConfig } from './config/watchtowerServer'
 
 export const actions = sdk.Actions.of()
   .addAction(autopilotConfig)

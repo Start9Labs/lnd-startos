@@ -1,13 +1,10 @@
-import { lndConfFile } from '../file-models/lnd.conf'
-import { sdk } from '../sdk'
-import { bitcoindHost, lndConfDefaults } from '../utils'
+import { lndConfFile } from '../../file-models/lnd.conf'
+import { sdk } from '../../sdk'
+import { bitcoindHost, lndConfDefaults } from '../../utils'
 
 const { InputSpec, Value } = sdk
 
-const {
-  'fee.url': feeUrl,
-  'bitcoin.node': bitcoinNode,
-} = lndConfDefaults
+const { 'fee.url': feeUrl, 'bitcoin.node': bitcoinNode } = lndConfDefaults
 
 const backendSpec = InputSpec.of({
   bitcoind: Value.toggle({
@@ -25,8 +22,7 @@ export const backendConfig = sdk.Action.withInput(
   // metadata
   async ({ effects }) => ({
     name: 'Bitcoin Backend',
-    description:
-      "Confirm the Bitcoin node to be used as the backend for LND",
+    description: 'Confirm the Bitcoin node to be used as the backend for LND',
     warning: null,
     allowedStatuses: 'any',
     group: 'conf',
@@ -46,7 +42,7 @@ export const backendConfig = sdk.Action.withInput(
   ({ effects, input }) => write(effects, input),
 )
 
-async function read(effects: any){
+async function read(effects: any) {
   const lndConf = (await lndConfFile.read.const(effects))!
 
   const bitcoinSettings = {

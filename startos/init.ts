@@ -6,7 +6,7 @@ import { versions } from './versions'
 import { actions } from './actions'
 import { lndConfFile } from './file-models/lnd.conf'
 import { lndConfDefaults } from './utils'
-import { backendConfig } from './actions/backend'
+import { backendConfig } from './actions/config/backend'
 
 const preInstall = sdk.setupPreInstall(async ({ effects }) => {
   await lndConfFile.write(effects, lndConfDefaults)

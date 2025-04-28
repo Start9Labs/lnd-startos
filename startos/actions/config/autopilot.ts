@@ -1,6 +1,6 @@
-import { lndConfFile } from '../file-models/lnd.conf'
-import { sdk } from '../sdk'
-import { lndConfDefaults } from '../utils'
+import { lndConfFile } from '../../file-models/lnd.conf'
+import { sdk } from '../../sdk'
+import { lndConfDefaults } from '../../utils'
 
 const { InputSpec, Value, Variants } = sdk
 
@@ -132,8 +132,8 @@ async function read(effects: any): Promise<PartialAutopilotSpec> {
   if (!lndConf['autopilot.active']) {
     return {
       autopilot: {
-        selection: 'disabled'
-      }
+        selection: 'disabled',
+      },
     }
   }
 
@@ -143,13 +143,13 @@ async function read(effects: any): Promise<PartialAutopilotSpec> {
       value: {
         maxchannels: lndConf['autopilot.maxchannels'],
         allocation: lndConf['autopilot.allocation'],
-        "min-channel-size": lndConf['autopilot.minchansize'],
-        "max-channel-size": lndConf['autopilot.maxchansize'],
+        'min-channel-size': lndConf['autopilot.minchansize'],
+        'max-channel-size': lndConf['autopilot.maxchansize'],
         private: lndConf['autopilot.private'],
-        "min-confirmations": lndConf['autopilot.minconfs'],
-        "confirmation-target": lndConf['autopilot.conftarget'],
-      }
-    }
+        'min-confirmations': lndConf['autopilot.minconfs'],
+        'confirmation-target': lndConf['autopilot.conftarget'],
+      },
+    },
   }
   return autopilotSettings
 }
@@ -158,7 +158,6 @@ async function write(effects: any, input: AutopilotSpec) {
   if (input.autopilot.selection === 'disabled') {
     await lndConfFile.merge(effects, { 'autopilot.active': false })
   } else {
-
     const {
       maxchannels,
       allocation,
