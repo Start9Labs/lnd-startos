@@ -7,7 +7,8 @@ export type Store = {
   recoveryWindow: number | null | undefined
   bitcoindSelected: boolean
   restore: boolean
-  resetWalletTransactions: boolean,
+  resetWalletTransactions: boolean
+  watchtowers: string[]
 }
 
 export const initStore: Store = {
@@ -17,6 +18,7 @@ export const initStore: Store = {
   bitcoindSelected: false,
   restore: false,
   resetWalletTransactions: false,
+  watchtowers: [],
 }
 
 export const exposedStore = setupExposeStore<Store>(() => [])

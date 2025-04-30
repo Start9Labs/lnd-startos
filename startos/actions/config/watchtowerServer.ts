@@ -4,6 +4,7 @@ import { lndConfDefaults } from '../../utils'
 
 const { InputSpec, Value } = sdk
 
+// TODO add select for watchtower.externalip
 const watchtowerServerSpec = InputSpec.of({
   'wt-server': Value.toggle({
     name: 'Enable Watchtower Server',

@@ -111,6 +111,27 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
    *
    * Each daemon defines its own health check, which can optionally be exposed to the user.
    */
+
+  const watchtowers = await sdk.store.getOwn(effects, sdk.StorePath.watchtowers).const()
+  const lndDaemon = await sdk.Daemon.of(effects, lndSub, ['lnd'], {})
+  await lndDaemon.start()
+  for (const tower of watchtowers) {
+    console.log(`Watchtower client adding ${tower}`)
+    let res = await lndSub.execFail([
+      'lncli',
+      '--rpcserver=lnd.startos',
+      'wtclient',
+      'add',
+      tower,
+    ])
+
+    if (res.stdout !== '' && typeof res.stdout === 'string') {
+      console.log(`Result adding tower ${tower}: ${res.stdout}`)
+    } else {
+      console.log(`Error adding tower ${tower}: ${res.stderr}`)
+    }
+  }
+
   return sdk.Daemons.of(effects, started, additionalChecks).addDaemon(
     'primary',
     {

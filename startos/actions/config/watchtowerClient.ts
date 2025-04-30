@@ -23,10 +23,7 @@ const wtClientSpec = InputSpec.of({
                 description: 'Add URIs of Watchtowers to connect to.',
                 minLength: 1,
               },
-              {
-                placeholder: 'pubkey@host:9911',
-                patterns: [],
-              },
+              { placeholder: 'pubkey@host:9911', patterns: [] },
             ),
           ),
         }),
@@ -60,23 +57,17 @@ export const wtClientConfig = sdk.Action.withInput(
 )
 
 async function read(effects: any): Promise<WatchtowerClientSpec> {
-  const lndConf = (await lndConfFile.read.const(effects))!
-  const wtClients = lndConf['watchtower.listen']
+  const wtClients = await sdk.store
+    .getOwn(effects, sdk.StorePath.watchtowers)
+    .const()
 
   if (wtClients.length === 0) {
-    return {
-      'wt-client': {
-        selection: 'disabled',
-        value: {},
-      },
-    }
+    return { 'wt-client': { selection: 'disabled', value: {} } }
   } else {
     return {
       'wt-client': {
         selection: 'enabled',
-        value: {
-          'add-watchtowers': wtClients,
-        },
+        value: { 'add-watchtowers': wtClients },
       },
     }
   }
@@ -84,10 +75,17 @@ async function read(effects: any): Promise<WatchtowerClientSpec> {
 
 async function write(effects: any, input: WatchtowerClientSpec) {
   const watchtowerSettings = {
-    'watchtower.listen':
-      input['wt-client'].selection === 'enabled'
-        ? input['wt-client'].value['add-watchtowers']
-        : [],
+    'wtclient.active': input['wt-client'].selection === 'enabled',
+  }
+
+  if (input['wt-client'].selection === 'enabled') {
+    await sdk.store.setOwn(
+      effects,
+      sdk.StorePath.watchtowers,
+      input['wt-client'].value['add-watchtowers'],
+    )
+  } else {
+    await sdk.store.setOwn(effects, sdk.StorePath.watchtowers, [])
   }
 
   await lndConfFile.merge(effects, watchtowerSettings)
