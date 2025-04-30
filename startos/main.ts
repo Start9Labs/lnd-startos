@@ -10,6 +10,9 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
    */
   console.info('Starting LND!')
 
+  const depResult = await sdk.checkDependencies(effects)
+  depResult.throwIfNotSatisfied()
+
   const resetWalletTransactions = await sdk.store
     .getOwn(effects, sdk.StorePath.resetWalletTransactions)
     .const()

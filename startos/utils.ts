@@ -1,5 +1,4 @@
-import { peerInterfaceId } from "./interfaces"
-import { sdk } from "./sdk"
+import { sdk } from './sdk'
 
 export const controlPort = 10009
 export const peerPort = 9735
@@ -102,4 +101,9 @@ export const lndConfDefaults = {
   'db.bolt.dbtimeout': '60s',
 } as const
 
-export const mainMounts = sdk.Mounts.of().addVolume('main', null, '/data', false)
+export const mainMounts = sdk.Mounts.of().addVolume(
+  'main',
+  null,
+  '/data',
+  false,
+)

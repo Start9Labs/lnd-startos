@@ -109,7 +109,7 @@ export const shape = object({
   ),
   'bitcoind.zmqpubrawtx':
     literal(bitcoindZmqpubrawtx).onMismatch(bitcoindZmqpubrawtx),
-  // TODO eventually expose other net options primarily testnet4 
+  // TODO eventually expose other net options primarily testnet4
   'bitcoin.mainnet': literal(bitcoinMainnet).onMismatch(bitcoinMainnet),
   rpclisten: literal(rpclisten).onMismatch(rpclisten),
   restlisten: literal(restlisten).onMismatch(restlisten),
@@ -238,4 +238,7 @@ export const shape = object({
   'db.bolt.dbtimeout': string.optional().onMismatch(dbBoltDbtimeout),
 })
 
-export const lndConfFile = FileHelper.ini('/media/startos/volumes/main/lnd.conf', shape)
+export const lndConfFile = FileHelper.ini(
+  '/media/startos/volumes/main/lnd.conf',
+  shape,
+)

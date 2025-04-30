@@ -22,7 +22,7 @@ const postInstall = sdk.setupPostInstall(async ({ effects }) => {
     mainMounts,
     'initialize-lnd',
     async (subc) => {
-      subc.spawn(['lnd'])
+      await subc.spawn(['lnd'])
       let cipherSeedCreated = false
       let cipherSeed: string[] = []
       do {
@@ -48,7 +48,7 @@ const postInstall = sdk.setupPostInstall(async ({ effects }) => {
 
       const walletPassword = await sdk.store
         .getOwn(effects, sdk.StorePath.walletPassword)
-        .const()
+        .once()
 
       const status = await subc.execFail([
         'curl',
