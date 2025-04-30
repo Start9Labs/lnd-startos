@@ -172,7 +172,7 @@ export const shape = object({
   'autopilot.conftarget': natural.onMismatch(autopilotConftarget),
 
   // Tor
-  'tor.socks': string.optional().onMismatch(torSocks), // TODO set in main
+  'tor.socks': string.optional().onMismatch(torSocks),
   'tor.skip-proxy-for-clearnet-targets': boolean.onMismatch(
     torSkipProxyForClearnetTargets,
   ),

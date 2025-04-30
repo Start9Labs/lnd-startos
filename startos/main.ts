@@ -2,6 +2,7 @@ import { sdk } from './sdk'
 import { T } from '@start9labs/start-sdk'
 import { controlPort, GetInfo, mainMounts } from './utils'
 import { readFile } from 'fs'
+import { lndConfFile } from './file-models/lnd.conf'
 
 export const main = sdk.setupMain(async ({ effects, started }) => {
   /**
@@ -10,6 +11,12 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
    * In this section, we fetch any resources or run any desired preliminary commands.
    */
   console.info('Starting LND!')
+
+  const osIp = await sdk.getOsIp(effects)
+  const conf = (await lndConfFile.read.const(effects))!
+  if (conf['tor.socks'] !== `${osIp}:9050`) {
+    await lndConfFile.merge(effects, { "tor.socks": `${osIp}:9050`})
+  }
 
   const depResult = await sdk.checkDependencies(effects)
   depResult.throwIfNotSatisfied()
