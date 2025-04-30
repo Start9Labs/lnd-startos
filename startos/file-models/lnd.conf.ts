@@ -238,4 +238,4 @@ export const shape = object({
   'db.bolt.dbtimeout': string.optional().onMismatch(dbBoltDbtimeout),
 })
 
-export const lndConfFile = FileHelper.ini('./lnd/lnd.conf', shape)
+export const lndConfFile = FileHelper.ini('/media/startos/volumes/main/lnd.conf', shape)

@@ -8,6 +8,7 @@ import { protocolConfig } from './config/protocol'
 import { sweeperConfig } from './config/sweeper'
 import { wtClientConfig } from './config/watchtowerClient'
 import { watchtowerServerConfig } from './config/watchtowerServer'
+import { resetWalletTransactions } from './resetTxns'
 
 export const actions = sdk.Actions.of()
   .addAction(autopilotConfig)
@@ -19,3 +20,4 @@ export const actions = sdk.Actions.of()
   .addAction(sweeperConfig)
   .addAction(watchtowerServerConfig)
   .addAction(wtClientConfig)
+  .addAction(resetWalletTransactions)

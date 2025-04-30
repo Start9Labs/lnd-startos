@@ -1,9 +1,12 @@
+import { peerInterfaceId } from "./interfaces"
+import { sdk } from "./sdk"
+
 export const controlPort = 10009
 export const peerPort = 9735
 export const watchtowerPort = 9911
 
 export const randomPassword = {
-  charset: 'a-z,A-Z,1-9,+,/',
+  charset: 'A-Z,2-7',
   len: 22,
 }
 
@@ -98,3 +101,5 @@ export const lndConfDefaults = {
   'db.bolt.auto-compact-min-age': '168h',
   'db.bolt.dbtimeout': '60s',
 } as const
+
+export const mainMounts = sdk.Mounts.of().addVolume('main', null, '/data', false)

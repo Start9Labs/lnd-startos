@@ -5,7 +5,7 @@ import { peerInterfaceId, setInterfaces } from './interfaces'
 import { versions } from './versions'
 import { actions } from './actions'
 import { lndConfFile } from './file-models/lnd.conf'
-import { lndConfDefaults } from './utils'
+import { lndConfDefaults, mainMounts } from './utils'
 import { backendConfig } from './actions/config/backend'
 
 const preInstall = sdk.setupPreInstall(async ({ effects }) => {
@@ -13,8 +13,80 @@ const preInstall = sdk.setupPreInstall(async ({ effects }) => {
 })
 
 const postInstall = sdk.setupPostInstall(async ({ effects }) => {
-  // TODO get peer url and push to externalhosts in config.
-  const peerOnionUrl = await sdk.serviceInterface.getOwn(effects, peerInterfaceId).once()
+  await sdk.SubContainer.withTemp(
+    effects,
+    {
+      imageId: 'lnd',
+    },
+    // TODO cp system cert or mount the OS directory
+    mainMounts,
+    'initialize-lnd',
+    async (subc) => {
+      subc.spawn(['lnd'])
+      let cipherSeedCreated = false
+      let cipherSeed: string[] = []
+      do {
+        const res = await subc.execFail([
+          'curl',
+          '--no-progress-meter',
+          '-X',
+          'GET',
+          '--cacert',
+          '/data/.lnd/tls.cert',
+          'https://lnd.startos:8080/v1/genseed',
+          '-d',
+        ])
+
+        if (res.stdout !== '' && typeof res.stdout === 'string') {
+          cipherSeed = res.stdout.trim().split(/\s+/)
+          cipherSeedCreated = true
+        } else {
+          console.log('Waiting for RPC to start...')
+          await sleep(5_000)
+        }
+      } while (!cipherSeedCreated)
+
+      const walletPassword = await sdk.store
+        .getOwn(effects, sdk.StorePath.walletPassword)
+        .const()
+
+      const status = await subc.execFail([
+        'curl',
+        '--no-progress-meter',
+        '-X',
+        'POST',
+        '--cacert',
+        '/data/.lnd/tls.cert',
+        'https://lnd.startos:8080/v1/initwallet',
+        '-d',
+        `${JSON.stringify({
+          wallet_password: walletPassword,
+          cipher_seed_mnemonic: cipherSeed,
+        })}`,
+      ])
+
+      if (status.stderr !== '' && typeof status.stderr === 'string') {
+        console.log(`Error running initwallet: ${status.stderr}`)
+      }
+
+      await sdk.store.setOwn(
+        effects,
+        sdk.StorePath.aezeedCipherSeed,
+        cipherSeed,
+      )
+    },
+  )
+
+  const peerOnionUrl = await sdk.serviceInterface
+    .getOwn(effects, peerInterfaceId)
+    .once()
+
+  if (peerOnionUrl?.addressInfo?.publicUrls[0]) {
+    await lndConfFile.merge(effects, {
+      externalhosts: [peerOnionUrl?.addressInfo?.publicUrls[0]],
+    })
+  }
+
   sdk.action.requestOwn(effects, backendConfig, 'critical', {
     reason: 'LND needs to know what Bitcoin backend should be used',
   })
@@ -36,3 +108,7 @@ export const { packageInit, packageUninit, containerInit } = sdk.setupInit(
   initStore,
   exposedStore,
 )
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}

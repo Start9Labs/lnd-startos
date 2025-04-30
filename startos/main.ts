@@ -1,5 +1,6 @@
 import { sdk } from './sdk'
 import { T } from '@start9labs/start-sdk'
+import { mainMounts } from './utils'
 
 export const main = sdk.setupMain(async ({ effects, started }) => {
   /**
@@ -9,13 +10,22 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
    */
   console.info('Starting LND!')
 
-  await sdk.store.setOwn(effects, sdk.StorePath.hasStarted, true)
+  const resetWalletTransactions = await sdk.store
+    .getOwn(effects, sdk.StorePath.resetWalletTransactions)
+    .const()
 
   /**
    * ======================== Additional Health Checks (optional) ========================
    *
    * In this section, we define *additional* health checks beyond those included with each daemon (below).
    */
+  const lndSub = await sdk.SubContainer.of(
+    effects,
+    { imageId: 'lnd' },
+    mainMounts,
+    'lnd-sub',
+  )
+
   const additionalChecks: T.HealthCheck[] = []
 
   /**
@@ -28,13 +38,8 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
   return sdk.Daemons.of(effects, started, additionalChecks).addDaemon(
     'primary',
     {
-      subcontainer: await sdk.SubContainer.of(
-        effects,
-        { imageId: 'lnd' },
-        sdk.Mounts.of().addVolume('main', null, '/data', false),
-        'hello-world-sub',
-      ),
-      command: ['hello-world'],
+      subcontainer: lndSub,
+      command: ['lnd'],
       ready: {
         display: 'Web Interface',
         fn: () =>

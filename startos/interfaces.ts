@@ -27,10 +27,9 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
 
   // peer
   const peerMulti = sdk.MultiHost.of(effects, 'peer-multi')
-  // @TODO
   const peerMultiOrigin = await peerMulti.bindPort(peerPort, {
     protocol: null,
-    addSsl: { preferredExternalPort: peerPort, alpn: null },
+    addSsl: null,
     preferredExternalPort: peerPort,
     secure: null,
   })
@@ -50,12 +49,11 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
   if ((await lndConfFile.read.const(effects))?.['watchtower.active']) {
     // watchtower
     const watchtowerMulti = sdk.MultiHost.of(effects, 'watchtower-multi')
-    // @TODO
     const watchtowerMultiOrigin = await watchtowerMulti.bindPort(
       watchtowerPort,
       {
         protocol: null,
-        addSsl: { preferredExternalPort: watchtowerPort, alpn: null },
+        addSsl: null,
         preferredExternalPort: watchtowerPort,
         secure: null,
       },
