@@ -1,6 +1,7 @@
 import { sdk } from './sdk'
 import { T } from '@start9labs/start-sdk'
-import { mainMounts } from './utils'
+import { controlPort, GetInfo, mainMounts } from './utils'
+import { readFile } from 'fs'
 
 export const main = sdk.setupMain(async ({ effects, started }) => {
   /**
@@ -13,9 +14,13 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
   const depResult = await sdk.checkDependencies(effects)
   depResult.throwIfNotSatisfied()
 
+  const lndArgs: string[] = []
+
   const resetWalletTransactions = await sdk.store
     .getOwn(effects, sdk.StorePath.resetWalletTransactions)
     .const()
+
+  if (resetWalletTransactions) lndArgs.push('--reset-wallet-transactions')
 
   /**
    * ======================== Additional Health Checks (optional) ========================
@@ -29,7 +34,68 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
     'lnd-sub',
   )
 
-  const additionalChecks: T.HealthCheck[] = []
+  let macHex: string;
+  readFile('/data/bitcoin/mainnet/admin.macaroon', (err, data) => {
+    if (err) throw err
+
+    macHex = data.toString('hex')
+  });
+
+  const syncCheck = sdk.HealthCheck.of(effects, {
+    id: 'sync-progress',
+    name: 'Blockchain and Graph Sync Progress',
+    fn: async () => {
+      const res = await lndSub.exec([
+        'curl',
+        '--no-progress-meter',
+        '--header',
+        `Grpc-Metadata-macaroon: ${macHex}`,
+        '--cacert',
+        '/data/.lnd/tls.cert',
+        'https://lnd.startos:8080/v1/getinfo',
+      ])
+
+      if (res.stdout !== '' && typeof res.stdout === 'string') {
+        const info: GetInfo = JSON.parse(res.stdout)
+
+        if (info.synced_to_chain && info.synced_to_graph) {
+          return {
+            message: 'Synced to chain and graph',
+            result: 'success',
+          }
+        } else if (!info.synced_to_chain && info.synced_to_graph) {
+          return {
+            message: 'Syncing to chain',
+            result: 'loading',
+          }
+        } else if (!info.synced_to_graph && info.synced_to_chain) {
+          return {
+            message: 'Syncing to graph',
+            result: 'loading',
+          }
+        }
+
+        return {
+          message: 'Syncing to graph and chain',
+          result: 'loading',
+        }
+      }
+
+      if (res.stderr.includes('rpc error: code = Unknown desc = waiting to start')) {
+        return {
+          message: 'LND is starting…',
+          result: 'starting',
+        }
+      } else {
+        return {
+          message: res.stderr as string,
+          result: 'failure',
+        }
+      }
+    },
+  })
+
+  const additionalChecks: T.HealthCheck[] = [syncCheck]
 
   /**
    * ======================== Daemons ========================
@@ -42,13 +108,13 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
     'primary',
     {
       subcontainer: lndSub,
-      command: ['lnd'],
+      command: ['lnd', ...lndArgs],
       ready: {
-        display: 'Web Interface',
+        display: 'Control Interface',
         fn: () =>
-          sdk.healthCheck.checkPortListening(effects, uiPort, {
-            successMessage: 'The web interface is ready',
-            errorMessage: 'The web interface is not ready',
+          sdk.healthCheck.checkPortListening(effects, controlPort, {
+            successMessage: 'The control interface is ready to accept gRPC and REST connections',
+            errorMessage: 'The control interface is not ready',
           }),
       },
       requires: [],

@@ -107,3 +107,8 @@ export const mainMounts = sdk.Mounts.of().addVolume(
   '/data',
   false,
 )
+
+export type GetInfo = {
+  synced_to_chain: boolean
+  synced_to_graph: boolean
+}
