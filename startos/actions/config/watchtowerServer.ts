@@ -1,17 +1,12 @@
+import { Variants } from '@start9labs/start-sdk/base/lib/actions/input/builder'
 import { lndConfFile } from '../../file-models/lnd.conf'
 import { sdk } from '../../sdk'
-import { lndConfDefaults } from '../../utils'
+import { getExteralAddresses, lndConfDefaults } from '../../utils'
 
-const { InputSpec, Value } = sdk
+const { InputSpec } = sdk
 
-// TODO add select for watchtower.externalip
 const watchtowerServerSpec = InputSpec.of({
-  'wt-server': Value.toggle({
-    name: 'Enable Watchtower Server',
-    default: lndConfDefaults['watchtower.active'],
-    description:
-      'Allow other nodes to find your watchtower server on the network.',
-  }),
+  'watchtower.externalip': getExteralAddresses(),
 })
 
 export const watchtowerServerConfig = sdk.Action.withInput(
@@ -42,12 +37,31 @@ async function read(effects: any): Promise<WatchtowerServerSpec> {
   const lndConf = (await lndConfFile.read.const(effects))!
 
   return {
-    'wt-server': lndConf['watchtower.active'],
+    'watchtower.externalip': lndConf['watchtower.externalip']
+      ? lndConf['watchtower.externalip']
+      : 'none',
   }
 }
 
-async function write(effects: any, input: PartialWatchtowerServerSpec) {
-  await lndConfFile.merge(effects, { 'watchtower.active': input['wt-server'] })
+async function write(effects: any, input: WatchtowerServerSpec) {
+  const watchtowerEnabled = input['watchtower.externalip'] !== 'none'
+
+  let watchtowerSettings
+  if (watchtowerEnabled) {
+    watchtowerSettings = {
+      'watchtower.active': true,
+      'watchtower.listen': '0.0.0.0:9911',
+      'watchtower.externalip': input['watchtower.externalip'],
+    }
+  } else {
+    watchtowerSettings = {
+      'watchtower.active': false,
+      'watchtower.listen': undefined,
+      'watchtower.externalip': undefined,
+    }
+  }
+
+  await lndConfFile.merge(effects, watchtowerSettings)
 }
 
 type WatchtowerServerSpec = typeof watchtowerServerSpec._TYPE

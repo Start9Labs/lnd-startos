@@ -12,6 +12,10 @@ const preInstall = sdk.setupPreInstall(async ({ effects }) => {
   await lndConfFile.write(effects, lndConfDefaults)
 })
 
+/*
+  TODO confirm with Aiden exec vs exec fail and subc.spawn vs sdk.SubContainer.withTemp
+*/
+
 const postInstall = sdk.setupPostInstall(async ({ effects }) => {
   await sdk.SubContainer.withTemp(
     effects,

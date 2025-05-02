@@ -1,3 +1,4 @@
+import { peerInterfaceId } from './interfaces'
 import { sdk } from './sdk'
 
 export const controlPort = 10009
@@ -66,7 +67,7 @@ export const lndConfDefaults = {
 
   // Tor
   'tor.active': true,
-  'tor.socks': undefined, // TODO set in main or postinit?
+  'tor.socks': undefined,
   'tor.skip-proxy-for-clearnet-targets': true,
   'tor.streamisolation': false,
 
@@ -111,4 +112,48 @@ export const mainMounts = sdk.Mounts.of().addVolume(
 export type GetInfo = {
   synced_to_chain: boolean
   synced_to_graph: boolean
+}
+
+export type TowerInfo = {
+  pubkey: string,
+  listeners: string[],
+  uris: string[]
+}
+
+export function getExteralAddresses() {
+  return sdk.Value.dynamicSelect(async ({ effects }) => {
+    const peerInterface = await sdk.serviceInterface
+      .getOwn(effects, peerInterfaceId)
+      .const()
+
+    const urls = peerInterface?.addressInfo?.publicUrls || []
+
+    if (urls.length === 0) {
+      return {
+        name: 'External Address',
+        description:
+          "No available address at which your watchtower can be reached by LND peers.",
+        values: { none: 'none' },
+        default: 'none',
+      }
+    }
+
+    const urlsWithNone = urls.reduce(
+      (obj, url) => ({
+        ...obj,
+        [url]: url,
+      }),
+      {} as Record<string, string>,
+    )
+
+    urlsWithNone['none'] = 'none'
+
+    return {
+      name: 'External Address',
+      description:
+        "Address at which your node can be reached by peers. Select 'none' to disable the watchtower server.",
+      values: urlsWithNone,
+      default: urls.find((u) => u.endsWith('.onion')) || '',
+    }
+  })
 }
