@@ -1,9 +1,5 @@
-import { peerInterfaceId } from './interfaces'
+// import { peerInterfaceId } from './interfaces'
 import { sdk } from './sdk'
-
-export const controlPort = 10009
-export const peerPort = 9735
-export const watchtowerPort = 9911
 
 export const randomPassword = {
   charset: 'A-Z,2-7',
@@ -123,7 +119,7 @@ export type TowerInfo = {
 export function getExteralAddresses() {
   return sdk.Value.dynamicSelect(async ({ effects }) => {
     const peerInterface = await sdk.serviceInterface
-      .getOwn(effects, peerInterfaceId)
+      .getOwn(effects, 'peer')
       .const()
 
     const urls = peerInterface?.addressInfo?.publicUrls || []

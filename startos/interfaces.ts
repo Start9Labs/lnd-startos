@@ -1,6 +1,9 @@
 import { sdk } from './sdk'
 import { lndConfFile } from './file-models/lnd.conf'
-import { controlPort, peerPort, watchtowerPort } from './utils'
+
+export const controlPort = 10009
+export const peerPort = 9735
+export const watchtowerPort = 9911
 
 export const peerInterfaceId = 'peer'
 

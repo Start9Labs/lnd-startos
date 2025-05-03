@@ -1,6 +1,7 @@
 import { sdk } from './sdk'
 import { T } from '@start9labs/start-sdk'
-import { controlPort, GetInfo, mainMounts } from './utils'
+import { GetInfo, mainMounts } from './utils'
+import { controlPort } from './interfaces'
 import { readFile } from 'fs'
 import { lndConfFile } from './file-models/lnd.conf'
 

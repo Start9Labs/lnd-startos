@@ -1,4 +1,3 @@
-import { Variants } from '@start9labs/start-sdk/base/lib/actions/input/builder'
 import { lndConfFile } from '../../file-models/lnd.conf'
 import { sdk } from '../../sdk'
 import { getExteralAddresses, lndConfDefaults } from '../../utils'
@@ -50,7 +49,7 @@ async function write(effects: any, input: WatchtowerServerSpec) {
   if (watchtowerEnabled) {
     watchtowerSettings = {
       'watchtower.active': true,
-      'watchtower.listen': '0.0.0.0:9911',
+      'watchtower.listen': ['0.0.0.0:9911'],
       'watchtower.externalip': input['watchtower.externalip'],
     }
   } else {
@@ -65,4 +64,3 @@ async function write(effects: any, input: WatchtowerServerSpec) {
 }
 
 type WatchtowerServerSpec = typeof watchtowerServerSpec._TYPE
-type PartialWatchtowerServerSpec = typeof watchtowerServerSpec._PARTIAL

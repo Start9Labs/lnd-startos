@@ -1,32 +1,18 @@
 import { FileHelper, matches } from '@start9labs/start-sdk'
 import { lndConfDefaults } from '../utils'
 
-const {
-  object,
-  string,
-  boolean,
-  natural,
-  number,
-  arrayOf,
-  anyOf,
-  oneOf,
-  literal,
-} = matches
+const { object, boolean, natural, arrayOf, anyOf, oneOf } = matches
 
-// const stringArray = matches.array(matches.string)
-// const string = stringArray.map(([a]) => a).orParser(matches.string)
-// const number = stringArray.map(([a]) => Number(a)).orParser(matches.number)
-// const numLiteral = (val: any) => {
-//   return stringArray.map(([val]) => Number(val)).orParser(matches.literal(val))
-// }
-// const boolean = anyOf(numLiteral(0), numLiteral(1))
-//   .map((a) => !!a)
-//   .orParser(matches.boolean)
-// const literal = (val: string) => {
-//   return stringArray
-//     .map(([val]) => matches.literal(val))
-//     .orParser(matches.literal(val))
-// }
+const stringArray = matches.array(matches.string)
+const string = stringArray.map(([a]) => a).orParser(matches.string)
+const number = string.map((a) => Number(a)).orParser(matches.number)
+const literal = (val: string | number | boolean) => {
+  return matches
+    .literal([String(val)])
+    .orParser(matches.literal(String(val)))
+    .orParser(matches.literal(val))
+    .map((a) => (typeof val === 'number' ? Number(a) : a))
+}
 
 const {
   externalhosts,
@@ -126,12 +112,12 @@ export const shape = object({
   listen: string.onMismatch(listen),
   'rpcmiddleware.enable': boolean.onMismatch(rpcmiddlewareEnable),
   debuglevel: anyOf(
-    literal('trace'),
-    literal('debug'),
-    literal('info'),
-    literal('warn'),
-    literal('error'),
-    literal('critical'),
+    matches.literal('trace'),
+    matches.literal('debug'),
+    matches.literal('info'),
+    matches.literal('warn'),
+    matches.literal('error'),
+    matches.literal('critical'),
   ).onMismatch(debuglevel),
   minchansize: natural.optional().onMismatch(minchansize),
   maxchansize: natural.optional().onMismatch(maxchansize),
@@ -241,4 +227,5 @@ export const shape = object({
 export const lndConfFile = FileHelper.ini(
   '/media/startos/volumes/main/lnd.conf',
   shape,
+  { bracketedArray: false },
 )
