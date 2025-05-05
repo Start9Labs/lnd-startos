@@ -9,6 +9,7 @@ import { sweeperConfig } from './config/sweeper'
 import { wtClientConfig } from './config/watchtowerClient'
 import { watchtowerServerConfig } from './config/watchtowerServer'
 import { resetWalletTransactions } from './resetTxns'
+import { towerInfo } from './towerInfo'
 
 export const actions = sdk.Actions.of()
   .addAction(autopilotConfig)
@@ -21,4 +22,4 @@ export const actions = sdk.Actions.of()
   .addAction(watchtowerServerConfig)
   .addAction(wtClientConfig)
   .addAction(resetWalletTransactions)
-  .addAction()
+  .addAction(towerInfo)
