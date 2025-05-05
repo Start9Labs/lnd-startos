@@ -38,7 +38,6 @@ const postInstall = sdk.setupPostInstall(async ({ effects }) => {
           '--cacert',
           '/data/.lnd/tls.cert',
           'https://lnd.startos:8080/v1/genseed',
-          '-d',
         ])
 
         if (res.stdout !== '' && typeof res.stdout === 'string') {
