@@ -3,8 +3,6 @@ import { setupManifest } from '@start9labs/start-sdk'
 export const manifest = setupManifest({
   id: 'lnd',
   title: 'LND',
-  version: '0.18.5:0',
-  releaseNotes: 'Revamped for StartOS 0.3.6',
   license: 'mit',
   wrapperRepo: 'https://github.com/Start9Labs/lnd-startos',
   upstreamRepo: 'https://github.com/lightningnetwork/lnd',

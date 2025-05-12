@@ -105,7 +105,7 @@ export const bitcoinConfig = sdk.Action.withInput(
 )
 
 async function read(effects: any): Promise<PartialBitcoinSpec> {
-  const lndConf = (await lndConfFile.read.const(effects))!
+  const lndConf = (await lndConfFile.read().const(effects))!
 
   const bitcoinSettings: PartialBitcoinSpec = {
     'default-channel-confirmations': lndConf['bitcoin.defaultchanconfs'],

@@ -1,3 +1,4 @@
+import { storeJson } from './file-models/store.json'
 import { sdk } from './sdk'
 
 export const { createBackup, restoreBackup } = sdk.setupBackups(
@@ -7,7 +8,7 @@ export const { createBackup, restoreBackup } = sdk.setupBackups(
         exclude: ['/data/graph/mainnet/*'],
       })
       .setPreRestore(async (effects) => {
-        await sdk.store.setOwn(effects, sdk.StorePath.restore, true)
+        await storeJson.merge(effects, { restore: false })
       }),
 )
 

@@ -98,12 +98,12 @@ export const lndConfDefaults = {
   'db.bolt.dbtimeout': '60s',
 } as const
 
-export const mainMounts = sdk.Mounts.of().addVolume(
-  'main',
-  null,
-  '/data',
-  false,
-)
+export const mainMounts = sdk.Mounts.of().mountVolume({
+  volumeId: 'main',
+  subpath: null,
+  mountpoint: '/data',
+  readonly: false,
+})
 
 export type GetInfo = {
   synced_to_chain: boolean

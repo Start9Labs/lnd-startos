@@ -1,4 +1,5 @@
 import { lndConfFile } from '../../file-models/lnd.conf'
+import { storeJson } from '../../file-models/store.json'
 import { sdk } from '../../sdk'
 import { bitcoindHost, lndConfDefaults } from '../../utils'
 
@@ -26,8 +27,7 @@ export const backendConfig = sdk.Action.withInput(
     warning: null,
     allowedStatuses: 'any',
     group: 'conf',
-    visibility: (await sdk.store.getOwn(effects, sdk.StorePath).const())
-      .bitcoindSelected
+    visibility: (await storeJson.read().const(effects))?.bitcoindSelected
       ? 'hidden'
       : 'enabled',
   }),
@@ -43,7 +43,7 @@ export const backendConfig = sdk.Action.withInput(
 )
 
 async function read(effects: any) {
-  const lndConf = (await lndConfFile.read.const(effects))!
+  const lndConf = (await lndConfFile.read().const(effects))!
 
   const bitcoinSettings = {
     bitcoind: lndConf['bitcoin.node'] === 'bitcoind',
@@ -75,11 +75,7 @@ async function write(effects: any, input: BackendSpec) {
     })
   }
 
-  await sdk.store.setOwn(
-    effects,
-    sdk.StorePath.bitcoindSelected,
-    input.bitcoind,
-  )
+  await storeJson.merge(effects, { bitcoindSelected: input.bitcoind })
   await lndConfFile.merge(effects, bitcoinSettings)
 }
 

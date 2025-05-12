@@ -49,7 +49,7 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
   })
   receipts.push(await peerMultiOrigin.export([peer]))
 
-  if ((await lndConfFile.read.const(effects))?.['watchtower.active']) {
+  if ((await lndConfFile.read().const(effects))?.['watchtower.active']) {
     // watchtower
     const watchtowerMulti = sdk.MultiHost.of(effects, 'watchtower-multi')
     const watchtowerMultiOrigin = await watchtowerMulti.bindPort(

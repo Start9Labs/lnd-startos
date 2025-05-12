@@ -4,7 +4,7 @@ import { config } from 'bitcoind-startos/startos/actions/config/config'
 
 export const setDependencies = sdk.setupDependencies(async ({ effects }) => {
   const { 'bitcoin.node': bitcoinNode } =
-    (await lndConfFile.read.const(effects))!
+    (await lndConfFile.read().const(effects))!
 
   if (bitcoinNode === 'bitcoind') {
     await sdk.action.request(effects, 'bitcoind', config, 'critical', {

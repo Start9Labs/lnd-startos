@@ -13,7 +13,7 @@ export const towerInfo = sdk.Action.withoutInput(
     warning: null,
     allowedStatuses: 'only-running',
     group: 'watchtower',
-    visibility: (await lndConfFile.read.const(effects))!['watchtower.active']
+    visibility: (await lndConfFile.read().const(effects))!['watchtower.active']
       ? 'enabled'
       : 'hidden',
   }),

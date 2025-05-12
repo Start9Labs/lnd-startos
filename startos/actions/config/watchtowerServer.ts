@@ -1,6 +1,6 @@
 import { lndConfFile } from '../../file-models/lnd.conf'
 import { sdk } from '../../sdk'
-import { getExteralAddresses, lndConfDefaults } from '../../utils'
+import { getExteralAddresses } from '../../utils'
 
 const { InputSpec } = sdk
 
@@ -33,7 +33,7 @@ export const watchtowerServerConfig = sdk.Action.withInput(
 )
 
 async function read(effects: any): Promise<WatchtowerServerSpec> {
-  const lndConf = (await lndConfFile.read.const(effects))!
+  const lndConf = (await lndConfFile.read().const(effects))!
 
   return {
     'watchtower.externalip': lndConf['watchtower.externalip']

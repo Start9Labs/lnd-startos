@@ -72,7 +72,7 @@ export const dbBoltConfig = sdk.Action.withInput(
 )
 
 async function read(effects: any) {
-  const lndConf = (await lndConfFile.read.const(effects))!
+  const lndConf = (await lndConfFile.read().const(effects))!
 
   const dbBoltSettings: PartialDbBoltSpec = {
     'db-bolt-nofreelistsync': lndConf['db.bolt.nofreelistsync'],

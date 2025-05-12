@@ -102,7 +102,7 @@ export const sweeperConfig = sdk.Action.withInput(
 )
 
 async function read(effects: any): Promise<PartialSweeperSpec> {
-  const lndConf = (await lndConfFile.read.const(effects))!
+  const lndConf = (await lndConfFile.read().const(effects))!
 
   const sweeperSettings: PartialSweeperSpec = {
     'sweeper-maxfeerate': lndConf['sweeper.maxfeerate'],

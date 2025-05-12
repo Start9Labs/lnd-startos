@@ -4,6 +4,7 @@ import { GetInfo, mainMounts } from './utils'
 import { controlPort } from './interfaces'
 import { readFile } from 'fs'
 import { lndConfFile } from './file-models/lnd.conf'
+import { storeJson } from './file-models/store.json'
 
 export const main = sdk.setupMain(async ({ effects, started }) => {
   /**
@@ -14,9 +15,9 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
   console.info('Starting LND!')
 
   const osIp = await sdk.getOsIp(effects)
-  const conf = (await lndConfFile.read.const(effects))!
+  const conf = (await lndConfFile.read().const(effects))!
   if (conf['tor.socks'] !== `${osIp}:9050`) {
-    await lndConfFile.merge(effects, { "tor.socks": `${osIp}:9050`})
+    await lndConfFile.merge(effects, { 'tor.socks': `${osIp}:9050` })
   }
 
   const depResult = await sdk.checkDependencies(effects)
@@ -24,9 +25,8 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
 
   const lndArgs: string[] = []
 
-  const resetWalletTransactions = await sdk.store
-    .getOwn(effects, sdk.StorePath.resetWalletTransactions)
-    .const()
+  const resetWalletTransactions = (await storeJson.read().const(effects))
+    ?.resetWalletTransactions
 
   if (resetWalletTransactions) lndArgs.push('--reset-wallet-transactions')
 
@@ -42,12 +42,12 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
     'lnd-sub',
   )
 
-  let macHex: string;
+  let macHex: string
   readFile('/data/bitcoin/mainnet/admin.macaroon', (err, data) => {
     if (err) throw err
 
     macHex = data.toString('hex')
-  });
+  })
 
   const syncCheck = sdk.HealthCheck.of(effects, {
     id: 'sync-progress',
@@ -89,7 +89,9 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
         }
       }
 
-      if (res.stderr.includes('rpc error: code = Unknown desc = waiting to start')) {
+      if (
+        res.stderr.includes('rpc error: code = Unknown desc = waiting to start')
+      ) {
         return {
           message: 'LND is starting…',
           result: 'starting',
@@ -113,10 +115,10 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
    * Each daemon defines its own health check, which can optionally be exposed to the user.
    */
 
-  const watchtowers = await sdk.store.getOwn(effects, sdk.StorePath.watchtowers).const()
+  const watchtowers = (await storeJson.read().const(effects))?.watchtowers
   const lndDaemon = await sdk.Daemon.of(effects, lndSub, ['lnd'], {})
   await lndDaemon.start()
-  for (const tower of watchtowers) {
+  for (const tower of watchtowers || []) {
     console.log(`Watchtower client adding ${tower}`)
     let res = await lndSub.execFail([
       'lncli',
@@ -142,7 +144,8 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
         display: 'Control Interface',
         fn: () =>
           sdk.healthCheck.checkPortListening(effects, controlPort, {
-            successMessage: 'The control interface is ready to accept gRPC and REST connections',
+            successMessage:
+              'The control interface is ready to accept gRPC and REST connections',
             errorMessage: 'The control interface is not ready',
           }),
       },

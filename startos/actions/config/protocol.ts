@@ -79,7 +79,7 @@ export const protocolConfig = sdk.Action.withInput(
 )
 
 async function read(effects: any): Promise<PartialProtocolSpec> {
-  const lndConf = (await lndConfFile.read.const(effects))!
+  const lndConf = (await lndConfFile.read().const(effects))!
 
   const protocolSettings: PartialProtocolSpec = {
     'protocol-wumbo-channels': lndConf['protocol.wumbo-channels'],

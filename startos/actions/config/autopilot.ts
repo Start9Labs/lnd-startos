@@ -127,7 +127,7 @@ export const autopilotConfig = sdk.Action.withInput(
 )
 
 async function read(effects: any): Promise<PartialAutopilotSpec> {
-  const lndConf = (await lndConfFile.read.const(effects))!
+  const lndConf = (await lndConfFile.read().const(effects))!
 
   if (!lndConf['autopilot.active']) {
     return {

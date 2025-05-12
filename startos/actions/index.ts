@@ -1,4 +1,5 @@
 import { sdk } from '../sdk'
+import { aezeedCipherSeed } from './aezeedCipherSeed'
 import { autopilotConfig } from './config/autopilot'
 import { backendConfig } from './config/backend'
 import { bitcoinConfig } from './config/bitcoin'
@@ -23,3 +24,4 @@ export const actions = sdk.Actions.of()
   .addAction(wtClientConfig)
   .addAction(resetWalletTransactions)
   .addAction(towerInfo)
+  .addAction(aezeedCipherSeed)

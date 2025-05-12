@@ -1,3 +1,4 @@
+import { storeJson } from '../file-models/store.json'
 import { sdk } from '../sdk'
 
 export const resetWalletTransactions = sdk.Action.withoutInput(
@@ -17,7 +18,7 @@ export const resetWalletTransactions = sdk.Action.withoutInput(
 
   // execution function
   async ({ effects }) => {
-    await sdk.store.setOwn(effects, sdk.StorePath.resetWalletTransactions, true)
+    await storeJson.merge(effects, { resetWalletTransactions: true })
     return {
       version: '1',
       title: 'Success',

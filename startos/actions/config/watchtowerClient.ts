@@ -1,4 +1,5 @@
 import { lndConfFile } from '../../file-models/lnd.conf'
+import { storeJson } from '../../file-models/store.json'
 import { sdk } from '../../sdk'
 
 const { InputSpec, Value, Variants, List } = sdk
@@ -57,9 +58,7 @@ export const wtClientConfig = sdk.Action.withInput(
 )
 
 async function read(effects: any): Promise<WatchtowerClientSpec> {
-  const wtClients = await sdk.store
-    .getOwn(effects, sdk.StorePath.watchtowers)
-    .const()
+  const wtClients = (await storeJson.read().const(effects))?.watchtowers || []
 
   if (wtClients.length === 0) {
     return { 'wt-client': { selection: 'disabled', value: {} } }
@@ -79,13 +78,13 @@ async function write(effects: any, input: WatchtowerClientSpec) {
   }
 
   if (input['wt-client'].selection === 'enabled') {
-    await sdk.store.setOwn(
-      effects,
-      sdk.StorePath.watchtowers,
-      input['wt-client'].value['add-watchtowers'],
-    )
+    await storeJson.merge(effects, {
+      watchtowers: input['wt-client'].value['add-watchtowers'] || [],
+    })
   } else {
-    await sdk.store.setOwn(effects, sdk.StorePath.watchtowers, [])
+    await storeJson.merge(effects, {
+      watchtowers: [],
+    })
   }
 
   await lndConfFile.merge(effects, watchtowerSettings)
