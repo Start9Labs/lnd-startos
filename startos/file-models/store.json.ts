@@ -10,6 +10,7 @@ export const shape = object({
   restore: boolean,
   resetWalletTransactions: boolean,
   watchtowers: arrayOf(string),
+  walletInitialized: boolean,
 })
 
 export const storeJson = FileHelper.json(

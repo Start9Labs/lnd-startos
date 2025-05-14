@@ -5,6 +5,8 @@ import { controlPort } from './interfaces'
 import { readFile } from 'fs/promises'
 import { lndConfFile } from './file-models/lnd.conf'
 import { storeJson } from './file-models/store.json'
+import { Effects, SIGTERM } from '@start9labs/start-sdk/base/lib/types'
+import * as fs from 'node:fs/promises'
 
 export const main = sdk.setupMain(async ({ effects, started }) => {
   /**
@@ -12,7 +14,14 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
    *
    * In this section, we fetch any resources or run any desired preliminary commands.
    */
-  console.info('Starting LND!')
+  console.log('Starting LND!')
+
+  const walletInitialized = (await storeJson.read().once())?.walletInitialized
+  if (!walletInitialized) {
+    console.log('Fresh install detected. Initializing LND wallet')
+    await initializeLnd(effects)
+    await storeJson.merge(effects, { walletInitialized: true })
+  }
 
   const osIp = await sdk.getOsIp(effects)
   const conf = (await lndConfFile.read().once())!
@@ -220,3 +229,97 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
     },
   )
 })
+
+async function initializeLnd(effects: Effects) {
+  // Only get leaf cert
+  const cert = (await sdk.getSslCerificate(effects, ['lnd.startos']).once())
+    .join('\n')
+    .split('-----END CERTIFICATE-----')
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0)
+    .map((part) => `${part}\n-----END CERTIFICATE-----`)[0]
+  const key = await sdk.getSslKey(effects, { hostnames: ['lnd.startos'] })
+  await sdk.SubContainer.withTemp(
+    effects,
+    {
+      imageId: 'lnd',
+    },
+    mainMounts.mountDependency({
+      dependencyId: 'bitcoind',
+      mountpoint: '/mnt/bitcoin',
+      readonly: true,
+      subpath: null,
+      volumeId: 'main',
+    }),
+    'initialize-lnd',
+    async (subc) => {
+      // Write cert and key
+      await fs.writeFile(`${subc.rootfs}/data/tls.cert`, cert)
+      await fs.writeFile(`${subc.rootfs}/data/tls.key`, key)
+
+      const containerIp = await sdk.getContainerIp(effects).once()
+
+      await lndConfFile.merge(effects, {
+        rpclisten: `${containerIp}:10009`,
+        restlisten: `${containerIp}:8080`,
+      })
+
+      const child = await subc.spawn(['lnd', `--configfile=/data/lnd.conf`])
+      let cipherSeed: string[] = []
+      let i = 0
+      do {
+        const res = await subc.exec([
+          'curl',
+          '--no-progress-meter',
+          'GET',
+          '--cacert',
+          `/data/tls.cert`,
+          '--fail-with-body',
+          'https://lnd.startos:8080/v1/genseed',
+        ])
+        if (
+          res.exitCode === 0 &&
+          res.stdout !== '' &&
+          typeof res.stdout === 'string'
+        ) {
+          cipherSeed = JSON.parse(res.stdout)['cipher_seed_mnemonic']
+          break
+        } else {
+          console.log('Waiting for RPC to start...')
+          i++
+          await sleep(5_000)
+        }
+      } while (i <= 10)
+
+      const walletPassword = (await storeJson.read().once())?.walletPassword
+
+      const status = await subc.exec([
+        'curl',
+        '--no-progress-meter',
+        '-X',
+        'POST',
+        '--cacert',
+        '/data/tls.cert',
+        '--fail-with-body',
+        'https://lnd.startos:8080/v1/initwallet',
+        '-d',
+        `${JSON.stringify({
+          wallet_password: walletPassword,
+          cipher_seed_mnemonic: cipherSeed,
+        })}`,
+      ])
+
+      if (status.stderr !== '' && typeof status.stderr === 'string') {
+        console.log(`Error running initwallet: ${status.stderr}`)
+      }
+
+      await storeJson.merge(effects, { aezeedCipherSeed: cipherSeed })
+
+      child.kill(SIGTERM)
+      await new Promise<void>((resolve, reject) => {
+        child.on('exit', () => resolve())
+        setTimeout(resolve, 60_000)
+      })
+    },
+  )
+}
