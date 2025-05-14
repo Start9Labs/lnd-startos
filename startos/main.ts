@@ -212,8 +212,8 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
         fn: () =>
           sdk.healthCheck.checkPortListening(effects, controlPort, {
             successMessage:
-              'The control interface is ready to accept gRPC and REST connections',
-            errorMessage: 'The control interface is not ready',
+              'The Control Interface is ready to accept gRPC and REST connections',
+            errorMessage: 'The Control Interface is not ready',
           }),
       },
       requires: [],
