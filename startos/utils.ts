@@ -7,6 +7,7 @@ export const randomPassword = {
 }
 
 export const bitcoindHost = 'bitcoind.startos'
+export const lndDataDir = '/root/.lnd'
 
 export const lndConfDefaults = {
   // hard coded
@@ -18,9 +19,6 @@ export const lndConfDefaults = {
   listen: '0.0.0.0:9735',
   rpclisten: '',
   restlisten: '',
-  datadir: '/data',
-  tlscertpath: '/data/tls.cert',
-  tlskeypath: '/data/tls.key',
   'rpcmiddleware.enable': true,
   debuglevel: 'info',
   minchansize: undefined,
@@ -104,7 +102,7 @@ export const lndConfDefaults = {
 export const mainMounts = sdk.Mounts.of().mountVolume({
   volumeId: 'main',
   subpath: null,
-  mountpoint: '/data',
+  mountpoint: lndDataDir,
   readonly: false,
 })
 

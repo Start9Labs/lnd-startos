@@ -1,6 +1,6 @@
 import { sdk } from './sdk'
 import { FileHelper, T } from '@start9labs/start-sdk'
-import { GetInfo, lndConfDefaults, mainMounts, sleep } from './utils'
+import { GetInfo, lndDataDir, mainMounts, sleep } from './utils'
 import { controlPort } from './interfaces'
 import { readFile } from 'fs/promises'
 import { lndConfFile } from './file-models/lnd.conf'
@@ -15,7 +15,7 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
    * In this section, we fetch any resources or run any desired preliminary commands.
    */
   console.log('Starting LND!')
-  
+
   const depResult = await sdk.checkDependencies(effects)
   depResult.throwIfNotSatisfied()
 
@@ -83,7 +83,7 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
       do {
         try {
           const res = await readFile(
-            `${lndSub.rootfs}/data/chain/bitcoin/mainnet/admin.macaroon`,
+            `${lndSub.rootfs}/${lndDataDir}/data/chain/bitcoin/mainnet/admin.macaroon`,
           )
           macHex = res.toString('hex')
           break
@@ -98,7 +98,7 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
         '--header',
         `Grpc-Metadata-macaroon: ${macHex}`,
         '--cacert',
-        lndConfDefaults.tlscertpath,
+        `${lndDataDir}/tls.cert`,
         'https://lnd.startos:8080/v1/getinfo',
       ])
 
@@ -161,7 +161,7 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
   const lndDaemon = await sdk.Daemon.of(
     effects,
     lndSub,
-    ['lnd', `--configfile=/data/lnd.conf`, ...lndArgs],
+    ['lnd', ...lndArgs],
     {},
   )
   await lndDaemon.start()
@@ -175,7 +175,7 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
       '--no-progress-meter',
       'POST',
       '--cacert',
-      lndConfDefaults.tlscertpath,
+      `${lndDataDir}/tls.cert`,
       'https://lnd.startos:8080/v1/unlockwallet',
       '-d',
       JSON.stringify({
@@ -262,8 +262,8 @@ async function initializeLnd(effects: Effects) {
     'initialize-lnd',
     async (subc) => {
       // Write cert and key
-      await fs.writeFile(`${subc.rootfs}/data/tls.cert`, cert)
-      await fs.writeFile(`${subc.rootfs}/data/tls.key`, key)
+      await fs.writeFile(`${subc.rootfs}/${lndDataDir}/tls.cert`, cert)
+      await fs.writeFile(`${subc.rootfs}/${lndDataDir}/tls.key`, key)
 
       const containerIp = await sdk.getContainerIp(effects).once()
 
@@ -272,7 +272,7 @@ async function initializeLnd(effects: Effects) {
         restlisten: `${containerIp}:8080`,
       })
 
-      const child = await subc.spawn(['lnd', `--configfile=/data/lnd.conf`])
+      const child = await subc.spawn(['lnd'])
       let cipherSeed: string[] = []
       let i = 0
       do {
@@ -281,7 +281,7 @@ async function initializeLnd(effects: Effects) {
           '--no-progress-meter',
           'GET',
           '--cacert',
-          `/data/tls.cert`,
+          `${lndDataDir}/tls.cert`,
           '--fail-with-body',
           'https://lnd.startos:8080/v1/genseed',
         ])
@@ -307,7 +307,7 @@ async function initializeLnd(effects: Effects) {
         '-X',
         'POST',
         '--cacert',
-        '/data/tls.cert',
+        `${lndDataDir}/tls.cert`,
         '--fail-with-body',
         'https://lnd.startos:8080/v1/initwallet',
         '-d',
