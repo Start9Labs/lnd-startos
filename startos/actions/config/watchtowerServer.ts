@@ -18,7 +18,7 @@ export const watchtowerServerConfig = sdk.Action.withInput(
     description: 'Enable Watchtower Server in lnd.conf',
     warning: null,
     allowedStatuses: 'any',
-    group: 'watchtower',
+    group: 'Watchtower',
     visibility: 'enabled',
   }),
 
