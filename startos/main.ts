@@ -24,12 +24,20 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
   }
 
   const osIp = await sdk.getOsIp(effects)
+  const containerIp = await sdk.getContainerIp(effects).once()
   const conf = (await lndConfFile.read().once())!
-  if (conf['tor.socks'] !== `${osIp}:9050`) {
-    await lndConfFile.merge(effects, { 'tor.socks': `${osIp}:9050` })
-  }
 
-  // TODO ensure restlisten and rpclisten are using the ContainerIP
+  if (
+    conf['tor.socks'] !== `${osIp}:9050` ||
+    conf.rpclisten !== `${containerIp}:10009` ||
+    conf.restlisten !== `${containerIp}:8080`
+  ) {
+    await lndConfFile.merge(effects, {
+      'tor.socks': `${osIp}:9050`,
+      rpclisten: `${containerIp}:10009`,
+      restlisten: `${containerIp}:8080`,
+    })
+  }
 
   // restart on lnd.conf changes
   await lndConfFile.read().const(effects)
