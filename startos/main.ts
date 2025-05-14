@@ -15,6 +15,9 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
    * In this section, we fetch any resources or run any desired preliminary commands.
    */
   console.log('Starting LND!')
+  
+  const depResult = await sdk.checkDependencies(effects)
+  depResult.throwIfNotSatisfied()
 
   const walletInitialized = (await storeJson.read().once())?.walletInitialized
   if (!walletInitialized) {
@@ -41,9 +44,6 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
 
   // restart on lnd.conf changes
   await lndConfFile.read().const(effects)
-
-  const depResult = await sdk.checkDependencies(effects)
-  depResult.throwIfNotSatisfied()
 
   const lndArgs: string[] = []
 
