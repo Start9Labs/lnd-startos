@@ -50,7 +50,7 @@ export const lndConfDefaults = {
 
   // Bitcoind
   'bitcoind.rpchost': `${bitcoindHost}:8332`,
-  'bitcoind.rpccookie': '/mnt/bitcoin/.cookie', // TODO Test this
+  'bitcoind.rpccookie': '/mnt/bitcoin/.cookie',
   'bitcoind.zmqpubrawblock': `${bitcoindHost}:28332`,
   'bitcoind.zmqpubrawtx': `${bitcoindHost}:28333`,
 
