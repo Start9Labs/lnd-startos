@@ -217,7 +217,7 @@ export const general = sdk.Action.withInput(
     description: 'General settings for your LND node',
     warning: null,
     allowedStatuses: 'any',
-    group: 'conf',
+    group: 'Configuration',
     visibility: 'enabled',
   }),
 

@@ -90,7 +90,7 @@ export const bitcoinConfig = sdk.Action.withInput(
       'Configuration options for lightning network channel management operating over the Bitcoin network',
     warning: null,
     allowedStatuses: 'any',
-    group: 'conf',
+    group: 'Configuration',
     visibility: 'enabled',
   }),
 

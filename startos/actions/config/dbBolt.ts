@@ -57,7 +57,7 @@ export const dbBoltConfig = sdk.Action.withInput(
     description: 'Edit the DB Bolt settings in lnd.conf',
     warning: null,
     allowedStatuses: 'any',
-    group: 'conf',
+    group: 'Configuration',
     visibility: 'enabled',
   }),
 

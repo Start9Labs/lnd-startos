@@ -112,7 +112,7 @@ export const autopilotConfig = sdk.Action.withInput(
     description: 'Edit the Autopilot settings in lnd.conf',
     warning: null,
     allowedStatuses: 'any',
-    group: 'conf',
+    group: 'Configuration',
     visibility: 'enabled',
   }),
 

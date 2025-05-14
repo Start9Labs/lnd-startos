@@ -26,7 +26,7 @@ export const backendConfig = sdk.Action.withInput(
     description: 'Confirm the Bitcoin node to be used as the backend for LND',
     warning: null,
     allowedStatuses: 'any',
-    group: 'conf',
+    group: 'Configuration',
     visibility: (await storeJson.read().const(effects))?.bitcoindSelected
       ? 'hidden'
       : 'enabled',
