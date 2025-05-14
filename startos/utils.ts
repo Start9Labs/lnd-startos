@@ -16,8 +16,11 @@ export const lndConfDefaults = {
   externalhosts: [] as string[],
   'payments-expiration-grace-period': '30s',
   listen: '0.0.0.0:9735',
-  rpclisten: 'lnd.startos:10009', // TODO test
-  restlisten: 'lnd.startos:8080', // TODO test
+  rpclisten: '',
+  restlisten: '',
+  datadir: '/data',
+  tlscertpath: '/data/tls.cert',
+  tlskeypath: '/data/tls.key',
   'rpcmiddleware.enable': true,
   debuglevel: 'info',
   minchansize: undefined,
@@ -152,4 +155,8 @@ export function getExteralAddresses() {
       default: urls.find((u) => u.endsWith('.onion')) || '',
     }
   })
+}
+
+export function sleep(ms: any) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }

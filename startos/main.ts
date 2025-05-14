@@ -1,8 +1,8 @@
 import { sdk } from './sdk'
-import { T } from '@start9labs/start-sdk'
-import { GetInfo, mainMounts } from './utils'
+import { FileHelper, T } from '@start9labs/start-sdk'
+import { GetInfo, lndConfDefaults, mainMounts, sleep } from './utils'
 import { controlPort } from './interfaces'
-import { readFile } from 'fs'
+import { readFile } from 'fs/promises'
 import { lndConfFile } from './file-models/lnd.conf'
 import { storeJson } from './file-models/store.json'
 
@@ -15,10 +15,15 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
   console.info('Starting LND!')
 
   const osIp = await sdk.getOsIp(effects)
-  const conf = (await lndConfFile.read().const(effects))!
+  const conf = (await lndConfFile.read().once())!
   if (conf['tor.socks'] !== `${osIp}:9050`) {
     await lndConfFile.merge(effects, { 'tor.socks': `${osIp}:9050` })
   }
+
+  // TODO ensure restlisten and rpclisten are using the ContainerIP
+
+  // restart on lnd.conf changes
+  await lndConfFile.read().const(effects)
 
   const depResult = await sdk.checkDependencies(effects)
   depResult.throwIfNotSatisfied()
@@ -38,32 +43,53 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
   const lndSub = await sdk.SubContainer.of(
     effects,
     { imageId: 'lnd' },
-    mainMounts,
+    mainMounts.mountDependency({
+      dependencyId: 'bitcoind',
+      mountpoint: '/mnt/bitcoin',
+      readonly: true,
+      subpath: null,
+      volumeId: 'main',
+    }),
     'lnd-sub',
   )
 
-  let macHex: string
-  readFile('/data/bitcoin/mainnet/admin.macaroon', (err, data) => {
-    if (err) throw err
-
-    macHex = data.toString('hex')
-  })
+  // Restart if Bitcoin .cookie changes
+  await FileHelper.string(`${lndSub.rootfs}/mnt/bitcoin/.cookie`)
+    .read()
+    .const(effects)
 
   const syncCheck = sdk.HealthCheck.of(effects, {
     id: 'sync-progress',
     name: 'Blockchain and Graph Sync Progress',
     fn: async () => {
+      let macHex: string = ''
+      do {
+        try {
+          const res = await readFile(
+            `${lndSub.rootfs}/data/chain/bitcoin/mainnet/admin.macaroon`,
+          )
+          macHex = res.toString('hex')
+          break
+        } catch (err) {
+          console.log('Waiting for Admin Macaroon to be created...')
+          await sleep(10_000)
+        }
+      } while (true)
       const res = await lndSub.exec([
         'curl',
         '--no-progress-meter',
         '--header',
         `Grpc-Metadata-macaroon: ${macHex}`,
         '--cacert',
-        '/data/.lnd/tls.cert',
+        lndConfDefaults.tlscertpath,
         'https://lnd.startos:8080/v1/getinfo',
       ])
 
-      if (res.stdout !== '' && typeof res.stdout === 'string') {
+      if (
+        res.exitCode === 0 &&
+        res.stdout !== '' &&
+        typeof res.stdout === 'string'
+      ) {
         const info: GetInfo = JSON.parse(res.stdout)
 
         if (info.synced_to_chain && info.synced_to_graph) {
@@ -115,12 +141,50 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
    * Each daemon defines its own health check, which can optionally be exposed to the user.
    */
 
-  const watchtowers = (await storeJson.read().const(effects))?.watchtowers
-  const lndDaemon = await sdk.Daemon.of(effects, lndSub, ['lnd'], {})
+  const lndDaemon = await sdk.Daemon.of(
+    effects,
+    lndSub,
+    ['lnd', `--configfile=/data/lnd.conf`, ...lndArgs],
+    {},
+  )
   await lndDaemon.start()
+  // Unlock wallet
+  const { walletPassword, recoveryWindow } = (await storeJson
+    .read()
+    .const(effects))!
+  do {
+    const res = await lndSub.exec([
+      'curl',
+      '--no-progress-meter',
+      'POST',
+      '--cacert',
+      lndConfDefaults.tlscertpath,
+      'https://lnd.startos:8080/v1/unlockwallet',
+      '-d',
+      JSON.stringify({
+        wallet_password: walletPassword,
+        recovery_window: recoveryWindow,
+      }),
+    ])
+
+    if (
+      res.exitCode === 0 &&
+      typeof res.stdout === 'string' &&
+      res.stdout !== ''
+    ) {
+      console.log('Wallet Unlocked')
+      break
+    } else {
+      console.log('Unlocking Wallet...')
+      await sleep(10_000)
+    }
+  } while (true)
+
+  // Setup watchtowers at runtime because for some reason they can't be setup in lnd.conf
+  const watchtowers = (await storeJson.read().const(effects))?.watchtowers
   for (const tower of watchtowers || []) {
     console.log(`Watchtower client adding ${tower}`)
-    let res = await lndSub.execFail([
+    let res = await lndSub.exec([
       'lncli',
       '--rpcserver=lnd.startos',
       'wtclient',
@@ -128,7 +192,11 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
       tower,
     ])
 
-    if (res.stdout !== '' && typeof res.stdout === 'string') {
+    if (
+      res.exitCode === 0 &&
+      res.stdout !== '' &&
+      typeof res.stdout === 'string'
+    ) {
       console.log(`Result adding tower ${tower}: ${res.stdout}`)
     } else {
       console.log(`Error adding tower ${tower}: ${res.stderr}`)
@@ -138,8 +206,7 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
   return sdk.Daemons.of(effects, started, additionalChecks).addDaemon(
     'primary',
     {
-      subcontainer: lndSub,
-      command: ['lnd', ...lndArgs],
+      daemon: lndDaemon,
       ready: {
         display: 'Control Interface',
         fn: () =>

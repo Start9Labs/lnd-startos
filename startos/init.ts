@@ -4,7 +4,7 @@ import { peerInterfaceId, setInterfaces } from './interfaces'
 import { versions } from './versions'
 import { actions } from './actions'
 import { lndConfFile } from './file-models/lnd.conf'
-import { lndConfDefaults, mainMounts, randomPassword } from './utils'
+import { lndConfDefaults, mainMounts, randomPassword, sleep } from './utils'
 import { backendConfig } from './actions/config/backend'
 import { SIGTERM } from '@start9labs/start-sdk/base/lib/types'
 import * as fs from 'node:fs/promises'
@@ -25,46 +25,49 @@ const preInstall = sdk.setupPreInstall(async ({ effects }) => {
 })
 
 const postInstall = sdk.setupPostInstall(async ({ effects }) => {
-  const cert = await sdk.getSslCerificate(effects, ['lnd.startos']).once()
-  cert.join('\n')
+  // Only get leaf cert
+  const cert = (await sdk.getSslCerificate(effects, ['lnd.startos']).once())
+    .join('\n')
+    .split('-----END CERTIFICATE-----')
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0)
+    .map((part) => `${part}\n-----END CERTIFICATE-----`)[0]
   const key = await sdk.getSslKey(effects, { hostnames: ['lnd.startos'] })
-  const formattedKey = key.replace(
-    '/(?:BEGIN|END) PRIVATE KEY/g',
-    '$1 EC PRIVATE KEY',
-  )
-  console.log('FMA Cert: ', cert)
-  console.log('FMA key: ', formattedKey)
   await sdk.SubContainer.withTemp(
     effects,
     {
       imageId: 'lnd',
     },
-    mainMounts,
+    mainMounts.mountDependency({
+      dependencyId: 'bitcoind',
+      mountpoint: '/mnt/bitcoin',
+      readonly: true,
+      subpath: null,
+      volumeId: 'main',
+    }),
     'initialize-lnd',
     async (subc) => {
       // Write cert and key
-      // await fs.mkdir(`${subc.rootfs}/data/.lnd`, { recursive: true })
-      console.log('FMA rootfs: ', subc.rootfs)
-      try {
-        await fs.writeFile(`/data/tls.cert`, cert)
-        console.log('FMA Succeeded to write File')
-      } catch (err) {
-        console.log('FMA Failed to write File: ', err)
-      }
-      await fs.writeFile(`${subc.rootfs}/tls.key`, formattedKey)
-      console.log('FMA ls:')
-      await subc.exec(['ls', '-a', subc.rootfs])
+      await fs.writeFile(`${subc.rootfs}/data/tls.cert`, cert)
+      await fs.writeFile(`${subc.rootfs}/data/tls.key`, key)
 
-      const child = await subc.spawn(['lnd', '--conf='])
+      const containerIp = await sdk.getContainerIp(effects).once()
+
+      await lndConfFile.merge(effects, {
+        rpclisten: `${containerIp}:10009`,
+        restlisten: `${containerIp}:8080`,
+      })
+
+      const child = await subc.spawn(['lnd', `--configfile=/data/lnd.conf`])
       let cipherSeed: string[] = []
+      let i = 0
       do {
         const res = await subc.exec([
           'curl',
           '--no-progress-meter',
-          '-X',
           'GET',
           '--cacert',
-          '/tls.cert',
+          `/data/tls.cert`,
           '--fail-with-body',
           'https://lnd.startos:8080/v1/genseed',
         ])
@@ -73,16 +76,14 @@ const postInstall = sdk.setupPostInstall(async ({ effects }) => {
           res.stdout !== '' &&
           typeof res.stdout === 'string'
         ) {
-          cipherSeed = res.stdout.trim().split(/\s+/)
+          cipherSeed = JSON.parse(res.stdout)['cipher_seed_mnemonic']
           break
         } else {
           console.log('Waiting for RPC to start...')
+          i++
           await sleep(5_000)
-          break
         }
-      } while (true)
-
-      console.log('FMA CipherSeed: ', cipherSeed)
+      } while (i <= 10)
 
       const walletPassword = (await storeJson.read().once())?.walletPassword
 
@@ -92,7 +93,7 @@ const postInstall = sdk.setupPostInstall(async ({ effects }) => {
         '-X',
         'POST',
         '--cacert',
-        '/tls.cert',
+        '/data/tls.cert',
         '--fail-with-body',
         'https://lnd.startos:8080/v1/initwallet',
         '-d',
@@ -102,14 +103,12 @@ const postInstall = sdk.setupPostInstall(async ({ effects }) => {
         })}`,
       ])
 
-      console.log('FMA Wallet Password: ', walletPassword)
-
       if (status.stderr !== '' && typeof status.stderr === 'string') {
         console.log(`Error running initwallet: ${status.stderr}`)
       }
 
       await storeJson.merge(effects, { aezeedCipherSeed: cipherSeed })
-      
+
       child.kill(SIGTERM)
       await new Promise<void>((resolve, reject) => {
         child.on('exit', () => resolve())
@@ -147,7 +146,3 @@ export const { packageInit, packageUninit, containerInit } = sdk.setupInit(
   setDependencies,
   actions,
 )
-
-function sleep(ms: any) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}

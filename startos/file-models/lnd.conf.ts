@@ -20,6 +20,7 @@ const {
   listen,
   rpclisten,
   restlisten,
+  datadir,
   'rpcmiddleware.enable': rpcmiddlewareEnable,
   debuglevel,
   minchansize,
@@ -97,8 +98,12 @@ export const shape = object({
     literal(bitcoindZmqpubrawtx).onMismatch(bitcoindZmqpubrawtx),
   // TODO eventually expose other net options primarily testnet4
   'bitcoin.mainnet': literal(bitcoinMainnet).onMismatch(bitcoinMainnet),
-  rpclisten: literal(rpclisten).onMismatch(rpclisten),
-  restlisten: literal(restlisten).onMismatch(restlisten),
+  rpclisten: matches.string,
+  restlisten: matches.string,
+  datadir: literal(datadir).onMismatch(datadir),
+  // TODO with the datadir specified are tlscertpath and tlskeypath necessary?
+  tlscertpath: literal('/data/tls.cert').onMismatch('/data/tls.cert'),
+  tlskeypath: literal('/data/tls.key').onMismatch('/data/tls.key'),
   'healthcheck.chainbackend.attempts': literal(
     healthcheckChainbackendAttempts,
   ).onMismatch(healthcheckChainbackendAttempts),
