@@ -2,7 +2,7 @@ import { sdk } from './sdk'
 import { FileHelper, T } from '@start9labs/start-sdk'
 import { GetInfo, lndDataDir, mainMounts, sleep } from './utils'
 import { controlPort } from './interfaces'
-import { readFile } from 'fs/promises'
+import { readFile, access } from 'fs/promises'
 import { lndConfFile } from './file-models/lnd.conf'
 import { storeJson } from './file-models/store.json'
 import { Effects, SIGTERM } from '@start9labs/start-sdk/base/lib/types'
@@ -19,7 +19,15 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
   const depResult = await sdk.checkDependencies(effects)
   depResult.throwIfNotSatisfied()
 
-  const walletInitialized = (await storeJson.read().once())?.walletInitialized
+  const {
+    recoveryWindow,
+    resetWalletTransactions,
+    restore,
+    walletInitialized,
+    walletPassword,
+    watchtowers,
+  } = (await storeJson.read().once())!
+
   if (!walletInitialized) {
     console.log('Fresh install detected. Initializing LND wallet')
     await initializeLnd(effects)
@@ -46,9 +54,6 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
   await lndConfFile.read().const(effects)
 
   const lndArgs: string[] = []
-
-  const resetWalletTransactions = (await storeJson.read().const(effects))
-    ?.resetWalletTransactions
 
   if (resetWalletTransactions) lndArgs.push('--reset-wallet-transactions')
 
@@ -165,10 +170,8 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
     {},
   )
   await lndDaemon.start()
+
   // Unlock wallet
-  const { walletPassword, recoveryWindow } = (await storeJson
-    .read()
-    .const(effects))!
   do {
     const res = await lndSub.exec([
       'curl',
@@ -197,8 +200,43 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
     }
   } while (true)
 
+  // Restore
+  if (restore) {
+    try {
+      await access(`${lndDataDir}data/chain/bitcoin/mainnet/channel.backup`)
+      do {
+        const res = await lndSub.exec([
+          'lncli',
+          '--rpcserver=lnd.startos',
+          'restorechanbackup',
+          '--multi_file',
+          '/root/.lnd/data/chain/bitcoin/mainnet/channel.backup',
+        ])
+
+        if (res.exitCode === 0) {
+          console.log('SCB recovery initiated')
+          await storeJson.merge(effects, { restore: false })
+          break
+        } else if (
+          res.stderr.includes('server is still in the process of starting')
+        ) {
+          console.log('Server is starting...')
+          await sleep(10_000)
+        } else {
+          console.log('Error initiating SCB recovery: ', res.stderr)
+          break
+        }
+      } while (true)
+    } catch {
+      console.log('No channel.backup found. Skipping SCB Recovery.')
+      await storeJson.merge(effects, { restore: false })
+    }
+  }
+
+  // Restart on storeJson changes
+  await storeJson.read().const(effects)
+
   // Setup watchtowers at runtime because for some reason they can't be setup in lnd.conf
-  const watchtowers = (await storeJson.read().const(effects))?.watchtowers
   for (const tower of watchtowers || []) {
     console.log(`Watchtower client adding ${tower}`)
     let res = await lndSub.exec([

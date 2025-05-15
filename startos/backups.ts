@@ -6,11 +6,11 @@ export const { createBackup, restoreBackup } = sdk.setupBackups(
   async ({ effects }) =>
     sdk.Backups.volumes('main')
       .setBackupOptions({
-        exclude: [`${lndDataDir}/graph/mainnet/*`],
+        exclude: [`${lndDataDir}/graph/*`],
       })
       .setPreRestore(async (effects) => {
         await storeJson.merge(effects, { restore: false })
       }),
 )
 
-// TODO Confirm backup exclusion and setting of restore flag
+// TODO Test backup exclusion and restore
