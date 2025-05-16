@@ -107,6 +107,8 @@ export const mainMounts = sdk.Mounts.of().mountVolume({
 })
 
 export type GetInfo = {
+  identity_pubkey: string,
+  alias: string,
   synced_to_chain: boolean
   synced_to_graph: boolean
 }

@@ -9,6 +9,7 @@ import { protocolConfig } from './config/protocol'
 import { sweeperConfig } from './config/sweeper'
 import { wtClientConfig } from './config/watchtowerClient'
 import { watchtowerServerConfig } from './config/watchtowerServer'
+import { nodeInfo } from './nodeInfo'
 import { resetWalletTransactions } from './resetTxns'
 import { towerInfo } from './towerInfo'
 
@@ -25,3 +26,4 @@ export const actions = sdk.Actions.of()
   .addAction(resetWalletTransactions)
   .addAction(towerInfo)
   .addAction(aezeedCipherSeed)
+  .addAction(nodeInfo)

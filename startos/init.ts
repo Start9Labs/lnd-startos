@@ -24,16 +24,13 @@ const preInstall = sdk.setupPreInstall(async ({ effects }) => {
 })
 
 const postInstall = sdk.setupPostInstall(async ({ effects }) => {
-
   const peerOnionUrl = await sdk.serviceInterface
     .getOwn(effects, peerInterfaceId)
     .once()
 
-  if (peerOnionUrl?.addressInfo?.publicUrls[0]) {
-    await lndConfFile.merge(effects, {
-      externalhosts: [peerOnionUrl?.addressInfo?.publicUrls[0]],
-    })
-  }
+  await lndConfFile.merge(effects, {
+    externalhosts: peerOnionUrl?.addressInfo?.publicUrls || [],
+  })
 
   await sdk.action.requestOwn(effects, backendConfig, 'critical', {
     reason: 'LND needs to know what Bitcoin backend should be used',

@@ -103,7 +103,11 @@ export const shape = object({
   'tor.active': literal(torActive).onMismatch(torActive),
 
   // Application Options
-  externalhosts: arrayOf(string).onMismatch(externalhosts), // Default peer tor address
+  // TODO when exposed on non-tor domains, how do we update
+  externalhosts: stringArray
+    .orParser(string)
+    .optional()
+    .onMismatch(externalhosts), // Default peer tor address
   'payments-expiration-grace-period': string
     .optional()
     .onMismatch(paymentsExpirationGracePeriod),
