@@ -49,8 +49,8 @@ export const lndConfDefaults = {
   // Bitcoind
   'bitcoind.rpchost': `${bitcoindHost}:8332`,
   'bitcoind.rpccookie': '/mnt/bitcoin/.cookie',
-  'bitcoind.zmqpubrawblock': `${bitcoindHost}:28332`,
-  'bitcoind.zmqpubrawtx': `${bitcoindHost}:28333`,
+  'bitcoind.zmqpubrawblock': `tcp://${bitcoindHost}:28332`,
+  'bitcoind.zmqpubrawtx': `tcp://${bitcoindHost}:28333`,
 
   // Autopilot
   'autopilot.active': false,

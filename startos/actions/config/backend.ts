@@ -63,8 +63,8 @@ async function write(effects: any, input: BackendSpec) {
       bitcoinSettings,
       'bitcoind.rpchost': `${bitcoindHost}:8332`,
       'bitcoind.rpccookie': '/mnt/bitcoin/.cookie',
-      'bitcoind.zmqpubrawblock': `${bitcoindHost}:28332`,
-      'bitcoind.zmqpubrawtx': `${bitcoindHost}:28333`,
+      'bitcoind.zmqpubrawblock': lndConfDefaults['bitcoind.zmqpubrawblock'],
+      'bitcoind.zmqpubrawtx': lndConfDefaults['bitcoind.zmqpubrawtx'],
       'fee.url': feeUrl,
     })
   } else {
