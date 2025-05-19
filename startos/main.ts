@@ -238,6 +238,19 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
 
   // Setup watchtowers at runtime because for some reason they can't be setup in lnd.conf
   for (const tower of watchtowers || []) {
+    do {
+      const getInfoRes = await lndSub.exec([
+        'lncli',
+        '--rpcserver=lnd.startos',
+        'getinfo',
+      ])
+      if (getInfoRes.exitCode !== 0) {
+        console.log('Waiting for rpc to start...')
+        await sleep(10_000)
+      } else {
+        break
+      }
+    } while (true)
     console.log(`Watchtower client adding ${tower}`)
     let res = await lndSub.exec([
       'lncli',
