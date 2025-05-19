@@ -56,23 +56,11 @@ async function write(effects: any, input: BackendSpec) {
     'bitcoin.node': input.bitcoind
       ? ('bitcoind' as const)
       : ('neutrino' as const),
-  }
-
-  if (input.bitcoind) {
-    Object.assign({
-      bitcoinSettings,
-      'bitcoind.rpchost': `${bitcoindHost}:8332`,
-      'bitcoind.rpccookie': '/mnt/bitcoin/.cookie',
-      'bitcoind.zmqpubrawblock': lndConfDefaults['bitcoind.zmqpubrawblock'],
-      'bitcoind.zmqpubrawtx': lndConfDefaults['bitcoind.zmqpubrawtx'],
-      'fee.url': feeUrl,
-    })
-  } else {
-    Object.assign({
-      bitcoinSettings,
-      'fee.url':
-        'https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json',
-    })
+      'bitcoind.rpchost': input.bitcoind ? `${bitcoindHost}:8332` : undefined,
+      'bitcoind.rpccookie': input.bitcoind ? '/mnt/bitcoin/.cookie' : undefined,
+      'bitcoind.zmqpubrawblock': input.bitcoind ? lndConfDefaults['bitcoind.zmqpubrawblock'] : undefined,
+      'bitcoind.zmqpubrawtx': input.bitcoind ? lndConfDefaults['bitcoind.zmqpubrawtx'] : undefined,
+      'fee.url': input.bitcoind ? feeUrl : 'https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json',
   }
 
   await storeJson.merge(effects, { bitcoindSelected: input.bitcoind })
