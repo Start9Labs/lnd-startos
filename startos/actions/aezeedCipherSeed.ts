@@ -1,4 +1,4 @@
-import { storeJson } from '../file-models/store.json'
+import { storeJson } from '../fileModels/store.json'
 import { sdk } from '../sdk'
 
 export const aezeedCipherSeed = sdk.Action.withoutInput(
@@ -17,12 +17,14 @@ export const aezeedCipherSeed = sdk.Action.withoutInput(
 
   // the execution function
   async ({ effects }) => {
-    const aezeedCipherSeed = (await storeJson.read().const(effects))?.aezeedCipherSeed
+    const aezeedCipherSeed = (await storeJson.read().const(effects))
+      ?.aezeedCipherSeed
 
     return {
       version: '1',
       title: 'Aezeed Cipher Seed',
-      message: 'Seed for restoring on-chain ONLY funds. This seed has no knowledge of channel state. This is NOT a BIP-39 seed; As such it cannot be used to recover on-chain funds to any wallet other than LND.',
+      message:
+        'Seed for restoring on-chain ONLY funds. This seed has no knowledge of channel state. This is NOT a BIP-39 seed; As such it cannot be used to recover on-chain funds to any wallet other than LND.',
       result: {
         type: 'single',
         value: aezeedCipherSeed

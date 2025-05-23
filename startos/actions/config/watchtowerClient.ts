@@ -1,5 +1,5 @@
-import { lndConfFile } from '../../file-models/lnd.conf'
-import { storeJson } from '../../file-models/store.json'
+import { lndConfFile } from '../../fileModels/lnd.conf'
+import { storeJson } from '../../fileModels/store.json'
 import { sdk } from '../../sdk'
 
 const { InputSpec, Value, Variants, List } = sdk

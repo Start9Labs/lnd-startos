@@ -48,7 +48,7 @@ export const nodeInfo = sdk.Action.withoutInput(
       return {
         version: '1',
         title: 'Node Info',
-        message: 'Information for connecting to your LND node and peers.',
+        message: 'Information about your LND node.',
         result: {
           type: 'group',
           value: [

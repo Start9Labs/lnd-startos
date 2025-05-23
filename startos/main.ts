@@ -1,10 +1,10 @@
 import { sdk } from './sdk'
 import { FileHelper, T } from '@start9labs/start-sdk'
 import { GetInfo, lndDataDir, mainMounts, sleep } from './utils'
-import { controlPort } from './interfaces'
+import { controlInterfaceId, restPort, peerInterfaceId } from './interfaces'
 import { readFile, access } from 'fs/promises'
-import { lndConfFile } from './file-models/lnd.conf'
-import { storeJson } from './file-models/store.json'
+import { lndConfFile } from './fileModels/lnd.conf'
+import { storeJson } from './fileModels/store.json'
 import { Effects, SIGTERM } from '@start9labs/start-sdk/base/lib/types'
 import * as fs from 'node:fs/promises'
 
@@ -38,15 +38,25 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
   const containerIp = await sdk.getContainerIp(effects).once()
   const conf = (await lndConfFile.read().once())!
 
+  const peerAddresses = (
+    await sdk.serviceInterface.getOwn(effects, peerInterfaceId).const()
+  )?.addressInfo?.publicUrls
+
   if (
-    conf['tor.socks'] !== `${osIp}:9050` ||
-    conf.rpclisten !== `${containerIp}:10009` ||
-    conf.restlisten !== `${containerIp}:8080`
+    [conf.externalhosts].flat() !== peerAddresses ||
+    ![conf.rpclisten].flat()?.includes(`${containerIp}:10009`) ||
+    ![conf.restlisten].flat()?.includes(`${containerIp}:8080`) ||
+    conf['tor.socks'] !== `${osIp}:9050`
   ) {
     await lndConfFile.merge(effects, {
+      externalhosts: peerAddresses,
       'tor.socks': `${osIp}:9050`,
-      rpclisten: `${containerIp}:10009`,
-      restlisten: `${containerIp}:8080`,
+      rpclisten: conf.rpclisten
+        ? [...new Set([[conf.rpclisten].flat(), `${containerIp}:10009`].flat())]
+        : `${containerIp}:10009`,
+      restlisten: conf.restlisten
+        ? [...new Set([[conf.restlisten].flat(), `${containerIp}:8080`].flat())]
+        : `${containerIp}:8080`,
     })
   }
 
@@ -278,7 +288,7 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
       ready: {
         display: 'Control Interface',
         fn: () =>
-          sdk.healthCheck.checkPortListening(effects, controlPort, {
+          sdk.healthCheck.checkPortListening(effects, restPort, {
             successMessage:
               'The Control Interface is ready to accept gRPC and REST connections',
             errorMessage: 'The Control Interface is not ready',

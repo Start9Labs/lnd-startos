@@ -1,4 +1,4 @@
-import { lndConfFile } from '../../file-models/lnd.conf'
+import { lndConfFile } from '../../fileModels/lnd.conf'
 import { sdk } from '../../sdk'
 import { getExteralAddresses } from '../../utils'
 

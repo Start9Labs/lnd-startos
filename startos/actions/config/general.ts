@@ -1,6 +1,6 @@
 import { utils } from '@start9labs/start-sdk'
-import { lndConfFile } from '../../file-models/lnd.conf'
-import { storeJson } from '../../file-models/store.json'
+import { lndConfFile } from '../../fileModels/lnd.conf'
+import { storeJson } from '../../fileModels/store.json'
 import { sdk } from '../../sdk'
 import { lndConfDefaults } from '../../utils'
 

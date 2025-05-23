@@ -1,4 +1,4 @@
-import { storeJson } from '../file-models/store.json'
+import { storeJson } from '../fileModels/store.json'
 import { sdk } from '../sdk'
 
 export const resetWalletTransactions = sdk.Action.withoutInput(

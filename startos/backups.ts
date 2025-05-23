@@ -1,8 +1,8 @@
-import { storeJson } from './file-models/store.json'
+import { storeJson } from './fileModels/store.json'
 import { sdk } from './sdk'
 import { lndDataDir } from './utils'
 
-export const { createBackup, restoreBackup } = sdk.setupBackups(
+export const { createBackup, restoreInit } = sdk.setupBackups(
   async ({ effects }) =>
     sdk.Backups.volumes('main')
       .setBackupOptions({

@@ -1,5 +1,5 @@
-import { lndConfFile } from '../../file-models/lnd.conf'
-import { storeJson } from '../../file-models/store.json'
+import { lndConfFile } from '../../fileModels/lnd.conf'
+import { storeJson } from '../../fileModels/store.json'
 import { sdk } from '../../sdk'
 import { bitcoindHost, lndConfDefaults } from '../../utils'
 
@@ -56,11 +56,17 @@ async function write(effects: any, input: BackendSpec) {
     'bitcoin.node': input.bitcoind
       ? ('bitcoind' as const)
       : ('neutrino' as const),
-      'bitcoind.rpchost': input.bitcoind ? `${bitcoindHost}:8332` : undefined,
-      'bitcoind.rpccookie': input.bitcoind ? '/mnt/bitcoin/.cookie' : undefined,
-      'bitcoind.zmqpubrawblock': input.bitcoind ? lndConfDefaults['bitcoind.zmqpubrawblock'] : undefined,
-      'bitcoind.zmqpubrawtx': input.bitcoind ? lndConfDefaults['bitcoind.zmqpubrawtx'] : undefined,
-      'fee.url': input.bitcoind ? feeUrl : 'https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json',
+    'bitcoind.rpchost': input.bitcoind ? `${bitcoindHost}:8332` : undefined,
+    'bitcoind.rpccookie': input.bitcoind ? '/mnt/bitcoin/.cookie' : undefined,
+    'bitcoind.zmqpubrawblock': input.bitcoind
+      ? lndConfDefaults['bitcoind.zmqpubrawblock']
+      : undefined,
+    'bitcoind.zmqpubrawtx': input.bitcoind
+      ? lndConfDefaults['bitcoind.zmqpubrawtx']
+      : undefined,
+    'fee.url': input.bitcoind
+      ? feeUrl
+      : 'https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json',
   }
 
   await storeJson.merge(effects, { bitcoindSelected: input.bitcoind })

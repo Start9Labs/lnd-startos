@@ -95,8 +95,12 @@ export const shape = object({
     literal(bitcoindZmqpubrawtx).onMismatch(bitcoindZmqpubrawtx),
   // TODO eventually expose other net options primarily testnet4
   'bitcoin.mainnet': literal(bitcoinMainnet).onMismatch(bitcoinMainnet),
-  rpclisten: string,
-  restlisten: string,
+  rpclisten: stringArray
+    .orParser(string)
+    .optional(),
+  restlisten: stringArray
+    .orParser(string)
+    .optional(),
   'healthcheck.chainbackend.attempts': literal(
     healthcheckChainbackendAttempts,
   ).onMismatch(healthcheckChainbackendAttempts),
