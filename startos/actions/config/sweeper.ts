@@ -84,8 +84,9 @@ export const sweeperConfig = sdk.Action.withInput(
   async ({ effects }) => ({
     name: 'Sweeper Settings',
     description:
-      "'Sweep' is a LND subservice that handles funds sent from dispute resolution contracts to the internal wallet. These config values help inform the sweeper to make decisions regarding how much it burns in on-chain fees in order to recover possibly contested outputs (HTLCs and Breach outputs). <b>WARNING: These settings can result in loss of funds if poorly congifured. Refer to the LND documentation for more information: https://docs.lightning.engineering/lightning-network-tools/lnd/sweeper</b>",
-    warning: null,
+      "'Sweep' is a LND subservice that handles funds sent from dispute resolution contracts to the internal wallet. These config values help inform the sweeper to make decisions regarding how much it burns in on-chain fees in order to recover possibly contested outputs (HTLCs and Breach outputs).",
+    warning:
+      'These settings can result in loss of funds if poorly congifured. Refer to the LND documentation for more information: https://docs.lightning.engineering/lightning-network-tools/lnd/sweeper',
     allowedStatuses: 'any',
     group: 'Configuration',
     visibility: 'enabled',

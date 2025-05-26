@@ -14,56 +14,55 @@ export const lndConnectId = 'lnd-connect'
 
 export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
   const receipts = []
-  const { mac, cert } = await sdk.SubContainer.withTemp(
-    effects,
-    { imageId: 'lnd' },
-    mainMounts,
-    'get-connection-info',
-    async (subc) => {
-      const mac = await FileHelper.string(
-        `${subc.rootfs}${lndDataDir}/data/chain/bitcoin/mainnet/admin.macaroon`,
-      )
-        .read()
-        .const(effects)
-      const cert = await FileHelper.string(
-        `${subc.rootfs}${lndDataDir}/tls.cert`,
-      )
-        .read()
-        .const(effects)
-      return { mac, cert }
-    },
-  )
 
-  if (mac && cert) {
-    // REST
-    const controlMulti = sdk.MultiHost.of(effects, 'control-multi')
-    const controlMultiOrigin = await controlMulti.bindPort(restPort, {
+  // REST
+  try {
+    const { mac, cert } = await sdk.SubContainer.withTemp(
+      effects,
+      { imageId: 'lnd' },
+      mainMounts,
+      'get-connection-info',
+      async (subc) => {
+        const macPath = `${subc.rootfs}${lndDataDir}/data/chain/bitcoin/mainnet/admin.macaroon`
+        await FileHelper.string(macPath).read().const(effects)
+        const cert = await FileHelper.string(
+          `${subc.rootfs}${lndDataDir}/tls.cert`,
+        )
+          .read()
+          .const(effects)
+        const mac = await readFile(macPath).then((buf) =>
+          Buffer.from(buf).toString('base64url'),
+        )
+        return { mac, cert }
+      },
+    )
+
+    const restMulti = sdk.MultiHost.of(effects, 'rest-multi')
+    const restMultiOrigin = await restMulti.bindPort(restPort, {
       protocol: 'http',
-      addSsl: { alpn: null },
       preferredExternalPort: restPort,
     })
-    console.log('Hex Mac:\n', Buffer.from(mac).toString('hex'))
+    console.log('Hex Mac:\n', Buffer.from(mac).toString('base64url'))
 
     const lndConnect = sdk.createInterface(effects, {
       name: 'REST LND Connect',
       id: lndConnectId,
       description: 'Used for REST connections',
       type: 'api',
-      masked: true,
-      schemeOverride: { ssl: 'lndconnect', noSsl: null },
+      masked: false,
+      schemeOverride: { ssl: 'lndconnect', noSsl: 'lndconnect' },
       username: null,
       path: '',
       query: {
-        macaroon: mac
-          ? Buffer.from(mac).toString('base64url')
-          : 'Error fetching admin.macaroon',
+        macaroon: mac,
       },
     })
-    const controlReceipt = await controlMultiOrigin.export([lndConnect])
-    receipts.push(controlReceipt)
-
-    // TODO expose gRPC?
+    const restReceipt = await restMultiOrigin.export([lndConnect])
+    receipts.push(restReceipt)
+  } catch {
+    console.log('admin.macaroon not found')
   }
+  // TODO expose gRPC?
 
   // peer
   const peerMulti = sdk.MultiHost.of(effects, 'peer-multi')
@@ -111,28 +110,6 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
     })
     receipts.push(await watchtowerMultiOrigin.export([watchtower]))
   }
-
-  // const peerAddresses = (
-  //   await sdk.serviceInterface.getOwn(effects, peerInterfaceId).const()
-  // )?.addressInfo?.publicUrls
-  // const controlAddresses = (
-  //   await sdk.serviceInterface.getOwn(effects, controlInterfaceId).const()
-  // )?.addressInfo?.publicUrls
-
-  // const containerIp = await sdk.getContainerIp(effects).once()
-  // console.log("controlAddresses: ", controlAddresses)
-  // console.log("rpclisten: ", [...(controlAddresses ?? []), `${containerIp}:10009`].flat())
-
-  // await lndConfFile.merge(effects, {
-  //   externalhosts: peerAddresses,
-  //   rpclisten: `${containerIp}:10009`,
-  //   restlisten: `${containerIp}:8080`,
-  // })
-  // await lndConfFile.merge(effects, {
-  //   externalhosts: peerAddresses,
-  //   rpclisten: [...(controlAddresses?.map((e) => `${e}:10009`) ?? []), `${containerIp}:10009`].flat(),
-  //   restlisten: [...(controlAddresses?.map((e) => `${e}:8080`) ?? []), `${containerIp}:8080`].flat(),
-  // })
 
   return receipts
 })
