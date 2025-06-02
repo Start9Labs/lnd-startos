@@ -99,7 +99,7 @@ interfaces:
       - http
 dependencies:
   bitcoind:
-    version: ">=0.21.1.2 <29.0.0"
+    version: ">=0.21.1.2 <30.0.0"
     requirement:
       type: "opt-out"
       how: "Can alternatively use Neutrino"
