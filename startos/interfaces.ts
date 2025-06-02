@@ -3,6 +3,7 @@ import { lndConfFile } from './fileModels/lnd.conf'
 import { lndDataDir, mainMounts } from './utils'
 import { readFile } from 'fs/promises'
 import { FileHelper } from '@start9labs/start-sdk'
+import { access } from 'fs/promises'
 
 export const restPort = 8080
 export const peerPort = 9735
@@ -10,7 +11,7 @@ export const watchtowerPort = 9911
 
 export const peerInterfaceId = 'peer'
 export const controlInterfaceId = 'control'
-export const lndConnectId = 'lnd-connect'
+export const lndconnectRestId = 'lnd-connect-rest'
 
 export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
   const receipts = []
@@ -24,13 +25,18 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
       'get-connection-info',
       async (subc) => {
         const macPath = `${subc.rootfs}${lndDataDir}/data/chain/bitcoin/mainnet/admin.macaroon`
+        const certPath = `${subc.rootfs}${lndDataDir}/tls.cert`
+
+        // await access(macPath)
+        // await access(certPath)
+        // rerun setupInterfaces on admin.macaroon or tls.cert changes
         await FileHelper.string(macPath).read().const(effects)
-        const cert = await FileHelper.string(
-          `${subc.rootfs}${lndDataDir}/tls.cert`,
-        )
-          .read()
-          .const(effects)
+        await FileHelper.string(certPath).read().const(effects)
+
         const mac = await readFile(macPath).then((buf) =>
+          Buffer.from(buf).toString('base64url'),
+        )
+        const cert = await readFile(macPath).then((buf) =>
           Buffer.from(buf).toString('base64url'),
         )
         return { mac, cert }
@@ -39,14 +45,17 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
 
     const restMulti = sdk.MultiHost.of(effects, 'rest-multi')
     const restMultiOrigin = await restMulti.bindPort(restPort, {
-      protocol: 'http',
+      protocol: 'https',
       preferredExternalPort: restPort,
+      addSsl: {
+        alpn: null,
+        preferredExternalPort: restPort,
+      },
     })
-    console.log('Hex Mac:\n', Buffer.from(mac).toString('base64url'))
 
     const lndConnect = sdk.createInterface(effects, {
       name: 'REST LND Connect',
-      id: lndConnectId,
+      id: lndconnectRestId,
       description: 'Used for REST connections',
       type: 'api',
       masked: false,
@@ -60,7 +69,7 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
     const restReceipt = await restMultiOrigin.export([lndConnect])
     receipts.push(restReceipt)
   } catch {
-    console.log('admin.macaroon not found')
+    console.log('waiting for admin.macaroon to be created...')
   }
   // TODO expose gRPC?
 
