@@ -28,6 +28,8 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
     watchtowers,
   } = (await storeJson.read().once())!
 
+  await handleCerts(effects)
+
   if (!walletInitialized) {
     console.log('Fresh install detected. Initializing LND wallet')
     await initializeLnd(effects)
@@ -299,16 +301,15 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
   )
 })
 
+async function handleCerts(effects: Effects) {
+  const hostnames = ['lnd.startos', await sdk.getContainerIp(effects).const()]
+  const cert = (await sdk.getSslCerificate(effects, hostnames).once()).join('')
+  const key = await sdk.getSslKey(effects, { hostnames })
+  await fs.writeFile(`/media/startos/volumes/main/tls.cert`, cert)
+  await fs.writeFile(`/media/startos/volumes/main/tls.key`, key)
+}
+
 async function initializeLnd(effects: Effects) {
-  // Only get leaf cert
-  const cert = (
-    await sdk.getSslCerificate(effects, ['lnd.startos']).once()
-  ).join('')
-  // .split('-----END CERTIFICATE-----')
-  // .map((part) => part.trim())
-  // .filter((part) => part.length > 0)
-  // .map((part) => `${part}\n-----END CERTIFICATE-----`)[0]
-  const key = await sdk.getSslKey(effects, { hostnames: ['lnd.startos'] })
   await sdk.SubContainer.withTemp(
     effects,
     {
@@ -323,10 +324,6 @@ async function initializeLnd(effects: Effects) {
     }),
     'initialize-lnd',
     async (subc) => {
-      // Write cert and key
-      await fs.writeFile(`${subc.rootfs}/${lndDataDir}/tls.cert`, cert)
-      await fs.writeFile(`${subc.rootfs}/${lndDataDir}/tls.key`, key)
-
       await lndConfFile.merge(effects, {
         rpclisten: `0.0.0.0:10009`,
         restlisten: `0.0.0.0:8080`,
