@@ -28,8 +28,6 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
     watchtowers,
   } = (await storeJson.read().once())!
 
-  await handleCerts(effects)
-
   if (!walletInitialized) {
     console.log('Fresh install detected. Initializing LND wallet')
     await initializeLnd(effects)
@@ -300,14 +298,6 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
     },
   )
 })
-
-async function handleCerts(effects: Effects) {
-  const hostnames = ['lnd.startos', await sdk.getContainerIp(effects).const()]
-  const cert = (await sdk.getSslCerificate(effects, hostnames).once()).join('')
-  const key = await sdk.getSslKey(effects, { hostnames })
-  await fs.writeFile(`/media/startos/volumes/main/tls.cert`, cert)
-  await fs.writeFile(`/media/startos/volumes/main/tls.key`, key)
-}
 
 async function initializeLnd(effects: Effects) {
   await sdk.SubContainer.withTemp(
