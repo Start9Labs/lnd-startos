@@ -1,12 +1,14 @@
 import { sdk } from './sdk'
-import { FileHelper, T } from '@start9labs/start-sdk'
+import { Daemons, FileHelper, T } from '@start9labs/start-sdk'
 import { GetInfo, lndDataDir, mainMounts, sleep } from './utils'
 import { restPort, peerInterfaceId } from './interfaces'
 import { readFile, access } from 'fs/promises'
 import { lndConfFile } from './fileModels/lnd.conf'
+import { manifest } from './manifest'
 import { storeJson } from './fileModels/store.json'
 import { Effects, SIGTERM } from '@start9labs/start-sdk/base/lib/types'
 import * as fs from 'node:fs/promises'
+import { Daemon } from '@start9labs/start-sdk/package/lib/mainFn/Daemon'
 
 export const main = sdk.setupMain(async ({ effects, started }) => {
   /**
@@ -173,118 +175,115 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
    * Each daemon defines its own health check, which can optionally be exposed to the user.
    */
 
-  const lndDaemon = await sdk.Daemon.of(
-    effects,
-    lndSub,
-    ['lnd', ...lndArgs],
-    {},
-  )
-  await lndDaemon.start()
+  // const lndDaemon = await sdk.Daemon.of(
+  //   effects,
+  //   lndSub,
+  //   ['lnd', ...lndArgs],
+  //   {},
+  // )
+  // await lndDaemon.start()
 
   // Unlock wallet
-  do {
-    const res = await lndSub.exec([
-      'curl',
-      '--no-progress-meter',
-      'POST',
-      '--cacert',
-      `${lndDataDir}/tls.cert`,
-      'https://lnd.startos:8080/v1/unlockwallet',
-      '-d',
-      JSON.stringify({
-        wallet_password: walletPassword,
-        recovery_window: recoveryWindow,
-      }),
-    ])
+  // do {
+  //   const res = await lndSub.exec([
+  //     'curl',
+  //     '--no-progress-meter',
+  //     'POST',
+  //     '--cacert',
+  //     `${lndDataDir}/tls.cert`,
+  //     'https://lnd.startos:8080/v1/unlockwallet',
+  //     '-d',
+  //     JSON.stringify({
+  //       wallet_password: walletPassword,
+  //       recovery_window: recoveryWindow,
+  //     }),
+  //   ])
 
-    if (
-      res.exitCode === 0 &&
-      typeof res.stdout === 'string' &&
-      res.stdout !== ''
-    ) {
-      console.log('Wallet Unlocked')
-      break
-    } else {
-      console.log('Unlocking Wallet...')
-      await sleep(10_000)
-    }
-  } while (true)
+  //   if (
+  //     res.exitCode === 0 &&
+  //     typeof res.stdout === 'string' &&
+  //     res.stdout !== ''
+  //   ) {
+  //     console.log('Wallet Unlocked')
+  //     break
+  //   } else {
+  //     console.log('Unlocking Wallet...')
+  //     await sleep(10_000)
+  //   }
+  // } while (true)
 
   // Restore
-  if (restore) {
-    try {
-      await access(`${lndDataDir}data/chain/bitcoin/mainnet/channel.backup`)
-      do {
-        const res = await lndSub.exec([
-          'lncli',
-          '--rpcserver=lnd.startos',
-          'restorechanbackup',
-          '--multi_file',
-          '/root/.lnd/data/chain/bitcoin/mainnet/channel.backup',
-        ])
+  // if (restore) {
+  //   try {
+  //     access(`${lndDataDir}data/chain/bitcoin/mainnet/channel.backup`)
+  //     do {
+  //       const res = await lndSub.exec([
+  //         'lncli',
+  //         '--rpcserver=lnd.startos',
+  //         'restorechanbackup',
+  //         '--multi_file',
+  //         '/root/.lnd/data/chain/bitcoin/mainnet/channel.backup',
+  //       ])
 
-        if (res.exitCode === 0) {
-          console.log('SCB recovery initiated')
-          await storeJson.merge(effects, { restore: false })
-          break
-        } else if (
-          res.stderr.includes('server is still in the process of starting')
-        ) {
-          console.log('Server is starting...')
-          await sleep(10_000)
-        } else {
-          console.log('Error initiating SCB recovery: ', res.stderr)
-          break
-        }
-      } while (true)
-    } catch {
-      console.log('No channel.backup found. Skipping SCB Recovery.')
-      await storeJson.merge(effects, { restore: false })
-    }
-  }
+  //       if (res.exitCode === 0) {
+  //         console.log('SCB recovery initiated')
+  //         await storeJson.merge(effects, { restore: false })
+  //         break
+  //       } else if (
+  //         res.stderr.includes('server is still in the process of starting')
+  //       ) {
+  //         console.log('Server is starting...')
+  //         await sleep(10_000)
+  //       } else {
+  //         console.log('Error initiating SCB recovery: ', res.stderr)
+  //         break
+  //       }
+  //     } while (true)
+  //   } catch {
+  //     console.log('No channel.backup found. Skipping SCB Recovery.')
+  //     await storeJson.merge(effects, { restore: false })
+  //   }
+  // }
 
-  // Restart on storeJson changes
-  await storeJson.read().const(effects)
+  // // Setup watchtowers at runtime because for some reason they can't be setup in lnd.conf
+  // for (const tower of watchtowers || []) {
+  //   do {
+  //     const getInfoRes = await lndSub.exec([
+  //       'lncli',
+  //       '--rpcserver=lnd.startos',
+  //       'getinfo',
+  //     ])
+  //     if (getInfoRes.exitCode !== 0) {
+  //       console.log('Waiting for rpc to start...')
+  //       await sleep(10_000)
+  //     } else {
+  //       break
+  //     }
+  //   } while (true)
+  //   console.log(`Watchtower client adding ${tower}`)
+  //   let res = await lndSub.exec([
+  //     'lncli',
+  //     '--rpcserver=lnd.startos',
+  //     'wtclient',
+  //     'add',
+  //     tower,
+  //   ])
 
-  // Setup watchtowers at runtime because for some reason they can't be setup in lnd.conf
-  for (const tower of watchtowers || []) {
-    do {
-      const getInfoRes = await lndSub.exec([
-        'lncli',
-        '--rpcserver=lnd.startos',
-        'getinfo',
-      ])
-      if (getInfoRes.exitCode !== 0) {
-        console.log('Waiting for rpc to start...')
-        await sleep(10_000)
-      } else {
-        break
-      }
-    } while (true)
-    console.log(`Watchtower client adding ${tower}`)
-    let res = await lndSub.exec([
-      'lncli',
-      '--rpcserver=lnd.startos',
-      'wtclient',
-      'add',
-      tower,
-    ])
+  //   if (
+  //     res.exitCode === 0 &&
+  //     res.stdout !== '' &&
+  //     typeof res.stdout === 'string'
+  //   ) {
+  //     console.log(`Result adding tower ${tower}: ${res.stdout}`)
+  //   } else {
+  //     console.log(`Error adding tower ${tower}: ${res.stderr}`)
+  //   }
+  // }
 
-    if (
-      res.exitCode === 0 &&
-      res.stdout !== '' &&
-      typeof res.stdout === 'string'
-    ) {
-      console.log(`Result adding tower ${tower}: ${res.stdout}`)
-    } else {
-      console.log(`Error adding tower ${tower}: ${res.stderr}`)
-    }
-  }
-
-  return sdk.Daemons.of(effects, started, additionalChecks).addDaemon(
-    'primary',
-    {
-      daemon: lndDaemon,
+  const baseDaemons = sdk.Daemons.of(effects, started, additionalChecks)
+    .addDaemon('primary', {
+      command: ['lnd', ...lndArgs],
+      subcontainer: lndSub,
       ready: {
         display: 'Control Interface',
         fn: () =>
@@ -295,8 +294,88 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
           }),
       },
       requires: [],
+    })
+    .addOneshot('unlock-wallet', {
+      command: [
+        'curl',
+        '--no-progress-meter',
+        'POST',
+        '--cacert',
+        `${lndDataDir}/tls.cert`,
+        'https://lnd.startos:8080/v1/unlockwallet',
+        '-d',
+        JSON.stringify({
+          wallet_password: walletPassword,
+          recovery_window: recoveryWindow,
+        }),
+      ],
+      subcontainer: lndSub,
+      requires: ['primary'],
+    })
+
+  let daemons: Daemons<
+    typeof manifest,
+    'primary' | 'unlock-wallet' | 'restore'
+  > = baseDaemons
+  if (restore) {
+    daemons = baseDaemons.addOneshot('restore', {
+      subcontainer: lndSub,
+      command: async (subcontainer) => {
+        try {
+          access(
+            `${subcontainer.rootfs}/${lndDataDir}/data/chain/bitcoin/mainnet/channel.backup`,
+          )
+        } catch (e) {
+          console.log('No channel.backup found. Skipping SCB Recovery.')
+          await storeJson.merge(effects, { restore: false })
+          return ['true']
+        }
+        // Restart on storeJson changes
+        await storeJson.read().const(effects)
+        return [
+          'lncli',
+          '--rpcserver=lnd.startos',
+          'restorechanbackup',
+          '--multi_file',
+          '/root/.lnd/data/chain/bitcoin/mainnet/channel.backup',
+        ]
+      },
+      requires: ['primary', 'unlock-wallet'],
+    })
+  } else {
+    // Restart on storeJson changes
+    await storeJson.read().const(effects)
+    return daemons
+  }
+
+  return daemons.addOneshot('add-watchtowers', {
+    command: async (subcontainer) => {
+      // Setup watchtowers at runtime because for some reason they can't be setup in lnd.conf
+      for (const tower of watchtowers || []) {
+        console.log(`Watchtower client adding ${tower}`)
+        let res = await subcontainer.exec([
+          'lncli',
+          '--rpcserver=lnd.startos',
+          'wtclient',
+          'add',
+          tower,
+        ])
+
+        if (
+          res.exitCode === 0 &&
+          res.stdout !== '' &&
+          typeof res.stdout === 'string'
+        ) {
+          console.log(`Result adding tower ${tower}: ${res.stdout}`)
+        } else {
+          console.log(`Error adding tower ${tower}: ${res.stderr}`)
+        }
+      }
+      return ['true']
     },
-  )
+    requires: ['primary', 'unlock-wallet'],
+    subcontainer: lndSub,
+  })
 })
 
 async function initializeLnd(effects: Effects) {
