@@ -7,8 +7,6 @@ import { lndConfFile } from './fileModels/lnd.conf'
 import { manifest } from './manifest'
 import { storeJson } from './fileModels/store.json'
 import { Effects, SIGTERM } from '@start9labs/start-sdk/base/lib/types'
-import * as fs from 'node:fs/promises'
-import { Daemon } from '@start9labs/start-sdk/package/lib/mainFn/Daemon'
 
 export const main = sdk.setupMain(async ({ effects, started }) => {
   /**
@@ -37,7 +35,6 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
   }
 
   const osIp = await sdk.getOsIp(effects)
-  const containerIp = await sdk.getContainerIp(effects).once()
   const conf = (await lndConfFile.read().once())!
 
   const peerAddresses = (

@@ -3,7 +3,6 @@ import { lndConfFile } from './fileModels/lnd.conf'
 import { lndDataDir, mainMounts } from './utils'
 import { readFile } from 'fs/promises'
 import { FileHelper } from '@start9labs/start-sdk'
-import { access } from 'fs/promises'
 
 export const restPort = 8080
 export const peerPort = 9735

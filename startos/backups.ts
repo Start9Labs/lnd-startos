@@ -13,4 +13,4 @@ export const { createBackup, restoreInit } = sdk.setupBackups(
       }),
 )
 
-// TODO Test backup exclusion and restore
+// @TODO Test backup exclusion and restore

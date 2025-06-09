@@ -9,4 +9,4 @@ export const v0_18_5_beta_1 = VersionInfo.of({
   },
 })
 
-// TODO case for non-typeable wallet password and convert to a base32 encoded password for jsonStore
+// @TODO case for non-typeable wallet password and convert to a base32 encoded password for jsonStore
