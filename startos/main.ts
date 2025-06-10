@@ -233,7 +233,7 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
               '--rpcserver=lnd.startos',
               'restorechanbackup',
               '--multi_file',
-              '/root/.lnd/data/chain/bitcoin/mainnet/channel.backup',
+              `${lndDataDir}/data/chain/bitcoin/mainnet/channel.backup,`
             ],
           }
         },
@@ -349,7 +349,7 @@ async function initializeLnd(effects: Effects) {
       await storeJson.merge(effects, { aezeedCipherSeed: cipherSeed })
 
       child.kill(SIGTERM)
-      await new Promise<void>((resolve, reject) => {
+      await new Promise<void>((resolve) => {
         child.on('exit', () => resolve())
         setTimeout(resolve, 60_000)
       })
