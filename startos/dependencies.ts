@@ -1,6 +1,6 @@
 import { lndConfFile } from './fileModels/lnd.conf'
 import { sdk } from './sdk'
-import { config } from 'bitcoind-startos/startos/actions/config/config'
+import { config } from 'bitcoind-startos/startos/actions/config/other'
 
 export const setDependencies = sdk.setupDependencies(async ({ effects }) => {
   const { 'bitcoin.node': bitcoinNode } = (await lndConfFile
