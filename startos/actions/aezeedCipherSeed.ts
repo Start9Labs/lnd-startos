@@ -31,8 +31,6 @@ export const aezeedCipherSeed = sdk.Action.withoutInput(
           ? aezeedCipherSeed.map((word, i) => `${i + 1}: ${word}`).join(' ')
           : 'No Cipher Seed found. The Aezeed Cipher Seed is not available on StartOS for some nodes initialized on earlier versions of LND. It is not possible to retreive the Seed from wallets created on these earlier versions.\nIf you would like to have a Cipher Seed backup, you will need to close your existing channels and move any on-chain funds to an intermediate wallet before creating a new LND wallet',
         copyable: true,
-        // @TODO why does this still show a QR code?
-        // Also, can we wrap the value (CipherSeed)?
         qr: false,
         masked: !!aezeedCipherSeed,
       },
