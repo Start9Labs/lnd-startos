@@ -70,7 +70,7 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
   } catch {
     console.log('waiting for admin.macaroon to be created...')
   }
-  // TODO expose gRPC?
+  // @TODO expose gRPC?
 
   // peer
   const peerMulti = sdk.MultiHost.of(effects, 'peer-multi')
