@@ -195,6 +195,7 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
         command: [
           'curl',
           '--no-progress-meter',
+          '-X',
           'POST',
           '--cacert',
           `${lndDataDir}/tls.cert`,
