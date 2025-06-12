@@ -1,6 +1,12 @@
 import { sdk } from './sdk'
 import { Daemons, FileHelper, T } from '@start9labs/start-sdk'
-import { GetInfo, lndDataDir, mainMounts, sleep } from './utils'
+import {
+  GetInfo,
+  lndConfDefaults,
+  lndDataDir,
+  mainMounts,
+  sleep,
+} from './utils'
 import { restPort, peerInterfaceId } from './interfaces'
 import { readFile, access } from 'fs/promises'
 import { lndConfFile } from './fileModels/lnd.conf'
@@ -41,19 +47,27 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
 
   if (
     [conf.externalhosts].flat() !== peerAddresses ||
-    ![conf.rpclisten].flat()?.includes(`0.0.0.0:10009`) ||
-    ![conf.restlisten].flat()?.includes(`0.0.0.0:8080`) ||
+    ![conf.rpclisten].flat()?.includes(lndConfDefaults.rpclisten) ||
+    ![conf.restlisten].flat()?.includes(lndConfDefaults.restlisten) ||
     conf['tor.socks'] !== `${osIp}:9050`
   ) {
     await lndConfFile.merge(effects, {
       externalhosts: peerAddresses,
       'tor.socks': `${osIp}:9050`,
       rpclisten: conf.rpclisten
-        ? [...new Set([[conf.rpclisten].flat(), `0.0.0.0:10009`].flat())]
-        : `0.0.0.0:10009`,
+        ? [
+            ...new Set(
+              [[conf.rpclisten].flat(), lndConfDefaults.rpclisten].flat(),
+            ),
+          ]
+        : lndConfDefaults.rpclisten,
       restlisten: conf.restlisten
-        ? [...new Set([[conf.restlisten].flat(), `0.0.0.0:8080`].flat())]
-        : `0.0.0.0:8080`,
+        ? [
+            ...new Set(
+              [[conf.restlisten].flat(), lndConfDefaults.restlisten].flat(),
+            ),
+          ]
+        : lndConfDefaults.restlisten,
     })
   }
 
@@ -188,12 +202,12 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
           '-d',
           restore
             ? JSON.stringify({
-            wallet_password: walletPassword,
-            recovery_window: recoveryWindow,
+                wallet_password: walletPassword,
+                recovery_window: recoveryWindow,
               })
             : JSON.stringify({
                 wallet_password: walletPassword,
-          }),
+              }),
         ],
       },
       subcontainer: lndSub,
@@ -252,7 +266,7 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
               undefined,
               abort,
             )
-  
+
             if (
               res.exitCode === 0 &&
               res.stdout !== '' &&
@@ -289,12 +303,8 @@ async function initializeLnd(effects: Effects) {
     }),
     'initialize-lnd',
     async (subc) => {
-      await lndConfFile.merge(effects, {
-        rpclisten: `0.0.0.0:10009`,
-        restlisten: `0.0.0.0:8080`,
-      })
-
       const child = await subc.spawn(['lnd'])
+
       let cipherSeed: string[] = []
       let i = 0
       do {

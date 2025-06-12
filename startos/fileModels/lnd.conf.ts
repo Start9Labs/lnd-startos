@@ -18,6 +18,8 @@ const {
   externalhosts,
   'payments-expiration-grace-period': paymentsExpirationGracePeriod,
   listen,
+  rpclisten,
+  restlisten,
   'rpcmiddleware.enable': rpcmiddlewareEnable,
   debuglevel,
   minchansize,
@@ -96,11 +98,9 @@ export const shape = object({
   // TODO eventually expose other net options primarily testnet4
   'bitcoin.mainnet': literal(bitcoinMainnet).onMismatch(bitcoinMainnet),
   rpclisten: stringArray
-    .orParser(string)
-    .optional(),
+    .orParser(string).onMismatch(rpclisten),
   restlisten: stringArray
-    .orParser(string)
-    .optional(),
+    .orParser(string).onMismatch(restlisten),
   'healthcheck.chainbackend.attempts': literal(
     healthcheckChainbackendAttempts,
   ).onMismatch(healthcheckChainbackendAttempts),
