@@ -11,8 +11,6 @@ import { Effects, SIGTERM } from '@start9labs/start-sdk/base/lib/types'
 export const main = sdk.setupMain(async ({ effects, started }) => {
   /**
    * ======================== Setup (optional) ========================
-   *
-   * In this section, we fetch any resources or run any desired preliminary commands.
    */
   console.log('Starting LND!')
 
@@ -66,11 +64,6 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
 
   if (resetWalletTransactions) lndArgs.push('--reset-wallet-transactions')
 
-  /**
-   * ======================== Additional Health Checks (optional) ========================
-   *
-   * In this section, we define *additional* health checks beyond those included with each daemon (below).
-   */
   const lndSub = await sdk.SubContainer.of(
     effects,
     { imageId: 'lnd' },
@@ -89,90 +82,10 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
     .read()
     .const(effects)
 
-  const syncCheck = sdk.HealthCheck.of(effects, {
-    id: 'sync-progress',
-    name: 'Blockchain and Graph Sync Progress',
-    fn: async () => {
-      let macHex: string = ''
-      do {
-        try {
-          const res = await readFile(
-            `${lndSub.rootfs}/${lndDataDir}/data/chain/bitcoin/mainnet/admin.macaroon`,
-          )
-          macHex = res.toString('hex')
-          break
-        } catch (err) {
-          console.log('Waiting for Admin Macaroon to be created...')
-          await sleep(10_000)
-        }
-      } while (true)
-      const res = await lndSub.exec([
-        'curl',
-        '--no-progress-meter',
-        '--header',
-        `Grpc-Metadata-macaroon: ${macHex}`,
-        '--cacert',
-        `${lndDataDir}/tls.cert`,
-        'https://lnd.startos:8080/v1/getinfo',
-      ])
-
-      if (
-        res.exitCode === 0 &&
-        res.stdout !== '' &&
-        typeof res.stdout === 'string'
-      ) {
-        const info: GetInfo = JSON.parse(res.stdout)
-
-        if (info.synced_to_chain && info.synced_to_graph) {
-          return {
-            message: 'Synced to chain and graph',
-            result: 'success',
-          }
-        } else if (!info.synced_to_chain && info.synced_to_graph) {
-          return {
-            message: 'Syncing to chain',
-            result: 'loading',
-          }
-        } else if (!info.synced_to_graph && info.synced_to_chain) {
-          return {
-            message: 'Syncing to graph',
-            result: 'loading',
-          }
-        }
-
-        return {
-          message: 'Syncing to graph and chain',
-          result: 'loading',
-        }
-      }
-
-      if (
-        res.stderr.includes('rpc error: code = Unknown desc = waiting to start')
-      ) {
-        return {
-          message: 'LND is starting…',
-          result: 'starting',
-        }
-      } else {
-        return {
-          message: res.stderr as string,
-          result: 'failure',
-        }
-      }
-    },
-  })
-
-  const additionalChecks: T.HealthCheck[] = [syncCheck]
-
   /**
    * ======================== Daemons ========================
-   *
-   * In this section, we create one or more daemons that define the service runtime.
-   *
-   * Each daemon defines its own health check, which can optionally be exposed to the user.
    */
-
-  const baseDaemons = sdk.Daemons.of(effects, started, additionalChecks)
+  const baseDaemons = sdk.Daemons.of(effects, started)
     .addDaemon('primary', {
       exec: { command: ['lnd', ...lndArgs] },
       subcontainer: lndSub,
@@ -186,6 +99,82 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
           }),
       },
       requires: [],
+    })
+    .addHealthCheck('sync-progress', {
+      requires: ['primary'],
+      ready: {
+        display: 'Network and Graph Sync Progress',
+        fn: async () => {
+          let macHex: string = ''
+          do {
+            try {
+              const res = await readFile(
+                `${lndSub.rootfs}/${lndDataDir}/data/chain/bitcoin/mainnet/admin.macaroon`,
+              )
+              macHex = res.toString('hex')
+              break
+            } catch (err) {
+              console.log('Waiting for Admin Macaroon to be created...')
+              await sleep(10_000)
+            }
+          } while (true)
+          const res = await lndSub.exec([
+            'curl',
+            '--no-progress-meter',
+            '--header',
+            `Grpc-Metadata-macaroon: ${macHex}`,
+            '--cacert',
+            `${lndDataDir}/tls.cert`,
+            'https://lnd.startos:8080/v1/getinfo',
+          ])
+
+          if (
+            res.exitCode === 0 &&
+            res.stdout !== '' &&
+            typeof res.stdout === 'string'
+          ) {
+            const info: GetInfo = JSON.parse(res.stdout)
+
+            if (info.synced_to_chain && info.synced_to_graph) {
+              return {
+                message: 'Synced to chain and graph',
+                result: 'success',
+              }
+            } else if (!info.synced_to_chain && info.synced_to_graph) {
+              return {
+                message: 'Syncing to chain',
+                result: 'loading',
+              }
+            } else if (!info.synced_to_graph && info.synced_to_chain) {
+              return {
+                message: 'Syncing to graph',
+                result: 'loading',
+              }
+            }
+
+            return {
+              message: 'Syncing to graph and chain',
+              result: 'loading',
+            }
+          }
+
+          if (
+            res.stderr.includes(
+              'rpc error: code = Unknown desc = waiting to start',
+            )
+          ) {
+            return {
+              message: 'LND is starting…',
+              result: 'starting',
+            }
+          } else {
+            return {
+              message: res.stderr as string,
+              result: 'failure',
+            }
+          }
+        },
+      },
     })
     .addOneshot('unlock-wallet', {
       exec: {
@@ -209,7 +198,7 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
 
   let daemons: Daemons<
     typeof manifest,
-    'primary' | 'unlock-wallet' | 'restore'
+    'primary' | 'unlock-wallet' | 'restore' | 'sync-progress'
   > = baseDaemons
   if (restore) {
     daemons = baseDaemons.addOneshot('restore', {
@@ -233,7 +222,7 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
               '--rpcserver=lnd.startos',
               'restorechanbackup',
               '--multi_file',
-              `${lndDataDir}/data/chain/bitcoin/mainnet/channel.backup,`
+              `${lndDataDir}/data/chain/bitcoin/mainnet/channel.backup,`,
             ],
           }
         },
