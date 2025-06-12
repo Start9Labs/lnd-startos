@@ -8,8 +8,8 @@ export const { createBackup, restoreInit } = sdk.setupBackups(
       .setBackupOptions({
         exclude: [`${lndDataDir}/data/graph/*`],
       })
-      .setPreRestore(async (effects) => {
-        await storeJson.merge(effects, { restore: false })
+      .setPostRestore(async (effects) => {
+        await storeJson.merge(effects, { restore: true })
       }),
 )
 
