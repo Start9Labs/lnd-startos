@@ -234,36 +234,40 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
     await storeJson.read().const(effects)
   }
 
-  return daemons.addOneshot('add-watchtowers', {
-    exec: {
-      fn: async (subcontainer, abort) => {
-        // Setup watchtowers at runtime because for some reason they can't be setup in lnd.conf
-        for (const tower of watchtowers || []) {
-          if (abort.signal.aborted) break
-          console.log(`Watchtower client adding ${tower}`)
-          let res = await subcontainer.exec(
-            ['lncli', '--rpcserver=lnd.startos', 'wtclient', 'add', tower],
-            undefined,
-            undefined,
-            abort,
-          )
-
-          if (
-            res.exitCode === 0 &&
-            res.stdout !== '' &&
-            typeof res.stdout === 'string'
-          ) {
-            console.log(`Result adding tower ${tower}: ${res.stdout}`)
-          } else {
-            console.log(`Error adding tower ${tower}: ${res.stderr}`)
+  if (watchtowers.length > 0) {
+    return daemons.addOneshot('add-watchtowers', {
+      exec: {
+        fn: async (subcontainer, abort) => {
+          // Setup watchtowers at runtime because for some reason they can't be setup in lnd.conf
+          for (const tower of watchtowers || []) {
+            if (abort.signal.aborted) break
+            console.log(`Watchtower client adding ${tower}`)
+            let res = await subcontainer.exec(
+              ['lncli', '--rpcserver=lnd.startos', 'wtclient', 'add', tower],
+              undefined,
+              undefined,
+              abort,
+            )
+  
+            if (
+              res.exitCode === 0 &&
+              res.stdout !== '' &&
+              typeof res.stdout === 'string'
+            ) {
+              console.log(`Result adding tower ${tower}: ${res.stdout}`)
+            } else {
+              console.log(`Error adding tower ${tower}: ${res.stderr}`)
+            }
           }
-        }
-        return null
+          return null
+        },
       },
-    },
-    requires: ['primary', 'unlock-wallet'],
-    subcontainer: lndSub,
-  })
+      requires: ['primary', 'unlock-wallet'],
+      subcontainer: lndSub,
+    })
+  }
+
+  return daemons
 })
 
 async function initializeLnd(effects: Effects) {
