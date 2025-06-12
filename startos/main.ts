@@ -186,9 +186,13 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
           `${lndDataDir}/tls.cert`,
           'https://lnd.startos:8080/v1/unlockwallet',
           '-d',
-          JSON.stringify({
+          restore
+            ? JSON.stringify({
             wallet_password: walletPassword,
             recovery_window: recoveryWindow,
+              })
+            : JSON.stringify({
+                wallet_password: walletPassword,
           }),
         ],
       },
