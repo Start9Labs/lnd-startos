@@ -6,7 +6,7 @@ export const { createBackup, restoreInit } = sdk.setupBackups(
   async ({ effects }) =>
     sdk.Backups.volumes('main')
       .setBackupOptions({
-        exclude: [`${lndDataDir}/graph/*`],
+        exclude: [`${lndDataDir}/data/graph/*`],
       })
       .setPreRestore(async (effects) => {
         await storeJson.merge(effects, { restore: false })
