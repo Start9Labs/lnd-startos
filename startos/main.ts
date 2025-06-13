@@ -135,6 +135,7 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
           const res = await lndSub.exec([
             'curl',
             '--no-progress-meter',
+            '--fail-with-body',
             '--header',
             `Grpc-Metadata-macaroon: ${macHex}`,
             '--cacert',
@@ -183,7 +184,7 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
             }
           }
           return {
-            message: res.stderr as string,
+            message: `Error: ${res.stderr as string}`,
             result: 'failure',
           }
         },
