@@ -182,10 +182,10 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
               result: 'starting',
             }
           }
-            return {
-              message: res.stderr as string,
-              result: 'failure',
-            }
+          return {
+            message: res.stderr as string,
+            result: 'failure',
+          }
         },
       },
     })
