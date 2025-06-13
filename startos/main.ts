@@ -181,12 +181,11 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
               message: 'LND is starting…',
               result: 'starting',
             }
-          } else {
+          }
             return {
               message: res.stderr as string,
               result: 'failure',
             }
-          }
         },
       },
     })
