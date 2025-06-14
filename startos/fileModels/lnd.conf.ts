@@ -230,7 +230,10 @@ export const shape = object({
 })
 
 export const lndConfFile = FileHelper.ini(
-  '/media/startos/volumes/main/lnd.conf',
+  {
+    volumeId: 'main',
+    subpath: '/lnd.conf'
+  },
   shape,
   { bracketedArray: false },
 )
