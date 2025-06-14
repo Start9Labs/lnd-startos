@@ -110,9 +110,8 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
         display: 'Control Interface',
         fn: () =>
           sdk.healthCheck.checkPortListening(effects, restPort, {
-            successMessage:
-              'The Control Interface is ready to accept gRPC and REST connections',
-            errorMessage: 'The Control Interface is not ready',
+            successMessage: 'The REST interface is ready to accept connections',
+            errorMessage: 'The REST Interface is not ready',
           }),
       },
       requires: [],
@@ -122,30 +121,11 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
       ready: {
         display: 'Network and Graph Sync Progress',
         fn: async () => {
-          let macHex: string = ''
-          do {
-            try {
-              const res = await readFile(
-                `${lndSub.rootfs}/${lndDataDir}/data/chain/bitcoin/mainnet/admin.macaroon`,
-              )
-              macHex = res.toString('hex')
-              break
-            } catch (err) {
-              console.log('Waiting for Admin Macaroon to be created...')
-              await sleep(10_000)
-            }
-          } while (true)
           const res = await lndSub.exec([
-            'curl',
-            '--no-progress-meter',
-            '--fail-with-body',
-            '--header',
-            `Grpc-Metadata-macaroon: ${macHex}`,
-            '--cacert',
-            `${lndDataDir}/tls.cert`,
-            'https://lnd.startos:8080/v1/getinfo',
+            'lncli',
+            '--rpcserver=lnd.startos',
+            'getinfo',
           ])
-
           if (
             res.exitCode === 0 &&
             res.stdout !== '' &&
@@ -304,7 +284,6 @@ async function initializeLnd(effects: Effects) {
       const child = await subc.spawn(['lnd'])
 
       let cipherSeed: string[] = []
-      let i = 0
       do {
         const res = await subc.exec([
           'curl',
@@ -324,10 +303,9 @@ async function initializeLnd(effects: Effects) {
           break
         } else {
           console.log('Waiting for RPC to start...')
-          i++
           await sleep(5_000)
         }
-      } while (i <= 10)
+      } while (true)
 
       const walletPassword = (await storeJson.read().once())?.walletPassword
 
