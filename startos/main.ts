@@ -38,6 +38,9 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
     await storeJson.merge(effects, { walletInitialized: true })
   }
 
+  // Restart on storeJson changes
+  await storeJson.read().const(effects)
+
   const osIp = await sdk.getOsIp(effects)
   const conf = (await lndConfFile.read().once())!
 
@@ -219,38 +222,32 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
     typeof manifest,
     'primary' | 'unlock-wallet' | 'restore' | 'sync-progress'
   > = baseDaemons
+
   if (restore) {
     daemons = baseDaemons.addOneshot('restore', {
       subcontainer: lndSub,
       exec: {
-        fn: async (subcontainer) => {
-          try {
-            access(
-              `${subcontainer.rootfs}/${lndDataDir}/data/chain/bitcoin/mainnet/channel.backup`,
-            )
-          } catch (e) {
-            console.log('No channel.backup found. Skipping SCB Recovery.')
-            await storeJson.merge(effects, { restore: false })
-            return null
-          }
-          // Restart on storeJson changes
-          await storeJson.read().const(effects)
+        fn: async () => {
+          await sdk.setHealth(effects, {
+            id: 'restored',
+            name: 'Backup Restoration Detected',
+            message:
+              'Lightning Labs strongly recommends against continuing to use a LND node after running restorechanbackup. Please recover and sweep any remaining funds to another wallet. Afterwards LND should be uninstalled. LND can then be re-installed fresh if you would like to continue using LND.',
+            result: 'failure',
+          })
           return {
             command: [
               'lncli',
               '--rpcserver=lnd.startos',
               'restorechanbackup',
               '--multi_file',
-              `${lndDataDir}/data/chain/bitcoin/mainnet/channel.backup,`,
+              `${lndDataDir}/data/chain/bitcoin/mainnet/channel.backup`,
             ],
           }
         },
       },
       requires: ['primary', 'unlock-wallet'],
     })
-  } else {
-    // Restart on storeJson changes
-    await storeJson.read().const(effects)
   }
 
   if (watchtowers.length > 0) {
