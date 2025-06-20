@@ -28,6 +28,14 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
     watchtowers,
   } = (await storeJson.read().once())!
 
+  const bitcoinNode = (await lndConfFile.read().once())?.['bitcoin.node']
+
+  if (bitcoinNode === 'bitcoind') {
+    const depResult = await sdk.checkDependencies(effects)
+    depResult.throwIfRunningNotSatisfied('bitcoind')
+    depResult.throwIfInstalledVersionNotSatisfied('bitcoind')
+  }
+
   if (!walletInitialized) {
     console.log('Fresh install detected. Initializing LND wallet')
     await initializeLnd(effects)
@@ -39,12 +47,6 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
 
   const osIp = await sdk.getOsIp(effects)
   const conf = (await lndConfFile.read().once())!
-
-  if (conf['bitcoin.node'] === 'bitcoind') {
-    const depResult = await sdk.checkDependencies(effects)
-    depResult.throwIfRunningNotSatisfied('bitcoind')
-    depResult.throwIfInstalledVersionNotSatisfied('bitcoind')
-  }
 
   const peerAddresses = (
     await sdk.serviceInterface.getOwn(effects, peerInterfaceId).const()
