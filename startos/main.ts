@@ -8,7 +8,6 @@ import {
   sleep,
 } from './utils'
 import { restPort, peerInterfaceId } from './interfaces'
-import { readFile, access } from 'fs/promises'
 import { lndConfFile } from './fileModels/lnd.conf'
 import { manifest } from './manifest'
 import { storeJson } from './fileModels/store.json'
@@ -19,9 +18,6 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
    * ======================== Setup (optional) ========================
    */
   console.log('Starting LND!')
-
-  const depResult = await sdk.checkDependencies(effects)
-  depResult.throwIfNotSatisfied()
 
   const {
     recoveryWindow,
@@ -43,6 +39,12 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
 
   const osIp = await sdk.getOsIp(effects)
   const conf = (await lndConfFile.read().once())!
+
+  if (conf['bitcoin.node'] === 'bitcoind') {
+    const depResult = await sdk.checkDependencies(effects)
+    depResult.throwIfRunningNotSatisfied('bitcoind')
+    depResult.throwIfInstalledVersionNotSatisfied('bitcoind')
+  }
 
   const peerAddresses = (
     await sdk.serviceInterface.getOwn(effects, peerInterfaceId).const()
@@ -107,7 +109,7 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
       exec: { command: ['lnd', ...lndArgs] },
       subcontainer: lndSub,
       ready: {
-        display: 'Control Interface',
+        display: 'REST Interface',
         fn: () =>
           sdk.healthCheck.checkPortListening(effects, restPort, {
             successMessage: 'The REST interface is ready to accept connections',
