@@ -8,11 +8,15 @@ const { InputSpec, Value } = sdk
 const { 'fee.url': feeUrl, 'bitcoin.node': bitcoinNode } = lndConfDefaults
 
 const backendSpec = InputSpec.of({
-  bitcoind: Value.toggle({
-    name: 'Use Bitcoin Node',
+  bitcoind: Value.select({
+    name: 'Select Bitcoin Node',
     description:
-      'Use Bitcoin node for the LND backend; Note: If using a local node (Core or Knots) LND will require Bitcoin to be fully synced. If Bitcoin Core or Knots is not used LND will use Neutrino, the light bitcoin backend built into LND. As Neutrino involves reliance on third-party nodes it is advisable to use either Core or Knots instead. Once Core or Knots are selected it is not supported to switch to Neutrino.',
-    default: bitcoinNode === 'bitcoind',
+      'Select between a local bitcoin node and Neutrino as the backend for LND. As Neutrino involves reliance on third-party nodes it is advisable to use either Core or Knots instead. Once Core or Knots are selected it is not supported to switch to Neutrino; however LND can always switch from Neutrino to Core/Knots at a later time.',
+    default: 'bitcoind',
+    values: {
+      bitcoind: 'Local Bitcoin Node',
+      neutrino: 'Neutrino',
+    },
   }),
 })
 
@@ -46,30 +50,42 @@ async function read(effects: any) {
   const lndConf = (await lndConfFile.read().const(effects))!
 
   const bitcoinSettings = {
-    bitcoind: lndConf['bitcoin.node'] === 'bitcoind',
+    bitcoind:
+      lndConf['bitcoin.node'] === 'neutrino'
+        ? ('neutrino' as const)
+        : ('bitcoind' as const),
   }
   return bitcoinSettings
 }
 
 async function write(effects: any, input: BackendSpec) {
   const bitcoinSettings = {
-    'bitcoin.node': input.bitcoind
-      ? ('bitcoind' as const)
-      : ('neutrino' as const),
-    'bitcoind.rpchost': input.bitcoind ? `${bitcoindHost}:8332` : undefined,
-    'bitcoind.rpccookie': input.bitcoind ? '/mnt/bitcoin/.cookie' : undefined,
-    'bitcoind.zmqpubrawblock': input.bitcoind
-      ? lndConfDefaults['bitcoind.zmqpubrawblock']
-      : undefined,
-    'bitcoind.zmqpubrawtx': input.bitcoind
-      ? lndConfDefaults['bitcoind.zmqpubrawtx']
-      : undefined,
-    'fee.url': input.bitcoind
-      ? feeUrl
-      : 'https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json',
+    'bitcoin.node': input.bitcoind,
+    'bitcoind.rpchost':
+      input.bitcoind === 'bitcoind' ? `${bitcoindHost}:8332` : undefined,
+    'bitcoind.rpccookie':
+      input.bitcoind === 'bitcoind' ? '/mnt/bitcoin/.cookie' : undefined,
+    'bitcoind.zmqpubrawblock':
+      input.bitcoind === 'bitcoind'
+        ? lndConfDefaults['bitcoind.zmqpubrawblock']
+        : undefined,
+    'bitcoind.zmqpubrawtx':
+      input.bitcoind === 'bitcoind'
+        ? lndConfDefaults['bitcoind.zmqpubrawtx']
+        : undefined,
+    'fee.url':
+      input.bitcoind === 'bitcoind'
+        ? feeUrl
+        : 'https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json',
   }
 
-  await storeJson.merge(effects, { bitcoindSelected: input.bitcoind })
+  await storeJson.merge(effects, {
+    bitcoindSelected: input.bitcoind === 'bitcoind',
+  })
+
+  if (input.bitcoind === 'neutrino') {
+    await sdk.action.clearTask(effects, 'bitcoind')
+  }
   await lndConfFile.merge(effects, bitcoinSettings)
 }
 
