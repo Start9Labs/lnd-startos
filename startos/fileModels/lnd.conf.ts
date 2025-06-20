@@ -97,10 +97,8 @@ export const shape = object({
     literal(bitcoindZmqpubrawtx).onMismatch(bitcoindZmqpubrawtx),
   // TODO eventually expose other net options primarily testnet4
   'bitcoin.mainnet': literal(bitcoinMainnet).onMismatch(bitcoinMainnet),
-  rpclisten: stringArray
-    .orParser(string).onMismatch(rpclisten),
-  restlisten: stringArray
-    .orParser(string).onMismatch(restlisten),
+  rpclisten: stringArray.orParser(string).onMismatch(rpclisten),
+  restlisten: stringArray.orParser(string).onMismatch(restlisten),
   'healthcheck.chainbackend.attempts': literal(
     healthcheckChainbackendAttempts,
   ).onMismatch(healthcheckChainbackendAttempts),
@@ -229,11 +227,52 @@ export const shape = object({
   'db.bolt.dbtimeout': string.optional().onMismatch(dbBoltDbtimeout),
 })
 
-export const lndConfFile = FileHelper.ini(
-  {
-    volumeId: 'main',
-    subpath: '/lnd.conf'
-  },
-  shape,
-  { bracketedArray: false },
+export function fromLndConf(text: string): Record<string, string[]> {
+  const lines = text.split('\n')
+  const dictionary = {} as Record<string, string[]>
+
+  for (const line of lines) {
+    const [key, value] = line.split('=', 2)
+    if (key === '') {
+      return dictionary
+    } else if (key.startsWith('#')) {
+      continue
+    }
+    const trimmedKey = key.trim()
+    const trimmedValue = value.trim()
+
+    if (!dictionary[trimmedKey]) {
+      dictionary[trimmedKey] = []
+    }
+
+    dictionary[trimmedKey].push(trimmedValue)
+  }
+
+  return dictionary
+}
+
+function toLndConf(conf: typeof shape._TYPE): string {
+  let lndConfStr = ''
+  const toString = (a: any) => {
+    return a.toString()
+  }
+
+  Object.entries(conf).forEach(([key, value]) => {
+    if (Array.isArray(value)) {
+      for (const subValue of value) {
+        lndConfStr += `${key}=${toString(subValue)}\n`
+      }
+    } else if (value !== undefined) {
+      lndConfStr += `${key}=${toString(value)}\n`
+    }
+  })
+
+  return lndConfStr
+}
+
+export const lndConfFile = FileHelper.raw(
+  '/media/startos/volumes/main/lnd.conf',
+  (obj: typeof shape._TYPE) => toLndConf(obj),
+  (str) => fromLndConf(str),
+  (obj) => shape.withMismatch((_) => shape.unsafeCast({})).unsafeCast(obj),
 )

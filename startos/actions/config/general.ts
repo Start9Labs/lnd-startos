@@ -239,7 +239,7 @@ async function read(effects: any): Promise<PartialGeneralSpec> {
 
   const generalSettings: PartialGeneralSpec = {
     alias: lndConf.alias,
-    color: lndConf.color,
+    color: lndConf.color ? lndConf.color.split('#')[1] : undefined,
     'accept-keysend': lndConf['accept-keysend'],
     'accept-amp': lndConf['accept-amp'],
     'reject-htlc': lndConf.rejecthtlc,
@@ -288,7 +288,7 @@ async function write(effects: any, input: GeneralSpec) {
 
   const generalSettings = {
     alias: input.alias ? input.alias : lndConfDefaults.alias,
-    color: input.color,
+    color: `#${input.color}`,
     'accept-keysend': input['accept-keysend'],
     'accept-amp': input['accept-amp'],
     rejecthtlc: input['reject-htlc'],
