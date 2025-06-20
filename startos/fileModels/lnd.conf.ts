@@ -1,15 +1,14 @@
 import { FileHelper, matches } from '@start9labs/start-sdk'
 import { lndConfDefaults } from '../utils'
 
-const { object, boolean, natural, arrayOf, anyOf, oneOf } = matches
+const { object, boolean, natural, arrayOf, oneOf, literals } = matches
 
 const stringArray = matches.array(matches.string)
 const string = stringArray.map(([a]) => a).orParser(matches.string)
 const number = string.map((a) => Number(a)).orParser(matches.number)
 const literal = (val: string | number | boolean) => {
   return matches
-    .literal([String(val)])
-    .orParser(matches.literal(String(val)))
+    .literal(String(val))
     .orParser(matches.literal(val))
     .map((a) => (typeof val === 'number' ? Number(a) : a))
 }
@@ -114,13 +113,13 @@ export const shape = object({
     .onMismatch(paymentsExpirationGracePeriod),
   listen: string.onMismatch(listen),
   'rpcmiddleware.enable': boolean.onMismatch(rpcmiddlewareEnable),
-  debuglevel: anyOf(
-    matches.literal('trace'),
-    matches.literal('debug'),
-    matches.literal('info'),
-    matches.literal('warn'),
-    matches.literal('error'),
-    matches.literal('critical'),
+  debuglevel: literals(
+    'trace',
+    'debug',
+    'info',
+    'warn',
+    'error',
+    'critical',
   ).onMismatch(debuglevel),
   minchansize: natural.optional().onMismatch(minchansize),
   maxchansize: natural.optional().onMismatch(maxchansize),
