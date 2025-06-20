@@ -34,7 +34,7 @@ export const lndConfDefaults = {
   'allow-circular-route': false,
   alias: undefined,
   color: undefined,
-  'fee.url': '',
+  'fee.url': undefined,
 
   // Bitcoin
   'bitcoin.mainnet': true,
