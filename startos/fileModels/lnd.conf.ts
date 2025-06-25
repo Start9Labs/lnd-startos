@@ -1,7 +1,7 @@
 import { FileHelper, matches } from '@start9labs/start-sdk'
 import { lndConfDefaults } from '../utils'
 
-const { object, boolean, natural, arrayOf, oneOf, literals } = matches
+const { object, boolean, natural, arrayOf, literals } = matches
 
 const stringArray = matches.array(matches.string)
 const string = stringArray.map(([a]) => a).orParser(matches.string)
@@ -139,9 +139,7 @@ export const shape = object({
   'fee.url': string.optional().onMismatch(feeUrl),
 
   // Bitcoin
-  'bitcoin.node': oneOf(literal('bitcoind'), literal('neutrino')).onMismatch(
-    bitcoinNode,
-  ),
+  'bitcoin.node': literals('bitcoind', 'neutrino').onMismatch(bitcoinNode),
   'bitcoin.defaultchanconfs': natural.onMismatch(bitcoinDefaultchanconfs),
   'bitcoin.minhtlc': natural.onMismatch(bitcoinMinhtlc),
   'bitcoin.minhtlcout': natural.onMismatch(bitcoinMinhtlcout),
@@ -211,15 +209,7 @@ export const shape = object({
   // Bolt
   'db.bolt.nofreelistsync': boolean.optional().onMismatch(dbBoltNofreelistsync),
   'db.bolt.auto-compact': boolean.optional().onMismatch(dbBoltAutoCompact),
-  /*
-    TODO:
-    It doesn't seem like ts-matches can help provide protection with strings
-    like '168h' or '60s'
-
-    Our spec accepts a number and we interpolate with the unit when writing to
-    lnd.conf - is there a better way to do this or protect against users setting such values
-    to arbitrary strings via SSH?
-  */
+  // TODO: Eventually use ts-matches allow different string suffixes i.e. '168h' or '60s'
   'db.bolt.auto-compact-min-age': string
     .optional()
     .onMismatch(dbBoltAutoCompactMinAge),
@@ -227,14 +217,12 @@ export const shape = object({
 })
 
 export function fromLndConf(text: string): Record<string, string[]> {
-  const lines = text.split('\n')
+  const lines = text.trimEnd().split('\n')
   const dictionary = {} as Record<string, string[]>
 
   for (const line of lines) {
     const [key, value] = line.split('=', 2)
-    if (key === '') {
-      return dictionary
-    } else if (key.startsWith('#')) {
+    if (key.startsWith('#')) {
       continue
     }
     const trimmedKey = key.trim()
@@ -247,7 +235,25 @@ export function fromLndConf(text: string): Record<string, string[]> {
     dictionary[trimmedKey].push(trimmedValue)
   }
 
-  return dictionary
+  const formattedDictionary = Object.fromEntries(
+    Object.entries(dictionary).map(([k, v]) => {
+      if (v.length === 1) {
+        let innerVal
+        if (!isNaN(Number(v[0]))) {
+          innerVal = Number(v[0])
+        } else if (v[0] === 'true') {
+          innerVal = true
+        } else if (v[0] === 'false') {
+          innerVal = false
+        } else {
+          innerVal = v[0]
+        }
+        return [k, innerVal]
+      }
+      return [k, v]
+    }),
+  )
+  return formattedDictionary
 }
 
 function toLndConf(conf: typeof shape._TYPE): string {
@@ -270,7 +276,10 @@ function toLndConf(conf: typeof shape._TYPE): string {
 }
 
 export const lndConfFile = FileHelper.raw(
-  '/media/startos/volumes/main/lnd.conf',
+  {
+    subpath: '/lnd.conf',
+    volumeId: 'main',
+  },
   (obj: typeof shape._TYPE) => toLndConf(obj),
   (str) => fromLndConf(str),
   (obj) => shape.withMismatch((_) => shape.unsafeCast({})).unsafeCast(obj),
