@@ -84,7 +84,7 @@ async function write(effects: any, input: BackendSpec) {
   })
 
   if (input.bitcoind === 'neutrino') {
-    await sdk.action.clearTask(effects, 'bitcoind')
+    await sdk.action.clearTask(effects, 'enable-zmq')
   }
   await lndConfFile.merge(effects, bitcoinSettings)
 }

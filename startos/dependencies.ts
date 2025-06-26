@@ -12,6 +12,7 @@ export const setDependencies = sdk.setupDependencies(async ({ effects }) => {
       input: { kind: 'partial', value: { zmqEnabled: true } },
       reason: 'LND requires ZMQ enabled in Bitcoin',
       when: { condition: 'input-not-matches', once: false },
+      replayId: 'enable-zmq',
     })
 
     return {
