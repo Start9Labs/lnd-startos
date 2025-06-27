@@ -125,11 +125,11 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
       ready: {
         display: 'Network and Graph Sync Progress',
         fn: async () => {
-          const res = await lndSub.exec([
-            'lncli',
-            '--rpcserver=lnd.startos',
-            'getinfo',
-          ])
+          const res = await lndSub.exec(
+            ['lncli', '--rpcserver=lnd.startos', 'getinfo'],
+            {},
+            30_000,
+          )
           if (
             res.exitCode === 0 &&
             res.stdout !== '' &&
