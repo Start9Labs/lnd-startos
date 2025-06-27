@@ -170,6 +170,14 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
               result: 'starting',
             }
           }
+
+          if (res.exitCode === null) {
+            console.log("FMA res:\n", res)
+            return {
+              message: 'Syncing to graph',
+              result: 'loading',
+            }
+          }
           return {
             message: `Error: ${res.stderr as string}`,
             result: 'failure',
