@@ -16,16 +16,14 @@ const {
 } = lndConfDefaults
 
 const autopilotSpec = InputSpec.of({
-  autopilot: Value.union(
-    {
-      name: 'Enable Autopilot',
-      description:
-        'If the autopilot agent should be active or not. The autopilot agent will attempt to AUTOMATICALLY OPEN CHANNELS to put your node in an advantageous position within the network graph.',
-      warning:
-        'DO NOT ENABLE AUTOPILOT IF YOU WANT TO MANAGE CHANNELS MANUALLY OR IF YOU DO NOT UNDERSTAND THIS FEATURE.',
-      default: !autopilotActive ? 'disabled' : 'enabled',
-    },
-    Variants.of({
+  autopilot: Value.union({
+    name: 'Enable Autopilot',
+    description:
+      'If the autopilot agent should be active or not. The autopilot agent will attempt to AUTOMATICALLY OPEN CHANNELS to put your node in an advantageous position within the network graph.',
+    warning:
+      'DO NOT ENABLE AUTOPILOT IF YOU WANT TO MANAGE CHANNELS MANUALLY OR IF YOU DO NOT UNDERSTAND THIS FEATURE.',
+    default: !autopilotActive ? 'disabled' : 'enabled',
+    variants: Variants.of({
       disabled: { name: 'Disabled', spec: InputSpec.of({}) },
       enabled: {
         name: 'Enabled',
@@ -99,7 +97,7 @@ const autopilotSpec = InputSpec.of({
         }),
       },
     }),
-  ),
+  }),
 })
 
 export const autopilotConfig = sdk.Action.withInput(
