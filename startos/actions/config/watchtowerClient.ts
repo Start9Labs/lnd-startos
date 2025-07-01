@@ -5,13 +5,11 @@ import { sdk } from '../../sdk'
 const { InputSpec, Value, Variants, List } = sdk
 
 const wtClientSpec = InputSpec.of({
-  'wt-client': Value.union(
-    {
-      name: 'Enable Watchtower Client',
-      description: 'Enable or disable Watchtower Client',
-      default: 'disabled',
-    },
-    Variants.of({
+  'wt-client': Value.union({
+    name: 'Enable Watchtower Client',
+    description: 'Enable or disable Watchtower Client',
+    default: 'disabled',
+    variants: Variants.of({
       disabled: { name: 'Disabled', spec: InputSpec.of({}) },
       enabled: {
         name: 'Enabled',
@@ -30,7 +28,7 @@ const wtClientSpec = InputSpec.of({
         }),
       },
     }),
-  ),
+  }),
 })
 
 export const wtClientConfig = sdk.Action.withInput(
