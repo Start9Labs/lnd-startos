@@ -172,7 +172,6 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
           }
 
           if (res.exitCode === null) {
-            console.log("FMA res:\n", res)
             return {
               message: 'Syncing to graph',
               result: 'loading',
