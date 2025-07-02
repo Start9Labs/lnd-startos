@@ -120,8 +120,55 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
       },
       requires: [],
     })
-    .addHealthCheck('sync-progress', {
+    .addOneshot('unlock-wallet', {
+      exec: {
+        command: [
+          'curl',
+          '--no-progress-meter',
+          '-X',
+          'POST',
+          '--cacert',
+          `${lndDataDir}/tls.cert`,
+          'https://lnd.startos:8080/v1/unlockwallet',
+          '-d',
+          restore
+            ? JSON.stringify({
+                wallet_password: walletPassword,
+                recovery_window: recoveryWindow,
+              })
+            : JSON.stringify({
+                wallet_password: walletPassword,
+              }),
+        ],
+      },
+      subcontainer: lndSub,
       requires: ['primary'],
+    })
+    .addHealthCheck('rpc', {
+      requires: ['primary', 'unlock-wallet'],
+      ready: {
+        display: null,
+        fn: async () => {
+          const res = await lndSub.exec(
+            ['lncli', '--rpcserver=lnd.startos', 'getinfo'],
+            {},
+            30_000,
+          )
+          if (res.exitCode === 0) {
+            return {
+              result: 'success',
+              message: 'The RPC server is ready to accept calls',
+            }
+          }
+          return {
+            result: 'starting',
+            message: 'The RPC server is not yet ready to accept calls',
+          }
+        },
+      },
+    })
+    .addHealthCheck('sync-progress', {
+      requires: ['primary', 'rpc'],
       ready: {
         display: 'Network and Graph Sync Progress',
         fn: async () => {
@@ -184,34 +231,10 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
         },
       },
     })
-    .addOneshot('unlock-wallet', {
-      exec: {
-        command: [
-          'curl',
-          '--no-progress-meter',
-          '-X',
-          'POST',
-          '--cacert',
-          `${lndDataDir}/tls.cert`,
-          'https://lnd.startos:8080/v1/unlockwallet',
-          '-d',
-          restore
-            ? JSON.stringify({
-                wallet_password: walletPassword,
-                recovery_window: recoveryWindow,
-              })
-            : JSON.stringify({
-                wallet_password: walletPassword,
-              }),
-        ],
-      },
-      subcontainer: lndSub,
-      requires: ['primary'],
-    })
 
   let daemons: Daemons<
     typeof manifest,
-    'primary' | 'unlock-wallet' | 'restore' | 'sync-progress'
+    'primary' | 'unlock-wallet' | 'restore' | 'sync-progress' | 'rpc'
   > = baseDaemons
 
   if (restore) {
@@ -237,7 +260,7 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
           }
         },
       },
-      requires: ['primary', 'unlock-wallet'],
+      requires: ['primary', 'unlock-wallet', 'rpc'],
     })
   }
 
@@ -269,7 +292,7 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
           return null
         },
       },
-      requires: ['primary', 'unlock-wallet'],
+      requires: ['primary', 'unlock-wallet', 'sync-progress', 'rpc'],
       subcontainer: lndSub,
     })
   }
