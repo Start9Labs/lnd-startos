@@ -34,6 +34,7 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
     const depResult = await sdk.checkDependencies(effects)
     depResult.throwIfRunningNotSatisfied('bitcoind')
     depResult.throwIfInstalledVersionNotSatisfied('bitcoind')
+    depResult.throwIfTasksNotSatisfied('bitcoind')
   }
 
   if (!walletInitialized) {
