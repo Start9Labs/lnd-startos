@@ -3,3 +3,5 @@
 </p>
 
 # LND for StartOS
+
+This repo packages [LND](https://github.com/lightningnetwork/lnd) for StartOS.
