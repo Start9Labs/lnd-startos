@@ -10,6 +10,7 @@ import { sweeperConfig } from './config/sweeper'
 import { wtClientConfig } from './config/watchtowerClient'
 import { watchtowerServerConfig } from './config/watchtowerServer'
 import { nodeInfo } from './nodeInfo'
+import { recreateMacaroons } from './recreate-macaroons'
 import { resetWalletTransactions } from './resetTxns'
 import { towerInfo } from './towerInfo'
 
@@ -27,3 +28,6 @@ export const actions = sdk.Actions.of()
   .addAction(towerInfo)
   .addAction(aezeedCipherSeed)
   .addAction(nodeInfo)
+  .addAction(recreateMacaroons)
+
+// @TODO import from umbrel
