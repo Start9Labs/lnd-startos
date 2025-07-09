@@ -31,3 +31,4 @@ export const actions = sdk.Actions.of()
   .addAction(recreateMacaroons)
 
 // @TODO import from umbrel
+// TODO pay invoice action
