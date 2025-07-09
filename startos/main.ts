@@ -99,10 +99,12 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
     'lnd-sub',
   )
 
-  // Restart if Bitcoin .cookie changes
-  await FileHelper.string(`${lndSub.rootfs}/mnt/bitcoin/.cookie`)
-    .read()
-    .const(effects)
+  // Restart if Bitcoin .cookie changes if using bitcoin backend
+  if (bitcoinNode === 'bitcoind') {
+    await FileHelper.string(`${lndSub.rootfs}/mnt/bitcoin/.cookie`)
+      .read()
+      .const(effects)
+  }
 
   /**
    * ======================== Daemons ========================
