@@ -4,7 +4,7 @@ import { storeJson } from '../../fileModels/store.json'
 import { load } from 'js-yaml'
 
 export const v0_19_1_beta_1 = VersionInfo.of({
-  version: '0.19.1-beta:1-alpha.2',
+  version: '0.19.1-beta:1-alpha.3',
   releaseNotes: 'Revamped for StartOS 0.4.0',
   migrations: {
     up: async ({ effects }) => {
