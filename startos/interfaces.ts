@@ -67,7 +67,7 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
     const restReceipt = await restMultiOrigin.export([lndConnect])
     receipts.push(restReceipt)
 
-    const gRPCMulti = sdk.MultiHost.of(effects, 'gRPC-multi')
+    const gRPCMulti = sdk.MultiHost.of(effects, 'grpc-multi')
     const gRPCMultiOrigin = await gRPCMulti.bindPort(gRPCPort, {
       protocol: 'https',
       preferredExternalPort: gRPCPort,
