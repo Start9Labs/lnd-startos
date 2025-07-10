@@ -5,19 +5,21 @@ import { readFile } from 'fs/promises'
 import { FileHelper } from '@start9labs/start-sdk'
 
 export const restPort = 8080
+export const gRPCPort = 10009
 export const peerPort = 9735
 export const watchtowerPort = 9911
 
 export const peerInterfaceId = 'peer'
+export const gRPCInterfaceId = 'grpc'
 export const controlInterfaceId = 'control'
 export const lndconnectRestId = 'lnd-connect-rest'
 
 export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
   const receipts = []
 
-  // REST
+  // REST and gRPC
   try {
-    const { mac, cert } = await sdk.SubContainer.withTemp(
+    const { macaroon, cert } = await sdk.SubContainer.withTemp(
       effects,
       { imageId: 'lnd' },
       mainMounts,
@@ -26,19 +28,16 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
         const macPath = `${subc.rootfs}${lndDataDir}/data/chain/bitcoin/mainnet/admin.macaroon`
         const certPath = `${subc.rootfs}${lndDataDir}/tls.cert`
 
-        // await access(macPath)
-        // await access(certPath)
-        // rerun setupInterfaces on admin.macaroon or tls.cert changes
         await FileHelper.string(macPath).read().const(effects)
         await FileHelper.string(certPath).read().const(effects)
 
-        const mac = await readFile(macPath).then((buf) =>
+        const macaroon = await readFile(macPath).then((buf) =>
           Buffer.from(buf).toString('base64url'),
         )
         const cert = await readFile(macPath).then((buf) =>
           Buffer.from(buf).toString('base64url'),
         )
-        return { mac, cert }
+        return { macaroon, cert }
       },
     )
 
@@ -62,15 +61,41 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
       username: null,
       path: '',
       query: {
-        macaroon: mac,
+        macaroon: macaroon,
       },
     })
     const restReceipt = await restMultiOrigin.export([lndConnect])
     receipts.push(restReceipt)
+
+    const gRPCMulti = sdk.MultiHost.of(effects, 'gRPC-multi')
+    const gRPCMultiOrigin = await gRPCMulti.bindPort(gRPCPort, {
+      protocol: 'https',
+      preferredExternalPort: gRPCPort,
+      addSsl: {
+        alpn: null,
+        preferredExternalPort: gRPCPort,
+      },
+    })
+
+    const lndgRpcConnect = sdk.createInterface(effects, {
+      name: 'gRPC LND Connect',
+      id: gRPCInterfaceId,
+      description: 'Used for gRPC connections',
+      type: 'api',
+      masked: false,
+      schemeOverride: { ssl: 'lndconnect', noSsl: 'lndconnect' },
+      username: null,
+      path: '',
+      query: {
+        cert,
+        macaroon,
+      },
+    })
+    const gRPCReceipt = await gRPCMultiOrigin.export([lndgRpcConnect])
+    receipts.push(gRPCReceipt)
   } catch {
     console.log('waiting for admin.macaroon to be created...')
   }
-  // @TODO expose gRPC?
 
   // peer
   const peerMulti = sdk.MultiHost.of(effects, 'peer-multi')
