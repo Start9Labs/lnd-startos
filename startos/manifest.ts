@@ -9,6 +9,7 @@ export const manifest = setupManifest({
   supportSite: 'https://lightning.engineering/slack.html',
   marketingSite: 'https://lightning.engineering/',
   donationUrl: 'https://donate.start9.com/',
+  docsUrl: 'https://github.com/Start9Labs/lnd-startos/blob/update/040/instructions.md',
   description: {
     short:
       'A complete implementation of a Lightning Network node by Lightning Labs',
