@@ -274,13 +274,16 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
         fn: async (subcontainer, abort) => {
           // Setup watchtowers at runtime because for some reason they can't be setup in lnd.conf
           for (const tower of watchtowers || []) {
-            if (abort.signal.aborted) break
+            if (abort.aborted) break
             console.log(`Watchtower client adding ${tower}`)
             let res = await subcontainer.exec(
               ['lncli', '--rpcserver=lnd.startos', 'wtclient', 'add', tower],
               undefined,
               undefined,
-              abort,
+              {
+                abort: abort.reason,
+                signal: abort,
+              },
             )
 
             if (
