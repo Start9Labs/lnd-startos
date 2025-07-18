@@ -1,8 +1,8 @@
 id: lnd
 title: LND
-version: 0.19.1
+version: 0.19.2
 release-notes: |-
-  * Update to 0.19.1 [Release Notes](https://github.com/lightningnetwork/lnd/releases/tag/v0.19.1-beta)
+  * Update to 0.19.2 [Release Notes](https://github.com/lightningnetwork/lnd/releases/tag/v0.19.2-beta)
 license: MIT
 wrapper-repo: "https://github.com/Start9Labs/lnd-startos"
 upstream-repo: "https://github.com/lightningnetwork/lnd"
