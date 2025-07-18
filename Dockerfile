@@ -1,4 +1,4 @@
-FROM lightninglabs/lnd:v0.19.1-beta
+FROM lightninglabs/lnd:v0.19.2-beta
 
 ARG ARCH
 RUN apk add --no-cache \
