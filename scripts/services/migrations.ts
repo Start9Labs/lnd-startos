@@ -253,7 +253,7 @@ export const migration: T.ExpectedExports.migration =
               "sweeper-budget-anchorcpfpratio": 0.5,
               "sweeper-budget-deadlinehtlcratio": 0.5,
               "sweeper-budget-nodeadlinehtlcratio": 0.5,
-            }
+            };
             return config;
           },
           true,
@@ -261,14 +261,18 @@ export const migration: T.ExpectedExports.migration =
         ),
         down: compat.migrations.updateConfig(
           (config) => {
-            if (matches.shape({
-              advanced: matches.shape({
-                "protocol-zero-conf": matches.any,
-                "protocol-option-scid-alias": matches.any,
-                "protocol-simple-taproot-chans": matches.any,
-              sweeper: matches.any,
-              })
-            }).test(config)) {
+            if (
+              matches
+                .shape({
+                  advanced: matches.shape({
+                    "protocol-zero-conf": matches.any,
+                    "protocol-option-scid-alias": matches.any,
+                    "protocol-simple-taproot-chans": matches.any,
+                    sweeper: matches.any,
+                  }),
+                })
+                .test(config)
+            ) {
               delete config.advanced["protocol-zero-conf"];
               delete config.advanced["protocol-option-scid-alias"];
               delete config.advanced["protocol-simple-taproot-chans"];
@@ -278,8 +282,44 @@ export const migration: T.ExpectedExports.migration =
           },
           true,
           { version: "0.18.0.1", type: "down" }
-        )
-      }
+        ),
+      },
+      "0.19.0": {
+        up: compat.migrations.updateConfig(
+          (config) => {
+            return config;
+          },
+          true,
+          { version: "0.19.0", type: "up" }
+        ),
+        down: () => {
+          throw new Error("Cannot downgrade");
+        },
+      },
+      "0.19.1": {
+        up: compat.migrations.updateConfig(
+          (config) => {
+            return config;
+          },
+          true,
+          { version: "0.19.1", type: "up" }
+        ),
+        down: () => {
+          throw new Error("Cannot downgrade");
+        },
+      },
+      "0.19.2": {
+        up: compat.migrations.updateConfig(
+          (config) => {
+            return config;
+          },
+          true,
+          { version: "0.19.2", type: "up" }
+        ),
+        down: () => {
+          throw new Error("Cannot downgrade");
+        },
+      },
     },
-    "0.18.5",
+    "0.19.2"
   );
