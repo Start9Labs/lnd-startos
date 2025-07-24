@@ -1,11 +1,8 @@
-Here’s the revised text in Markdown format:
-
 # LND (Lightning Network Daemon)
 
 Developed by Lightning Labs, LND is the most widely used implementation for creating and managing Lightning Network nodes. It is the implementation that is most widely supported.
 
 ## Getting Started
-
 ### An Introduction to Lightning
 
 Bitcoin's Lightning Network is a second-layer scaling solution designed to enable faster and cheaper transactions on top of the Bitcoin blockchain. It allows users to create off-chain payment channels, which can facilitate multiple transactions without needing to record each one on the main blockchain.
@@ -14,7 +11,7 @@ There's a lot to learn before funding your LND on-chain wallet and opening chann
 
 - [The concept of liquidity](https://bitcoin.design/guide/how-it-works/liquidity/)
 - [Opening channels](https://docs.start9.com/service-guides/lightning/opening-channels.html)
-- [Getting inbound liquidity](https://staging.docs.start9.com/service-guides/lightning/getting-inbound-liquidity.html)
+- [Getting inbound liquidity](https://docs.start9.com/service-guides/lightning/getting-inbound-liquidity.html)
 
 
 ### Config
@@ -26,7 +23,6 @@ Your LND node is highly configurable. Many settings are considered advanced and 
 Select between a local Bitcoin node and Neutrino as the backend for LND. As Neutrino involves reliance on third-party nodes, it is advisable to use either Core or Knots instead. Once Core or Knots are selected, it is not supported to switch to Neutrino; however, LND can always switch from Neutrino to Core/Knots at a later time. As most users will want to run their own Bitcoin node, you would likely select `Local Bitcoin Node`.
 
 #### General Settings
-
 ##### Privacy
 
 The Lightning Network allows you to open announced channels, unannounced channels, or a mixture of the two. Announced channels are those whose existence and size are publicly visible to all participants in the network and would ordinarily be used to route payments between distant peers. Unannounced channels are those only known to you and the channel peer to whom you opened the channel. If you only have unannounced channels, then your node may go undetected on the wider network, but you'd rely entirely on the liquidity and the connectedness of your channel peer to send or receive payments, and some may fail.
@@ -65,7 +61,6 @@ You can add watchtowers to monitor your node by enabling your Watchtower client 
 
 
 ## Interacting with your LND node and connecting wallets
-
 ### Connect Directly to LND
 
 - [Alby Browser Extension](wallet-integrations/alby-extension.md)
