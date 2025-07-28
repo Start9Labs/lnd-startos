@@ -225,6 +225,8 @@ export function fromLndConf(text: string): Record<string, string[]> {
     if (key.startsWith('#') || key.startsWith('[')) {
       continue
     }
+    console.log('key: ', key)
+    console.log('value: ', value)
     const trimmedKey = key.trim()
     const trimmedValue = value.trim()
 
