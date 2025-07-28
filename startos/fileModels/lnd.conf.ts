@@ -222,11 +222,9 @@ export function fromLndConf(text: string): Record<string, string[]> {
 
   for (const line of lines) {
     const [key, value] = line.split('=', 2)
-    if (key.startsWith('#') || key.startsWith('[')) {
+    if (key.startsWith('#') || key.startsWith('[') || key === '') {
       continue
     }
-    console.log('key: ', key)
-    console.log('value: ', value)
     const trimmedKey = key.trim()
     const trimmedValue = value.trim()
 
