@@ -89,6 +89,9 @@ export const shape = object({
   'bitcoind.rpchost': literal(bitcoindRpchost).onMismatch(bitcoindRpchost),
   'bitcoind.rpccookie':
     literal(bitcoindRpccookie).onMismatch(bitcoindRpccookie),
+  // Disallow rpcuser and rpcpass to allow cookie auth
+  'bitcoind.rpcuser': matches.literal(undefined).optional().onMismatch(undefined),
+  'bitcoind.rpcpass': matches.literal(undefined).optional().onMismatch(undefined),
   'bitcoind.zmqpubrawblock': literal(bitcoindZmqpubrawblock).onMismatch(
     bitcoindZmqpubrawblock,
   ),

@@ -2,12 +2,15 @@ import { VersionInfo, IMPOSSIBLE } from '@start9labs/start-sdk'
 import { readFile } from 'fs/promises'
 import { storeJson } from '../../fileModels/store.json'
 import { load } from 'js-yaml'
+import { lndConfFile } from '../../fileModels/lnd.conf'
+import { lndConfDefaults } from '../../utils'
 
-export const v0_19_1_beta_1 = VersionInfo.of({
-  version: '0.19.1-beta:1-alpha.2',
+export const v0_19_2_beta_1 = VersionInfo.of({
+  version: '0.19.2-beta:1-beta.0',
   releaseNotes: 'Revamped for StartOS 0.4.0',
   migrations: {
     up: async ({ effects }) => {
+      console.log("Running 0.19.2-beta:1-beta.0 migration")
       let existingSeed: string[] = []
       try {
         await readFile(
@@ -31,11 +34,13 @@ export const v0_19_1_beta_1 = VersionInfo.of({
         const buffer = await readFile('/media/startos/volumes/main/pwd.dat')
         const decoded = buffer.toString('utf8')
         const reEncoded = Buffer.from(decoded, 'utf8')
+        console.log('decoded:', decoded)
+        console.log('reEncoded:', reEncoded)
         if (buffer.equals(reEncoded)) {
           console.log('pwd.dat is typeable')
           walletPassword = decoded
         } else {
-          console.log('non-typeable data found in pwd.dat. Contact support.')
+          throw new Error('non-typeable data found in pwd.dat. Contact support.')
         }
       } catch (error) {
         throw new Error(`Error opening pwd.dat: ${error}`)
@@ -84,6 +89,14 @@ export const v0_19_1_beta_1 = VersionInfo.of({
           'config.yaml not found. If LND was installed but never configured or run LND should be installed fresh.\nIf LND was configured/run prior to updating please contact Start9 support.',
         )
       }
+
+      await lndConfFile.merge(effects, {
+        // 'bitcoind.rpcuser': undefined,
+        // 'bitcoind.rpcpass': undefined,
+        rpclisten: lndConfDefaults.rpclisten,
+        restlisten: lndConfDefaults.restlisten,
+      })
+      console.log("Migration 0.19.2-beta:1-beta.0 complete")
     },
     down: IMPOSSIBLE,
   },
