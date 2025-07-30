@@ -92,6 +92,7 @@ export const shape = object({
   // Disallow rpcuser and rpcpass to allow cookie auth
   'bitcoind.rpcuser': matches.literal(undefined).optional().onMismatch(undefined),
   'bitcoind.rpcpass': matches.literal(undefined).optional().onMismatch(undefined),
+  'bitcoin.active': matches.literal(undefined).optional().onMismatch(undefined), // deprecated
   'bitcoind.zmqpubrawblock': literal(bitcoindZmqpubrawblock).onMismatch(
     bitcoindZmqpubrawblock,
   ),
