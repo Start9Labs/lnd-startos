@@ -10,7 +10,7 @@ export const v0_19_2_beta_1 = VersionInfo.of({
   releaseNotes: 'Revamped for StartOS 0.4.0',
   migrations: {
     up: async ({ effects }) => {
-      console.log("Running 0.19.2-beta:1-beta.0 migration")
+      console.log('Running 0.19.2-beta:1-beta.0 migration')
       let existingSeed: string[] = []
       try {
         await readFile(
@@ -40,16 +40,16 @@ export const v0_19_2_beta_1 = VersionInfo.of({
           console.log('pwd.dat is typeable')
           walletPassword = decoded
         } else {
-          throw new Error('non-typeable data found in pwd.dat. Contact support.')
+          throw new Error(
+            'non-typeable data found in pwd.dat. Contact support.',
+          )
         }
       } catch (error) {
         throw new Error(`Error opening pwd.dat: ${error}`)
       }
 
       if (!walletPassword)
-        throw new Error(
-          'pwd.dat not found. Contact Start9 support.',
-        )
+        throw new Error('pwd.dat not found. Contact Start9 support.')
 
       try {
         const configYaml = load(
@@ -72,7 +72,7 @@ export const v0_19_2_beta_1 = VersionInfo.of({
         }
         storeJson.write(effects, {
           aezeedCipherSeed: existingSeed.length === 24 ? existingSeed : null,
-          walletPassword: walletPassword,
+          walletPassword: Buffer.from(walletPassword).toString('base64'),
           walletInitialized: !!walletPassword,
           bitcoindSelected: configYaml.bitcoind.type === 'internal',
           recoveryWindow: configYaml.advanced['recovery-window'] || 2_500,
@@ -96,9 +96,8 @@ export const v0_19_2_beta_1 = VersionInfo.of({
         rpclisten: lndConfDefaults.rpclisten,
         restlisten: lndConfDefaults.restlisten,
       })
-      console.log("Migration 0.19.2-beta:1-beta.0 complete")
+      console.log('Migration 0.19.2-beta:1-beta.0 complete')
     },
     down: IMPOSSIBLE,
   },
 })
-
