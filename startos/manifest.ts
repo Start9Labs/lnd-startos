@@ -19,7 +19,7 @@ export const manifest = setupManifest({
   images: {
     lnd: {
       source: {
-        dockerTag: 'lightninglabs/lnd:v0.19.1-beta',
+        dockerTag: 'lightninglabs/lnd:v0.19.2-beta',
       },
     },
   },

@@ -10,7 +10,10 @@ export const v0_19_2_beta_1 = VersionInfo.of({
   releaseNotes: 'Revamped for StartOS 0.4.0',
   migrations: {
     up: async ({ effects }) => {
-      console.log('Running 0.19.2-beta:1-beta.0 migration')
+      const store = await storeJson.read().once()
+
+      if (store) return // only run migration if store doesn't exist (heuristic for 0.3.5.1 migrations)
+
       let existingSeed: string[] = []
       try {
         await readFile(
@@ -34,8 +37,6 @@ export const v0_19_2_beta_1 = VersionInfo.of({
         const buffer = await readFile('/media/startos/volumes/main/pwd.dat')
         const decoded = buffer.toString('utf8')
         const reEncoded = Buffer.from(decoded, 'utf8')
-        console.log('decoded:', decoded)
-        console.log('reEncoded:', reEncoded)
         if (buffer.equals(reEncoded)) {
           console.log('pwd.dat is typeable')
           walletPassword = decoded
@@ -91,12 +92,9 @@ export const v0_19_2_beta_1 = VersionInfo.of({
       }
 
       await lndConfFile.merge(effects, {
-        // 'bitcoind.rpcuser': undefined,
-        // 'bitcoind.rpcpass': undefined,
         rpclisten: lndConfDefaults.rpclisten,
         restlisten: lndConfDefaults.restlisten,
       })
-      console.log('Migration 0.19.2-beta:1-beta.0 complete')
     },
     down: IMPOSSIBLE,
   },
