@@ -13,9 +13,11 @@ export const towerInfo = sdk.Action.withoutInput(
     warning: null,
     allowedStatuses: 'only-running',
     group: 'watchtower',
-    visibility: (await lndConfFile.read().const(effects))!['watchtower.active']
+    visibility: (await lndConfFile
+      .read((c) => c['watchtower.active'])
+      .const(effects))
       ? 'enabled'
-      : 'hidden',
+      : { disabled: 'Watchtower Server must be enabled'},
   }),
 
   // the execution function
