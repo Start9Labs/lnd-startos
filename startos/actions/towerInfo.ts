@@ -12,7 +12,7 @@ export const towerInfo = sdk.Action.withoutInput(
     description: 'Get your Tower Server URL',
     warning: null,
     allowedStatuses: 'only-running',
-    group: 'watchtower',
+    group: 'Watchtower',
     visibility: (await lndConfFile
       .read((c) => c['watchtower.active'])
       .const(effects))
