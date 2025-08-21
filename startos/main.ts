@@ -12,6 +12,7 @@ import { lndConfFile } from './fileModels/lnd.conf'
 import { manifest } from './manifest'
 import { storeJson } from './fileModels/store.json'
 import { Effects, SIGTERM } from '@start9labs/start-sdk/base/lib/types'
+import { Mounts } from '@start9labs/start-sdk/package/lib/mainFn/Mounts'
 
 export const main = sdk.setupMain(async ({ effects, started }) => {
   /**
@@ -30,7 +31,16 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
 
   const bitcoinNode = (await lndConfFile.read().once())?.['bitcoin.node']
 
+  let mounts = mainMounts
+
   if (bitcoinNode === 'bitcoind') {
+    mounts = mounts.mountDependency({
+      dependencyId: 'bitcoind',
+      mountpoint: '/mnt/bitcoin',
+      readonly: true,
+      subpath: null,
+      volumeId: 'main',
+    })
     const depResult = await sdk.checkDependencies(effects)
     depResult.throwIfRunningNotSatisfied('bitcoind')
     depResult.throwIfInstalledVersionNotSatisfied('bitcoind')
@@ -40,7 +50,7 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
 
   if (!walletInitialized) {
     console.log('Fresh install detected. Initializing LND wallet')
-    await initializeLnd(effects)
+    await initializeLnd(effects, mounts)
     await storeJson.merge(effects, { walletInitialized: true })
   }
 
@@ -90,13 +100,7 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
   const lndSub = await sdk.SubContainer.of(
     effects,
     { imageId: 'lnd' },
-    mainMounts.mountDependency({
-      dependencyId: 'bitcoind',
-      mountpoint: '/mnt/bitcoin',
-      readonly: true,
-      subpath: null,
-      volumeId: 'main',
-    }),
+    mounts,
     'lnd-sub',
   )
 
@@ -298,19 +302,16 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
   return daemons
 })
 
-async function initializeLnd(effects: Effects) {
+async function initializeLnd(
+  effects: Effects,
+  mounts: Mounts<typeof manifest>,
+) {
   await sdk.SubContainer.withTemp(
     effects,
     {
       imageId: 'lnd',
     },
-    mainMounts.mountDependency({
-      dependencyId: 'bitcoind',
-      mountpoint: '/mnt/bitcoin',
-      readonly: true,
-      subpath: null,
-      volumeId: 'main',
-    }),
+    mounts,
     'initialize-lnd',
     async (subc) => {
       const child = await subc.spawn(['lnd'])
