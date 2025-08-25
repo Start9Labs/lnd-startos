@@ -16,7 +16,7 @@ There's a lot to learn before funding your LND on-chain wallet and opening chann
 
 ### Config
 
-Your LND node is highly configurable. Many settings are considered advanced and should be used with caution. For the vast majority of users and use cases, we recommend using the defaults but you may prefer to tweak some before you being. Once configuration is complete, you may start your node!
+Your LND node is highly configurable. Many settings are considered advanced and should be used with caution. For the vast majority of users and use cases, we recommend using the defaults but you may prefer to tweak some before you begin. Once configuration is complete, you may start your node!
 
 #### Bitcoin Backend
 
