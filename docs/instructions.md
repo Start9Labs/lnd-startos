@@ -49,7 +49,7 @@ This LND-specific (NOT standard BIP-39) seed can be used to gain access to on-ch
 
 When your server backs up your service, it takes a copy of your settings, your Aezeed Cipher Seed (if the wallet was created before v0.16.4), and a Static Channel Backup. This is all you need to recover your funds in the event of a disaster.
 
-Restoring a backup reinstates your settings, returns your original on-chain wallet, and then uses the Static Channel Backup to request that peers force-close all of your channels since you no longer know the correct balances of these channels (as they will have changed between the time of the backup and the disaster). It is not recommended that you continue using the same instance; it is better to move your funds to a safe location, then uninstall/reinstall LND, and finally fund the new on-chain wallet.
+Restoring a backup reinstates your settings, returns your original on-chain wallet, and then uses the Static Channel Backup to request that peers force-close all of your channels since it is not possible to guarantee the backup has the correct balances of these channels (as they will likely have changed between the time of the backup and the disaster). Lightning Labs strong recommends against continued use the same LND node after a backup has been restored; it is better to move your funds to a safe location, then uninstall/reinstall LND, and finally fund the new on-chain wallet.
 
 ## Watchtowers
 
