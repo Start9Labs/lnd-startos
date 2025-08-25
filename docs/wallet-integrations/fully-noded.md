@@ -9,7 +9,7 @@ Available For:
 
 1. Download Fully Noded from the Apple App Store.
 1. Log into your StartOS server UI and select Services -> LND and find the Interfaces section, then select the gear icon on the right-hand side of the screen for `REST LND Connect`.
-1. Click the QR code icon next to the REST LND Connect interface you wish to use to display the QR code, then scan/copy this with your iPhone/mac.
+1. Click the QR code icon next to the REST LND Connect interface you wish to connect with to display the QR code, then scan/copy this with your iPhone/mac.
 
     [Scanning QR] From the App, you have to go > Node manager > Add a node + > hit Scan QR (not LND)
 
