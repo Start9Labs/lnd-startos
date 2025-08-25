@@ -1,4 +1,10 @@
 import { setupManifest } from '@start9labs/start-sdk'
+import { SDKImageInputSpec } from '@start9labs/start-sdk/base/lib/types/ManifestTypes'
+
+const BUILD = process.env.BUILD || ''
+
+const arch =
+  BUILD === 'x86_64' || BUILD === 'aarch64' ? [BUILD] : ['x86_64', 'aarch64']
 
 export const manifest = setupManifest({
   id: 'lnd',
@@ -9,7 +15,8 @@ export const manifest = setupManifest({
   supportSite: 'https://lightning.engineering/slack.html',
   marketingSite: 'https://lightning.engineering/',
   donationUrl: 'https://donate.start9.com/',
-  docsUrl: 'https://github.com/Start9Labs/lnd-startos/blob/update/040/instructions.md',
+  docsUrl:
+    'https://github.com/Start9Labs/lnd-startos/blob/update/040/instructions.md',
   description: {
     short:
       'A complete implementation of a Lightning Network node by Lightning Labs',
@@ -21,9 +28,12 @@ export const manifest = setupManifest({
       source: {
         dockerTag: 'lightninglabs/lnd:v0.19.2-beta',
       },
-    },
+      arch,
+    } as SDKImageInputSpec,
   },
-  hardwareRequirements: {},
+  hardwareRequirements: {
+    arch,
+  },
   alerts: {
     install:
       'READ CAREFULLY! LND and the Lightning Network are considered beta software. Please use with caution and do not risk more money than you are willing to lose. We encourage frequent backups, particularly after opening or closing channels. If for any reason, you need to restore LND from a backup, your on-chain wallet will be restored. Any channels in the backup will be closed and their funds returned to your on-chain wallet, minus fees. It may also take some time for this process to occur. Any channels opened after the last backup CANNOT be recovered by backup restore.',
