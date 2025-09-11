@@ -80,6 +80,7 @@ const {
   'db.bolt.auto-compact': dbBoltAutoCompact,
   'db.bolt.auto-compact-min-age': dbBoltAutoCompactMinAge,
   'db.bolt.dbtimeout': dbBoltDbtimeout,
+  externalip,
 } = lndConfDefaults
 
 export const shape = object({
@@ -90,8 +91,14 @@ export const shape = object({
   'bitcoind.rpccookie':
     literal(bitcoindRpccookie).onMismatch(bitcoindRpccookie),
   // Disallow rpcuser and rpcpass to allow cookie auth
-  'bitcoind.rpcuser': matches.literal(undefined).optional().onMismatch(undefined),
-  'bitcoind.rpcpass': matches.literal(undefined).optional().onMismatch(undefined),
+  'bitcoind.rpcuser': matches
+    .literal(undefined)
+    .optional()
+    .onMismatch(undefined),
+  'bitcoind.rpcpass': matches
+    .literal(undefined)
+    .optional()
+    .onMismatch(undefined),
   'bitcoin.active': matches.literal(undefined).optional().onMismatch(undefined), // deprecated
   'bitcoind.zmqpubrawblock': literal(bitcoindZmqpubrawblock).onMismatch(
     bitcoindZmqpubrawblock,
@@ -141,6 +148,7 @@ export const shape = object({
   alias: string.optional().onMismatch(alias),
   color: string.optional().onMismatch(color),
   'fee.url': string.optional().onMismatch(feeUrl),
+  externalip: string.optional().onMismatch(externalip),
 
   // Bitcoin
   'bitcoin.node': literals('bitcoind', 'neutrino').onMismatch(bitcoinNode),

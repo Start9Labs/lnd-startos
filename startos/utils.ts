@@ -35,6 +35,7 @@ export const lndConfDefaults = {
   alias: undefined,
   color: undefined,
   'fee.url': undefined,
+  externalip: undefined,
 
   // Bitcoin
   'bitcoin.mainnet': true,
@@ -107,54 +108,16 @@ export const mainMounts = sdk.Mounts.of().mountVolume({
 })
 
 export type GetInfo = {
-  identity_pubkey: string,
-  alias: string,
+  identity_pubkey: string
+  alias: string
   synced_to_chain: boolean
   synced_to_graph: boolean
 }
 
 export type TowerInfo = {
-  pubkey: string,
-  listeners: string[],
+  pubkey: string
+  listeners: string[]
   uris: string[]
-}
-
-export function getExteralAddresses() {
-  return sdk.Value.dynamicSelect(async ({ effects }) => {
-    const peerInterface = await sdk.serviceInterface
-      .getOwn(effects, 'peer')
-      .const()
-
-    const urls = peerInterface?.addressInfo?.publicUrls || []
-
-    if (urls.length === 0) {
-      return {
-        name: 'External Address',
-        description:
-          "No available address at which your watchtower can be reached by LND peers.",
-        values: { none: 'none' },
-        default: 'none',
-      }
-    }
-
-    const urlsWithNone = urls.reduce(
-      (obj, url) => ({
-        ...obj,
-        [url]: url,
-      }),
-      {} as Record<string, string>,
-    )
-
-    urlsWithNone['none'] = 'none'
-
-    return {
-      name: 'External Address',
-      description:
-        "Address at which your node can be reached by peers. Select 'none' to disable the watchtower server.",
-      values: urlsWithNone,
-      default: urls.find((u) => u.endsWith('.onion')) || '',
-    }
-  })
 }
 
 export function sleep(ms: any) {

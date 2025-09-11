@@ -4,8 +4,9 @@ import { setInterfaces } from '../interfaces'
 import { versionGraph } from '../install/versionGraph'
 import { actions } from '../actions'
 import { restoreInit } from '../backups'
-import { setupLnd } from './setupLnd'
+import { watchHosts } from './watchHosts'
 import { setupCerts } from './setupCerts'
+import { taskSetBackend } from './taskSetBackend'
 
 export const init = sdk.setupInit(
   restoreInit,
@@ -13,8 +14,9 @@ export const init = sdk.setupInit(
   setInterfaces,
   setDependencies,
   actions,
-  setupLnd,
+  watchHosts,
   setupCerts,
+  taskSetBackend,
 )
 
 export const uninit = sdk.setupUninit(versionGraph)

@@ -1,11 +1,10 @@
 import { lndConfFile } from '../../fileModels/lnd.conf'
 import { sdk } from '../../sdk'
-import { getExteralAddresses } from '../../utils'
 
 const { InputSpec } = sdk
 
 const watchtowerServerSpec = InputSpec.of({
-  'watchtower.externalip': getExteralAddresses(),
+  'watchtower.externalip': getExternalAddresses(),
 })
 
 export const watchtowerServerConfig = sdk.Action.withInput(
@@ -64,3 +63,41 @@ async function write(effects: any, input: WatchtowerServerSpec) {
 }
 
 type WatchtowerServerSpec = typeof watchtowerServerSpec._TYPE
+
+export function getExternalAddresses() {
+  return sdk.Value.dynamicSelect(async ({ effects }) => {
+    const peerInterface = await sdk.serviceInterface
+      .getOwn(effects, 'peer')
+      .const()
+
+    const urls = peerInterface?.addressInfo?.publicUrls || []
+
+    if (urls.length === 0) {
+      return {
+        name: 'External Address',
+        description:
+          'No available address at which your watchtower can be reached by LND peers.',
+        values: { none: 'none' },
+        default: 'none',
+      }
+    }
+
+    const urlsWithNone = urls.reduce(
+      (obj, url) => ({
+        ...obj,
+        [url]: url,
+      }),
+      {} as Record<string, string>,
+    )
+
+    urlsWithNone['none'] = 'none'
+
+    return {
+      name: 'External Address',
+      description:
+        "Address at which your node can be reached by peers. Select 'none' to disable the watchtower server.",
+      values: urlsWithNone,
+      default: urls.find((u) => u.endsWith('.onion')) || '',
+    }
+  })
+}

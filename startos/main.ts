@@ -29,11 +29,11 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
     watchtowers,
   } = (await storeJson.read().once())!
 
-  const bitcoinNode = (await lndConfFile.read().once())?.['bitcoin.node']
+  const conf = (await lndConfFile.read().const(effects))!
 
   let mounts = mainMounts
 
-  if (bitcoinNode === 'bitcoind') {
+  if (conf['bitcoin.node'] === 'bitcoind') {
     mounts = mounts.mountDependency({
       dependencyId: 'bitcoind',
       mountpoint: '/mnt/bitcoin',
@@ -58,40 +58,34 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
   await storeJson.read().const(effects)
 
   const osIp = await sdk.getOsIp(effects)
-  const conf = (await lndConfFile.read().once())!
-
-  const peerAddresses = (
-    await sdk.serviceInterface.getOwn(effects, peerInterfaceId).const()
-  )?.addressInfo?.publicUrls
 
   if (
-    [conf.externalhosts].flat() !== peerAddresses ||
     ![conf.rpclisten].flat()?.includes(lndConfDefaults.rpclisten) ||
     ![conf.restlisten].flat()?.includes(lndConfDefaults.restlisten) ||
     conf['tor.socks'] !== `${osIp}:9050`
   ) {
-    await lndConfFile.merge(effects, {
-      externalhosts: peerAddresses,
-      'tor.socks': `${osIp}:9050`,
-      rpclisten: conf.rpclisten
-        ? [
-            ...new Set(
-              [[conf.rpclisten].flat(), lndConfDefaults.rpclisten].flat(),
-            ),
-          ]
-        : lndConfDefaults.rpclisten,
-      restlisten: conf.restlisten
-        ? [
-            ...new Set(
-              [[conf.restlisten].flat(), lndConfDefaults.restlisten].flat(),
-            ),
-          ]
-        : lndConfDefaults.restlisten,
-    })
+    await lndConfFile.merge(
+      effects,
+      {
+        'tor.socks': `${osIp}:9050`,
+        rpclisten: conf.rpclisten
+          ? [
+              ...new Set(
+                [[conf.rpclisten].flat(), lndConfDefaults.rpclisten].flat(),
+              ),
+            ]
+          : lndConfDefaults.rpclisten,
+        restlisten: conf.restlisten
+          ? [
+              ...new Set(
+                [[conf.restlisten].flat(), lndConfDefaults.restlisten].flat(),
+              ),
+            ]
+          : lndConfDefaults.restlisten,
+      },
+      { allowWriteAfterConst: true },
+    )
   }
-
-  // restart on lnd.conf changes
-  await lndConfFile.read().const(effects)
 
   const lndArgs: string[] = []
 
@@ -105,7 +99,7 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
   )
 
   // Restart if Bitcoin .cookie changes if using bitcoin backend
-  if (bitcoinNode === 'bitcoind') {
+  if (conf['bitcoin.node'] === 'bitcoind') {
     await FileHelper.string(`${lndSub.rootfs}/mnt/bitcoin/.cookie`)
       .read()
       .const(effects)
@@ -230,14 +224,17 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
         },
       },
     })
+  type DaemonAddId<
+    T extends Daemons<typeof manifest, string>,
+    Id extends string,
+  > =
+    T extends Daemons<typeof manifest, infer D>
+      ? Daemons<typeof manifest, D | Id>
+      : never
 
-  let daemons: Daemons<
-    typeof manifest,
-    'primary' | 'unlock-wallet' | 'restore' | 'sync-progress'
-  > = baseDaemons
-
+  let daemonsRestore: DaemonAddId<typeof baseDaemons, 'restore'> = baseDaemons
   if (restore) {
-    daemons = baseDaemons.addOneshot('restore', {
+    daemonsRestore = baseDaemons.addOneshot('restore', {
       subcontainer: lndSub,
       exec: {
         fn: async () => {
@@ -263,8 +260,28 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
     })
   }
 
+  let daemonsReachability: DaemonAddId<typeof daemonsRestore, 'reachability'> =
+    daemonsRestore
+  if (!conf.externalip && !conf.externalhosts?.length) {
+    daemonsReachability = baseDaemons.addHealthCheck('reachability', {
+      ready: {
+        display: 'Node Reachability',
+        fn: () => ({
+          result: 'disabled',
+          message:
+            'Your node can peer with other nodes, but other nodes cannot peer with you. Optionally add a Tor domain, public domain, or public IP address to change this behavior.',
+        }),
+      },
+      requires: ['primary'],
+    })
+  }
+
+  let daemonsWatchtower: DaemonAddId<
+    typeof daemonsReachability,
+    'add-watchtowers'
+  > = daemonsReachability
   if (watchtowers.length > 0) {
-    return daemons.addOneshot('add-watchtowers', {
+    daemonsWatchtower = daemonsReachability.addOneshot('add-watchtowers', {
       exec: {
         fn: async (subcontainer, abort) => {
           // Setup watchtowers at runtime because for some reason they can't be setup in lnd.conf
@@ -299,7 +316,7 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
     })
   }
 
-  return daemons
+  return daemonsWatchtower
 })
 
 async function initializeLnd(

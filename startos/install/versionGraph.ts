@@ -30,6 +30,7 @@ export const versionGraph = VersionGraph.of({
         resetWalletTransactions: false,
         watchtowers: [],
         walletInitialized: false,
+        externalGateway: null,
       })
     }
   },

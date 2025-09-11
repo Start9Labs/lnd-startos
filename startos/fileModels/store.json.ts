@@ -11,6 +11,7 @@ export const shape = object({
   resetWalletTransactions: boolean,
   watchtowers: arrayOf(string),
   walletInitialized: boolean,
+  externalGateway: string.nullable().onMismatch(null),
 })
 
 export const storeJson = FileHelper.json(

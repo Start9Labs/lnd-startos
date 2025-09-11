@@ -83,6 +83,7 @@ export const v0_19_2_beta_0 = VersionInfo.of({
             configYaml.watchtowers['wt-client'].enabled === 'enabled'
               ? configYaml.watchtowers['wt-client']['add-watchtowers']
               : [],
+          externalGateway: null,
         })
       } catch (error) {
         console.log('config.yaml not found')
