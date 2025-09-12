@@ -50,8 +50,8 @@ export const manifest = setupManifest({
       description: 'Used to subscribe to new block events.',
       optional: true,
       metadata: {
-        title: 'Bitcoin',
-        icon: 'https://bitcoin.org/img/icons/opengraph.png?1749679667',
+        title: 'A Bitcoin Full Node',
+        icon: 'https://bitcoin.org/img/icons/opengraph.png',
       },
     },
   },

@@ -108,7 +108,7 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
   /**
    * ======================== Daemons ========================
    */
-  const baseDaemons = sdk.Daemons.of(effects, started)
+  return sdk.Daemons.of(effects, started)
     .addDaemon('primary', {
       exec: { command: ['lnd', ...lndArgs] },
       subcontainer: lndSub,
@@ -224,99 +224,92 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
         },
       },
     })
-  type DaemonAddId<
-    T extends Daemons<typeof manifest, string>,
-    Id extends string,
-  > =
-    T extends Daemons<typeof manifest, infer D>
-      ? Daemons<typeof manifest, D | Id>
-      : never
-
-  let daemonsRestore: DaemonAddId<typeof baseDaemons, 'restore'> = baseDaemons
-  if (restore) {
-    daemonsRestore = baseDaemons.addOneshot('restore', {
-      subcontainer: lndSub,
-      exec: {
-        fn: async () => {
-          await sdk.setHealth(effects, {
-            id: 'restored',
-            name: 'Backup Restoration Detected',
-            message:
-              'Lightning Labs strongly recommends against continuing to use a LND node after running restorechanbackup. Please recover and sweep any remaining funds to another wallet. Afterwards LND should be uninstalled. LND can then be re-installed fresh if you would like to continue using LND.',
-            result: 'failure',
-          })
-          return {
-            command: [
-              'lncli',
-              '--rpcserver=lnd.startos',
-              'restorechanbackup',
-              '--multi_file',
-              `${lndDataDir}/data/chain/bitcoin/mainnet/channel.backup`,
-            ],
-          }
-        },
-      },
-      requires: ['primary', 'unlock-wallet'],
-    })
-  }
-
-  let daemonsReachability: DaemonAddId<typeof daemonsRestore, 'reachability'> =
-    daemonsRestore
-  if (!conf.externalip && !conf.externalhosts?.length) {
-    daemonsReachability = baseDaemons.addHealthCheck('reachability', {
-      ready: {
-        display: 'Node Reachability',
-        fn: () => ({
-          result: 'disabled',
-          message:
-            'Your node can peer with other nodes, but other nodes cannot peer with you. Optionally add a Tor domain, public domain, or public IP address to change this behavior.',
-        }),
-      },
-      requires: ['primary'],
-    })
-  }
-
-  let daemonsWatchtower: DaemonAddId<
-    typeof daemonsReachability,
-    'add-watchtowers'
-  > = daemonsReachability
-  if (watchtowers.length > 0) {
-    daemonsWatchtower = daemonsReachability.addOneshot('add-watchtowers', {
-      exec: {
-        fn: async (subcontainer, abort) => {
-          // Setup watchtowers at runtime because for some reason they can't be setup in lnd.conf
-          for (const tower of watchtowers || []) {
-            if (abort.aborted) break
-            console.log(`Watchtower client adding ${tower}`)
-            let res = await subcontainer.exec(
-              ['lncli', '--rpcserver=lnd.startos', 'wtclient', 'add', tower],
-              undefined,
-              undefined,
-              {
-                abort: abort.reason,
-                signal: abort,
+    .addOneshot('restore', () =>
+      restore
+        ? ({
+            subcontainer: lndSub,
+            exec: {
+              fn: async () => {
+                await sdk.setHealth(effects, {
+                  id: 'restored',
+                  name: 'Backup Restoration Detected',
+                  message:
+                    'Lightning Labs strongly recommends against continuing to use a LND node after running restorechanbackup. Please recover and sweep any remaining funds to another wallet. Afterwards LND should be uninstalled. LND can then be re-installed fresh if you would like to continue using LND.',
+                  result: 'failure',
+                })
+                return {
+                  command: [
+                    'lncli',
+                    '--rpcserver=lnd.startos',
+                    'restorechanbackup',
+                    '--multi_file',
+                    `${lndDataDir}/data/chain/bitcoin/mainnet/channel.backup`,
+                  ],
+                }
               },
-            )
+            },
+            requires: ['primary', 'unlock-wallet'],
+          } as const)
+        : null,
+    )
+    .addHealthCheck('reachability', () =>
+      !conf.externalip && !conf.externalhosts?.length
+        ? ({
+            ready: {
+              display: 'Node Reachability',
+              fn: () => ({
+                result: 'disabled',
+                message:
+                  'Your node can peer with other nodes, but other nodes cannot peer with you. Optionally add a Tor domain, public domain, or public IP address to change this behavior.',
+              }),
+            },
+            requires: ['primary'],
+          } as const)
+        : null,
+    )
+    .addOneshot('add-watchtowers', () =>
+      watchtowers.length > 0
+        ? ({
+            subcontainer: lndSub,
+            exec: {
+              fn: async (subcontainer: typeof lndSub, abort) => {
+                // Setup watchtowers at runtime because for some reason they can't be setup in lnd.conf
+                for (const tower of watchtowers || []) {
+                  if (abort.aborted) break
+                  console.log(`Watchtower client adding ${tower}`)
+                  let res = await subcontainer.exec(
+                    [
+                      'lncli',
+                      '--rpcserver=lnd.startos',
+                      'wtclient',
+                      'add',
+                      tower,
+                    ],
+                    undefined,
+                    undefined,
+                    {
+                      abort: abort.reason,
+                      signal: abort,
+                    },
+                  )
 
-            if (
-              res.exitCode === 0 &&
-              res.stdout !== '' &&
-              typeof res.stdout === 'string'
-            ) {
-              console.log(`Result adding tower ${tower}: ${res.stdout}`)
-            } else {
-              console.log(`Error adding tower ${tower}: ${res.stderr}`)
-            }
-          }
-          return null
-        },
-      },
-      requires: ['primary', 'unlock-wallet', 'sync-progress'],
-      subcontainer: lndSub,
-    })
-  }
-
-  return daemonsWatchtower
+                  if (
+                    res.exitCode === 0 &&
+                    res.stdout !== '' &&
+                    typeof res.stdout === 'string'
+                  ) {
+                    console.log(`Result adding tower ${tower}: ${res.stdout}`)
+                  } else {
+                    console.log(`Error adding tower ${tower}: ${res.stderr}`)
+                  }
+                }
+                return null
+              },
+            },
+            requires: ['primary', 'unlock-wallet', 'sync-progress'],
+          } as const)
+        : null,
+    )
 })
 
 async function initializeLnd(
