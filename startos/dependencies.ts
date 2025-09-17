@@ -22,7 +22,7 @@ export const setDependencies = sdk.setupDependencies(async ({ effects }) => {
       bitcoind: {
         healthChecks: ['sync-progress', 'primary'],
         kind: 'running',
-        versionRange: '>=28.1:3-alpha.6',
+        versionRange: '>=29.1:2-beta.0',
       },
     }
   }
