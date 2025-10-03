@@ -1,5 +1,5 @@
 import { sdk } from './sdk'
-import { Daemons, FileHelper, T } from '@start9labs/start-sdk'
+import { FileHelper } from '@start9labs/start-sdk'
 import {
   GetInfo,
   lndConfDefaults,
@@ -7,12 +7,13 @@ import {
   mainMounts,
   sleep,
 } from './utils'
-import { restPort, peerInterfaceId } from './interfaces'
+import { restPort } from './interfaces'
 import { lndConfFile } from './fileModels/lnd.conf'
 import { manifest } from './manifest'
 import { storeJson } from './fileModels/store.json'
 import { Effects, SIGTERM } from '@start9labs/start-sdk/base/lib/types'
 import { Mounts } from '@start9labs/start-sdk/package/lib/mainFn/Mounts'
+import { base64 } from 'rfc4648'
 
 export const main = sdk.setupMain(async ({ effects, started }) => {
   /**
@@ -130,6 +131,10 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
               console.log('wallet-unlock aborted')
               break
             }
+
+            if (!walletPassword)
+              throw new Error('Wallet Password is undefined!')
+
             const res = await subcontainer.exec([
               'curl',
               '--no-progress-meter',
@@ -141,11 +146,15 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
               '-d',
               restore
                 ? JSON.stringify({
-                    wallet_password: walletPassword,
+                    wallet_password: base64.stringify(
+                      Buffer.from(walletPassword),
+                    ),
                     recovery_window: recoveryWindow,
                   })
                 : JSON.stringify({
-                    wallet_password: walletPassword,
+                    wallet_password: base64.stringify(
+                      Buffer.from(walletPassword),
+                    ),
                   }),
             ])
             console.log('wallet-unlock response', res)
@@ -351,6 +360,7 @@ async function initializeLnd(
       } while (true)
 
       const walletPassword = (await storeJson.read().once())?.walletPassword
+      if (!walletPassword) throw new Error('No wallet password found')
 
       const status = await subc.exec([
         'curl',
@@ -363,7 +373,7 @@ async function initializeLnd(
         'https://lnd.startos:8080/v1/initwallet',
         '-d',
         `${JSON.stringify({
-          wallet_password: walletPassword,
+          wallet_password: base64.stringify(Buffer.from(walletPassword)),
           cipher_seed_mnemonic: cipherSeed,
         })}`,
       ])

@@ -3,7 +3,10 @@ import { readFile } from 'fs/promises'
 import { storeJson } from '../../fileModels/store.json'
 import { load } from 'js-yaml'
 import { lndConfFile } from '../../fileModels/lnd.conf'
-import { lndConfDefaults } from '../../utils'
+import { lndConfDefaults, lndDataDir, mainMounts, sleep } from '../../utils'
+import { base32, base64 } from 'rfc4648'
+import { sdk } from '../../sdk'
+import { restPort } from '../../interfaces'
 
 export const v0_19_3_1_beta_0 = VersionInfo.of({
   version: '0.19.3-beta:1-beta.0',
@@ -32,26 +35,148 @@ export const v0_19_3_1_beta_0 = VersionInfo.of({
         console.log('CipherSeed not found')
       }
 
-      let walletPassword = null
       try {
-        const buffer = await readFile('/media/startos/volumes/main/pwd.dat')
-        const decoded = buffer.toString('utf8')
-        const reEncoded = Buffer.from(decoded, 'utf8')
-        if (buffer.equals(reEncoded)) {
-          console.log('pwd.dat is typeable')
-          walletPassword = decoded
-        } else {
-          throw new Error(
-            'non-typeable data found in pwd.dat. Contact support.',
-          )
-        }
+        await readFile('/media/startos/volumes/main/pwd.dat')
       } catch (error) {
         throw new Error(`Error opening pwd.dat: ${error}`)
       }
 
-      if (!walletPassword)
-        throw new Error('pwd.dat not found. Contact Start9 support.')
+      const osIp = await sdk.getOsIp(effects)
 
+      await lndConfFile.merge(effects, {
+        'bitcoind.rpchost': lndConfDefaults['bitcoind.rpchost'],
+        'bitcoind.rpcuser': undefined,
+        'bitcoind.rpcpass': undefined,
+        'bitcoind.zmqpubrawblock': lndConfDefaults['bitcoind.zmqpubrawblock'],
+        'bitcoind.zmqpubrawtx': lndConfDefaults['bitcoind.zmqpubrawtx'],
+        'bitcoind.rpccookie': lndConfDefaults['bitcoind.rpccookie'],
+        'tor.socks': `${osIp}:9050`,
+        rpclisten: lndConfDefaults.rpclisten,
+        restlisten: lndConfDefaults.restlisten,
+      })
+
+      let walletPassword = ''
+      const buffer = await readFile('/media/startos/volumes/main/pwd.dat')
+      const decoded = buffer.toString('utf8')
+      const reEncoded = Buffer.from(decoded, 'utf8')
+
+      if (buffer.equals(reEncoded)) {
+        console.log('pwd.dat is typeable')
+        walletPassword = decoded
+      } else {
+        const node = await lndConfFile.read((e) => e['bitcoin.node']).once()
+
+        let mounts = mainMounts
+        if (node === 'bitcoind') {
+          mounts = mounts.mountDependency({
+            dependencyId: 'bitcoind',
+            mountpoint: '/mnt/bitcoin',
+            readonly: true,
+            subpath: null,
+            volumeId: 'main',
+          })
+
+          try {
+            await effects.setDependencies({
+              dependencies: [
+                {
+                  id: 'bitcoind',
+                  kind: 'running',
+                  versionRange: '>=29.1:2-beta.0',
+                  healthChecks: ['primary'],
+                },
+              ],
+            })
+            const depResult = await sdk.checkDependencies(effects)
+
+            depResult.throwIfRunningNotSatisfied('bitcoind')
+            depResult.throwIfInstalledVersionNotSatisfied('bitcoind')
+            depResult.throwIfTasksNotSatisfied('bitcoind')
+            depResult.throwIfHealthNotSatisfied('bitcoind', 'primary')
+          } catch (error) {
+            console.log('Error: ', error)
+            throw new Error(
+              'Due to updating from a much older version of LND, Bitcoin must be updated and running before LND can be updated. After Bitcoin has been updated to the latest version, LND can be updated.',
+            )
+          }
+        }
+
+        const lndSub = await sdk.SubContainer.of(
+          effects,
+          { imageId: 'lnd' },
+          mounts,
+          'lnd-sub',
+        )
+
+        await sdk.Daemons.of(effects, async () => null)
+          .addDaemon('primary', {
+            exec: { command: ['lnd'] },
+            subcontainer: lndSub,
+            ready: {
+              display: 'REST Interface',
+              fn: () =>
+                sdk.healthCheck.checkPortListening(effects, restPort, {
+                  successMessage:
+                    'The REST interface is ready to accept connections',
+                  errorMessage: 'The REST Interface is not ready',
+                }),
+            },
+            requires: [],
+          })
+          .addOneshot('changepassword', {
+            exec: {
+              fn: async (subcontainer, abort) => {
+                while (true) {
+                  if (abort.aborted) {
+                    console.log('changepassword aborted')
+                    break
+                  }
+                  try {
+                    console.log('encoding pwd.dat to base32')
+
+                    walletPassword = base32.stringify(buffer).replace(/=/g, '')
+                    const current_password = base64.stringify(buffer)
+                    const new_password = base64.stringify(
+                      Buffer.from(walletPassword),
+                    )
+                    console.log('new_password: ', new_password)
+
+                    const res = await subcontainer.exec([
+                      'curl',
+                      '--no-progress-meter',
+                      '-X',
+                      'POST',
+                      '--cacert',
+                      `${lndDataDir}/tls.cert`,
+                      'https://lnd.startos:8080/v1/changepassword',
+                      '-d',
+                      JSON.stringify({
+                        current_password,
+                        new_password,
+                      }),
+                    ])
+
+                    console.log('changepassword response', res)
+
+                    if (res.stdout.includes('admin_macaroon')) {
+                      console.log(
+                        'Password successfully changed to from binary to base32',
+                      )
+                      break
+                    }
+                    sleep(10_000)
+                  } catch (e) {
+                    console.log(`Error running changepassword: `, e)
+                  }
+                }
+                return null
+              },
+            },
+            subcontainer: lndSub,
+            requires: ['primary'],
+          })
+          .runUntilSuccess(120_000)
+      }
       try {
         const configYaml = load(
           await readFile(
@@ -71,9 +196,9 @@ export const v0_19_3_1_beta_0 = VersionInfo.of({
             'recovery-window': number | null
           }
         }
-        storeJson.write(effects, {
+        storeJson.merge(effects, {
           aezeedCipherSeed: existingSeed.length === 24 ? existingSeed : null,
-          walletPassword: Buffer.from(walletPassword).toString('base64'),
+          walletPassword,
           walletInitialized: !!walletPassword,
           bitcoindSelected: configYaml.bitcoind.type === 'internal',
           recoveryWindow: configYaml.advanced['recovery-window'] || 2_500,
@@ -91,11 +216,6 @@ export const v0_19_3_1_beta_0 = VersionInfo.of({
           'config.yaml not found. If LND was installed but never configured or run LND should be installed fresh.\nIf LND was configured/run prior to updating please contact Start9 support.',
         )
       }
-
-      await lndConfFile.merge(effects, {
-        rpclisten: lndConfDefaults.rpclisten,
-        restlisten: lndConfDefaults.restlisten,
-      })
     },
     down: IMPOSSIBLE,
   },
