@@ -1,10 +1,9 @@
 import { VersionInfo, IMPOSSIBLE } from '@start9labs/start-sdk'
 import { readFile } from 'fs/promises'
 import { storeJson } from '../../fileModels/store.json'
-import { load } from 'js-yaml'
 import { lndConfFile } from '../../fileModels/lnd.conf'
 import { lndConfDefaults, lndDataDir, mainMounts, sleep } from '../../utils'
-import { base32, base64 } from 'rfc4648'
+import { base64 } from 'rfc4648'
 import { sdk } from '../../sdk'
 import { restPort } from '../../interfaces'
 

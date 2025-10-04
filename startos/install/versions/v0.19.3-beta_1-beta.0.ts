@@ -139,7 +139,6 @@ export const v0_19_3_1_beta_0 = VersionInfo.of({
                     const new_password = base64.stringify(
                       Buffer.from(walletPassword),
                     )
-                    console.log('new_password: ', new_password)
 
                     const res = await subcontainer.exec([
                       'curl',
@@ -155,8 +154,6 @@ export const v0_19_3_1_beta_0 = VersionInfo.of({
                         new_password,
                       }),
                     ])
-
-                    console.log('changepassword response', res)
 
                     if (res.stdout.includes('admin_macaroon')) {
                       console.log(
