@@ -10,12 +10,12 @@ import { taskSetBackend } from './taskSetBackend'
 
 export const init = sdk.setupInit(
   restoreInit,
+  setupCerts,
   versionGraph,
   setInterfaces,
   setDependencies,
   actions,
   watchHosts,
-  setupCerts,
   taskSetBackend,
 )
 
