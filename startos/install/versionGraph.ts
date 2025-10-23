@@ -23,7 +23,7 @@ export const versionGraph = VersionGraph.of({
       console.log("Couldn't find existing store.json. Using defaults")
       await storeJson.write(effects, {
         aezeedCipherSeed: null,
-        walletPassword: utils.getDefaultString(randomPassword),
+        walletPassword: Buffer.from(utils.getDefaultString(randomPassword), 'utf8').toString('base64'),
         recoveryWindow: 2_500,
         bitcoindSelected: false,
         restore: false,
@@ -31,6 +31,12 @@ export const versionGraph = VersionGraph.of({
         watchtowers: [],
         walletInitialized: false,
         externalGateway: null,
+        pendingPasswordChange: null,
+        passwordChangeError: null,
+        autoUnlockEnabled: true,
+        seedBackupConfirmed: false,
+        passwordBackupConfirmed: false,
+        seedBackupIndices: null,
       })
     }
   },

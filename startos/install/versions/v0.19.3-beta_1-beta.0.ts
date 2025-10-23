@@ -1,15 +1,15 @@
 import { VersionInfo, IMPOSSIBLE } from '@start9labs/start-sdk'
 import { readFile } from 'fs/promises'
 import { storeJson } from '../../fileModels/store.json'
-import { load } from 'js-yaml'
 import { lndConfFile } from '../../fileModels/lnd.conf'
 import { lndConfDefaults, lndDataDir, mainMounts, sleep } from '../../utils'
 import { base32, base64 } from 'rfc4648'
 import { sdk } from '../../sdk'
 import { restPort } from '../../interfaces'
+import { load } from 'js-yaml'
 
 export const v0_19_3_1_beta_0 = VersionInfo.of({
-  version: '0.19.3-beta:1-beta.0',
+version: '0.19.3-beta:1-betawalletsecurity.0',
   releaseNotes: 'Revamped for StartOS 0.4.0',
   migrations: {
     up: async ({ effects }) => {
@@ -206,6 +206,12 @@ export const v0_19_3_1_beta_0 = VersionInfo.of({
               ? configYaml.watchtowers['wt-client']['add-watchtowers']
               : [],
           externalGateway: null,
+          pendingPasswordChange: null,
+          passwordChangeError: null,
+          autoUnlockEnabled: true,
+          seedBackupConfirmed: false,
+          passwordBackupConfirmed: false,
+            seedBackupIndices: null,
         })
       } catch (error) {
         console.log('config.yaml not found')
