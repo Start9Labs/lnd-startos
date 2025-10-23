@@ -333,5 +333,5 @@ export const migration: T.ExpectedExports.migration =
         },
       },
     },
-    "0.19.3"
+    "0.19.3.1"
   );
