@@ -605,7 +605,7 @@ async function initializeLnd(
         'https://lnd.startos:8080/v1/initwallet',
         '-d',
         `${JSON.stringify({
-          wallet_password: base64.stringify(Buffer.from(walletPassword)),
+          wallet_password: walletPassword,
           cipher_seed_mnemonic: cipherSeed,
         })}`,
       ])
