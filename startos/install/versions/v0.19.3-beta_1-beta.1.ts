@@ -193,7 +193,7 @@ version: '0.19.3-beta:1-beta.1',
             'recovery-window': number | null
           }
         }
-        storeJson.merge(effects, {
+ storeJson.write(effects, {
           aezeedCipherSeed: existingSeed.length === 24 ? existingSeed : null,
           walletPassword: Buffer.from(walletPassword).toString('base64'),
           walletInitialized: !!walletPassword,
@@ -219,6 +219,11 @@ version: '0.19.3-beta:1-beta.1',
           'config.yaml not found. If LND was installed but never configured or run LND should be installed fresh.\nIf LND was configured/run prior to updating please contact Start9 support.',
         )
       }
+
+      await lndConfFile.merge(effects, {
+        rpclisten: lndConfDefaults.rpclisten,
+        restlisten: lndConfDefaults.restlisten,
+      })
     },
     down: IMPOSSIBLE,
   },
