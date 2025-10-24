@@ -195,7 +195,7 @@ version: '0.19.3-beta:1-beta.1',
         }
         storeJson.merge(effects, {
           aezeedCipherSeed: existingSeed.length === 24 ? existingSeed : null,
-          walletPassword: Buffer.from(walletPassword).toString('base64'),
+          walletPassword,
           walletInitialized: !!walletPassword,
           bitcoindSelected: configYaml.bitcoind.type === 'internal',
           recoveryWindow: configYaml.advanced['recovery-window'] || 2_500,
