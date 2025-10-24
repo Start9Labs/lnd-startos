@@ -9,7 +9,7 @@ import { restPort } from '../../interfaces'
 import { load } from 'js-yaml'
 
 export const v0_19_3_1_beta_0 = VersionInfo.of({
-version: '0.19.3-beta:1-betawalletsecurity.1',
+version: '0.19.3-beta:1-beta.1',
   releaseNotes: 'Revamped for StartOS 0.4.0',
   migrations: {
     up: async ({ effects }) => {
