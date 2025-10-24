@@ -1,0 +1,110 @@
+npm verbose cli /usr/bin/node /usr/bin/npm
+npm info using npm@10.9.3
+npm info using node@v22.19.0
+npm verbose title npm install
+npm verbose argv "install" "--loglevel" "verbose"
+npm verbose logfile logs-max:10 dir:/home/smole/.npm/_logs/2025-10-02T09_20_13_397Z-
+npm verbose logfile /home/smole/.npm/_logs/2025-10-02T09_20_13_397Z-debug-0.log
+npm http fetch GET 200 https://registry.npmjs.org/@start9labs%2fstart-sdk 1530ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/js-yaml 64ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/mime 71ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/@types%2fnode 344ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/@vercel%2fncc 150ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/prettier 71ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/typescript 290ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/isomorphic-fetch 82ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/ini 201ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/yaml 228ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/@noble%2fcurves 157ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/@iarna%2ftoml 245ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/@types%2fini 248ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/undici-types 64ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/@types%2fjs-yaml 68ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/argparse 67ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/@noble%2fhashes 124ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/diskusage 85ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/ts-matches 752ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/deep-equality-data-structures 776ms (cache miss)
+npm http cache https://registry.npmjs.org/@noble%2fhashes 6ms (cache hit)
+npm http fetch GET 200 https://registry.npmjs.org/object-hash 72ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/whatwg-fetch 74ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/node-fetch 102ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/nan 77ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/es6-promise 81ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/encoding 64ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/whatwg-url 74ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/tr46 57ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/webidl-conversions 59ms (cache miss)
+npm http cache webidl-conversions@https://registry.npmjs.org/webidl-conversions/-/webidl-conversions-3.0.1.tgz 0ms (cache hit)
+npm http cache tr46@https://registry.npmjs.org/tr46/-/tr46-0.0.3.tgz 0ms (cache hit)
+npm http cache whatwg-url@https://registry.npmjs.org/whatwg-url/-/whatwg-url-5.0.0.tgz 0ms (cache hit)
+npm http cache argparse@https://registry.npmjs.org/argparse/-/argparse-2.0.1.tgz 0ms (cache hit)
+npm http cache whatwg-fetch@https://registry.npmjs.org/whatwg-fetch/-/whatwg-fetch-3.6.20.tgz 0ms (cache hit)
+npm http cache node-fetch@https://registry.npmjs.org/node-fetch/-/node-fetch-2.7.0.tgz 0ms (cache hit)
+npm http cache nan@https://registry.npmjs.org/nan/-/nan-2.23.0.tgz 0ms (cache hit)
+npm http cache es6-promise@https://registry.npmjs.org/es6-promise/-/es6-promise-4.2.8.tgz 1ms (cache hit)
+npm http cache object-hash@https://registry.npmjs.org/object-hash/-/object-hash-3.0.0.tgz 0ms (cache hit)
+npm http cache diskusage@https://registry.npmjs.org/diskusage/-/diskusage-1.2.0.tgz 0ms (cache hit)
+npm http cache @types/js-yaml@https://registry.npmjs.org/@types/js-yaml/-/js-yaml-4.0.9.tgz 0ms (cache hit)
+npm http cache undici-types@https://registry.npmjs.org/undici-types/-/undici-types-6.21.0.tgz 0ms (cache hit)
+npm http cache yaml@https://registry.npmjs.org/yaml/-/yaml-2.8.1.tgz 0ms (cache hit)
+npm http cache ts-matches@https://registry.npmjs.org/ts-matches/-/ts-matches-6.5.0.tgz 0ms (cache hit)
+npm http cache isomorphic-fetch@https://registry.npmjs.org/isomorphic-fetch/-/isomorphic-fetch-3.0.0.tgz 0ms (cache hit)
+npm http cache ini@https://registry.npmjs.org/ini/-/ini-5.0.0.tgz 0ms (cache hit)
+npm http cache deep-equality-data-structures@https://registry.npmjs.org/deep-equality-data-structures/-/deep-equality-data-structures-2.0.0.tgz 0ms (cache hit)
+npm http cache @types/ini@https://registry.npmjs.org/@types/ini/-/ini-4.1.1.tgz 0ms (cache hit)
+npm http cache @noble/hashes@https://registry.npmjs.org/@noble/hashes/-/hashes-1.8.0.tgz 0ms (cache hit)
+npm http cache @noble/curves@https://registry.npmjs.org/@noble/curves/-/curves-1.9.7.tgz 0ms (cache hit)
+npm http cache @iarna/toml@https://registry.npmjs.org/@iarna/toml/-/toml-3.0.0.tgz 0ms (cache hit)
+npm http cache typescript@https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz 0ms (cache hit)
+npm http cache prettier@https://registry.npmjs.org/prettier/-/prettier-3.6.2.tgz 0ms (cache hit)
+npm http cache mime@https://registry.npmjs.org/mime/-/mime-4.1.0.tgz 0ms (cache hit)
+npm http cache js-yaml@https://registry.npmjs.org/js-yaml/-/js-yaml-4.1.0.tgz 1ms (cache hit)
+npm http cache @vercel/ncc@https://registry.npmjs.org/@vercel/ncc/-/ncc-0.38.4.tgz 0ms (cache hit)
+npm http cache @types/node@https://registry.npmjs.org/@types/node/-/node-22.18.8.tgz 0ms (cache hit)
+npm http cache @start9labs/start-sdk@https://registry.npmjs.org/@start9labs/start-sdk/-/start-sdk-0.4.0-beta.41.tgz 0ms (cache hit)
+npm http fetch GET 200 https://registry.npmjs.org/webidl-conversions/-/webidl-conversions-3.0.1.tgz 100ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/whatwg-fetch/-/whatwg-fetch-3.6.20.tgz 101ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/whatwg-url/-/whatwg-url-5.0.0.tgz 102ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/node-fetch/-/node-fetch-2.7.0.tgz 102ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/argparse/-/argparse-2.0.1.tgz 105ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/tr46/-/tr46-0.0.3.tgz 105ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/isomorphic-fetch/-/isomorphic-fetch-3.0.0.tgz 112ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/ini/-/ini-5.0.0.tgz 137ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/deep-equality-data-structures/-/deep-equality-data-structures-2.0.0.tgz 139ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/@types/ini/-/ini-4.1.1.tgz 179ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/@types/js-yaml/-/js-yaml-4.0.9.tgz 236ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/object-hash/-/object-hash-3.0.0.tgz 238ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/undici-types/-/undici-types-6.21.0.tgz 261ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/nan/-/nan-2.23.0.tgz 276ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/@noble/hashes/-/hashes-1.8.0.tgz 282ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/yaml/-/yaml-2.8.1.tgz 329ms (cache miss)
+npm http fetch POST 200 https://registry.npmjs.org/-/npm/v1/security/advisories/bulk 417ms
+npm http fetch GET 200 https://registry.npmjs.org/@noble/curves/-/curves-1.9.7.tgz 422ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/mime/-/mime-4.1.0.tgz 497ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/diskusage/-/diskusage-1.2.0.tgz 514ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/@iarna/toml/-/toml-3.0.0.tgz 544ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/@types/node/-/node-22.18.8.tgz 574ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/ts-matches/-/ts-matches-6.5.0.tgz 693ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/js-yaml/-/js-yaml-4.1.0.tgz 767ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/prettier/-/prettier-3.6.2.tgz 800ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/es6-promise/-/es6-promise-4.2.8.tgz 943ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz 1012ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/@start9labs/start-sdk/-/start-sdk-0.4.0-beta.41.tgz 1082ms (cache miss)
+npm http fetch GET 200 https://codeload.github.com/Start9Labs/bitcoind-startos/tar.gz/b4c5df3bd835b07a4f87b938e1c1e9c2464b960a 1650ms (cache miss)
+npm http fetch GET 200 https://registry.npmjs.org/@vercel/ncc/-/ncc-0.38.4.tgz 2155ms (cache miss)
+npm info run diskusage@1.2.0 install node_modules/diskusage node-gyp rebuild
+npm info run diskusage@1.2.0 install { code: 0, signal: null }
+
+added 29 packages, and audited 30 packages in 46s
+
+4 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+npm verbose cwd /home/smole/Downloads/racku
+npm verbose os Linux 6.1.0-37-amd64
+npm verbose node v22.19.0
+npm verbose npm  v10.9.3
+npm verbose exit 0
+npm info ok
