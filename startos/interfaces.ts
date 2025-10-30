@@ -41,7 +41,7 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
       },
     )
 
-    const restMulti = sdk.MultiHost.of(effects, 'rest-multi')
+    const restMulti = sdk.MultiHost.of(effects, 'control')
     const restMultiOrigin = await restMulti.bindPort(restPort, {
       protocol: 'https',
       preferredExternalPort: restPort,
@@ -67,7 +67,7 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
     const restReceipt = await restMultiOrigin.export([lndConnect])
     receipts.push(restReceipt)
 
-    const gRPCMulti = sdk.MultiHost.of(effects, 'grpc-multi')
+    const gRPCMulti = sdk.MultiHost.of(effects, 'grpc')
     const gRPCMultiOrigin = await gRPCMulti.bindPort(gRPCPort, {
       protocol: 'https',
       preferredExternalPort: gRPCPort,
@@ -98,7 +98,7 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
   }
 
   // peer
-  const peerMulti = sdk.MultiHost.of(effects, 'peer-multi')
+  const peerMulti = sdk.MultiHost.of(effects, 'peer')
   const peerMultiOrigin = await peerMulti.bindPort(peerPort, {
     protocol: null,
     addSsl: null,
@@ -120,7 +120,7 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
 
   if ((await lndConfFile.read().once())?.['watchtower.active']) {
     // watchtower
-    const watchtowerMulti = sdk.MultiHost.of(effects, 'watchtower-multi')
+    const watchtowerMulti = sdk.MultiHost.of(effects, 'watchtower')
     const watchtowerMultiOrigin = await watchtowerMulti.bindPort(
       watchtowerPort,
       {
