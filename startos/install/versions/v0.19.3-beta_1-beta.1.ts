@@ -126,8 +126,6 @@ export const v0_19_3_1_beta_1 = VersionInfo.of({
                     }),
                   ])
 
-                  console.log('changepassword response', res)
-
                   if (res.stdout.includes('admin_macaroon')) {
                     console.log('Password successfully changed to base64')
                     break
