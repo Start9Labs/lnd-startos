@@ -22,7 +22,6 @@ color=#{color}
 {feeurl_row}
 
 [Bitcoin]
-bitcoin.active=true
 bitcoin.mainnet=true
 bitcoin.node={bitcoin_node}
 bitcoin.defaultchanconfs={bitcoin_default_chan_confs}
