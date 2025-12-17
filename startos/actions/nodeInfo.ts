@@ -33,7 +33,7 @@ export const nodeInfo = sdk.Action.withoutInput(
 
       const peerAddresses = (
         await sdk.serviceInterface.getOwn(effects, peerInterfaceId).const()
-      )?.addressInfo?.publicUrls
+      )?.addressInfo?.public.format()
 
       const noPeerAddresses: ActionResultMember = {
         name: 'Node URI',
@@ -71,6 +71,12 @@ export const nodeInfo = sdk.Action.withoutInput(
               qr: false,
               masked: true,
             },
+            /*
+              TODO
+
+              default configuration shows the onion address and pubkey@198.44.129.186:49335 even though LND is not advertising at the IPV4 addr.
+
+            */
             {
               name: 'Node URI(s)',
               type: 'group',

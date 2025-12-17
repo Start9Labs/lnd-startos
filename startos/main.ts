@@ -15,7 +15,7 @@ import { Effects, SIGTERM } from '@start9labs/start-sdk/base/lib/types'
 import { Mounts } from '@start9labs/start-sdk/package/lib/mainFn/Mounts'
 import { base64 } from 'rfc4648'
 
-export const main = sdk.setupMain(async ({ effects, started }) => {
+export const main = sdk.setupMain(async ({ effects }) => {
   /**
    * ======================== Setup (optional) ========================
    */
@@ -109,7 +109,7 @@ export const main = sdk.setupMain(async ({ effects, started }) => {
   /**
    * ======================== Daemons ========================
    */
-  return sdk.Daemons.of(effects, started)
+  return sdk.Daemons.of(effects)
     .addDaemon('primary', {
       exec: { command: ['lnd', ...lndArgs] },
       subcontainer: lndSub,

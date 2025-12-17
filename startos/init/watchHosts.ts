@@ -24,10 +24,13 @@ export const watchHosts = sdk.setupOnInit(async (effects, _) => {
     .read((s) => s.externalGateway)
     .const(effects)
 
-  const onionsAndDomains = peerInterface.addressInfo.filter({
-    kind: ['domain', 'onion'],
-    visibility: 'public',
-  })
+  const domains = peerInterface.addressInfo
+    .filter({ kind: 'domain', visibility: 'public' })
+    .format()
+  const onions = peerInterface.addressInfo
+    .filter({ kind: 'onion', visibility: 'public' })
+    .format()
+  const onionsAndDomains = [...domains, ...onions]
 
   const externalHostsMissingFromInterface = externalhosts.filter(
     (h) => !onionsAndDomains.includes(h),
@@ -49,15 +52,16 @@ export const watchHosts = sdk.setupOnInit(async (effects, _) => {
     )
   }
 
-  const ipForExternalGateway = peerInterface.addressInfo
-    .filter({ kind: 'ipv4', visibility: 'public' }, 'hostname-info')
+  const ipForExternalGateway = peerInterface.addressInfo.public
+    .filter({ kind: 'ipv4', visibility: 'public' })
+    .format('hostname-info')
     .find((h) => h.kind === 'ip' && h.gateway.id === externalGateway)
     ?.hostname.value
 
   const publicUrls = peerInterface.addressInfo.filter({
     kind: 'ipv4',
     visibility: 'public',
-  })
+  }).format()
 
   if (ipForExternalGateway) {
     const publicUrlForExternalGateway = publicUrls.find((u) =>

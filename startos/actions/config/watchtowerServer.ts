@@ -70,7 +70,7 @@ export function getExternalAddresses() {
       .getOwn(effects, 'peer')
       .const()
 
-    const urls = peerInterface?.addressInfo?.publicUrls || []
+    const urls = peerInterface?.addressInfo?.public.format() || []
 
     if (urls.length === 0) {
       return {

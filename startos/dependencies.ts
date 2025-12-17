@@ -1,7 +1,7 @@
 import { lndConfFile } from './fileModels/lnd.conf'
 import { storeJson } from './fileModels/store.json'
 import { sdk } from './sdk'
-import { config } from 'bitcoind-startos/startos/actions/config/other'
+import { otherConfig } from 'bitcoind-startos/startos/actions/config/other'
 
 export const setDependencies = sdk.setupDependencies(async ({ effects }) => {
   const { 'bitcoin.node': bitcoinNode } = (await lndConfFile
@@ -11,7 +11,7 @@ export const setDependencies = sdk.setupDependencies(async ({ effects }) => {
   const bitcoinSelected = await storeJson.read(e => e.bitcoindSelected).const(effects)
 
   if (bitcoinNode === 'bitcoind' && bitcoinSelected) {
-    await sdk.action.createTask(effects, 'bitcoind', config, 'critical', {
+    await sdk.action.createTask(effects, 'bitcoind', otherConfig, 'critical', {
       input: { kind: 'partial', value: { zmqEnabled: true } },
       reason: 'LND requires ZMQ enabled in Bitcoin',
       when: { condition: 'input-not-matches', once: false },
