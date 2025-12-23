@@ -1,7 +1,6 @@
-import { VersionInfo, IMPOSSIBLE } from '@start9labs/start-sdk'
-import { readFile } from 'fs/promises'
+import { VersionInfo, IMPOSSIBLE, YAML } from '@start9labs/start-sdk'
+import { readFile, rm } from 'fs/promises'
 import { storeJson } from '../../fileModels/store.json'
-import { load } from 'js-yaml'
 import { lndConfFile } from '../../fileModels/lnd.conf'
 import { lndConfDefaults, lndDataDir, mainMounts, sleep } from '../../utils'
 import { base32, base64 } from 'rfc4648'
@@ -174,26 +173,27 @@ export const v0_20_0_1 = VersionInfo.of({
           })
           .runUntilSuccess(120_000)
       }
-      try {
-        const configYaml = load(
-          await readFile(
-            '/media/startos/volumes/main/start9/config.yaml',
-            'utf8',
-          ),
-        ) as {
-          bitcoind: {
-            type: string
+      const configYaml:
+        | {
+            bitcoind: {
+              type: string
+            }
+            watchtowers: {
+              'wt-client':
+                | { enabled: 'disabled' }
+                | { enabled: 'enabled'; 'add-watchtowers': string[] }
+            }
+            advanced: {
+              'recovery-window': number | null
+            }
           }
-          watchtowers: {
-            'wt-client':
-              | { enabled: 'disabled' }
-              | { enabled: 'enabled'; 'add-watchtowers': string[] }
-          }
-          advanced: {
-            'recovery-window': number | null
-          }
-        }
-        storeJson.merge(effects, {
+        | undefined = await readFile(
+        '/media/startos/volumes/main/start9/config.yaml',
+        'utf-8',
+      ).then(YAML.parse, () => undefined)
+
+      if (configYaml) {
+        await storeJson.merge(effects, {
           aezeedCipherSeed: existingSeed.length === 24 ? existingSeed : null,
           walletPassword,
           walletInitialized: !!walletPassword,
@@ -207,11 +207,11 @@ export const v0_20_0_1 = VersionInfo.of({
               : [],
           externalGateway: null,
         })
-      } catch (error) {
-        console.log('config.yaml not found')
-        throw new Error(
-          'config.yaml not found. If LND was installed but never configured or run LND should be installed fresh.\nIf LND was configured/run prior to updating please contact Start9 support.',
-        )
+
+        // remove old start9 dir
+        await rm('/media/startos/volumes/main/start9', {
+          recursive: true,
+        }).catch(console.error)
       }
     },
     down: IMPOSSIBLE,
