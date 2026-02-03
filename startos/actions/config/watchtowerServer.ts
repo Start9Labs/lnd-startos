@@ -1,3 +1,4 @@
+import { i18n } from '../../i18n'
 import { lndConfFile } from '../../fileModels/lnd.conf'
 import { sdk } from '../../sdk'
 
@@ -13,11 +14,11 @@ export const watchtowerServerConfig = sdk.Action.withInput(
 
   // metadata
   async ({ effects }) => ({
-    name: 'Watchtower Server',
-    description: 'Enable Watchtower Server in lnd.conf',
+    name: i18n('Watchtower Server'),
+    description: i18n('Enable Watchtower Server in lnd.conf'),
     warning: null,
     allowedStatuses: 'any',
-    group: 'Watchtower',
+    group: i18n('Watchtower'),
     visibility: 'enabled',
   }),
 
@@ -74,9 +75,9 @@ export function getExternalAddresses() {
 
     if (urls.length === 0) {
       return {
-        name: 'External Address',
+        name: i18n('External Address'),
         description:
-          'No available address at which your watchtower can be reached by LND peers.',
+          i18n('No available address at which your watchtower can be reached by LND peers.'),
         values: { none: 'none' },
         default: 'none',
       }
@@ -93,9 +94,9 @@ export function getExternalAddresses() {
     urlsWithNone['none'] = 'none'
 
     return {
-      name: 'External Address',
+      name: i18n('External Address'),
       description:
-        "Address at which your node can be reached by peers. Select 'none' to disable the watchtower server.",
+        i18n("Address at which your node can be reached by peers. Select 'none' to disable the watchtower server."),
       values: urlsWithNone,
       default: urls.find((u) => u.endsWith('.onion')) || '',
     }

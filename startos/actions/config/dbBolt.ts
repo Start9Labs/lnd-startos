@@ -1,3 +1,4 @@
+import { i18n } from '../../i18n'
 import { lndConfFile } from '../../fileModels/lnd.conf'
 import { sdk } from '../../sdk'
 import { lndConfDefaults } from '../../utils'
@@ -13,21 +14,21 @@ const {
 
 const dbBoltSpec = InputSpec.of({
   'db-bolt-nofreelistsync': Value.toggle({
-    name: 'Disallow Bolt DB Freelist Sync',
+    name: i18n('Disallow Bolt DB Freelist Sync'),
     default: dbBoltNofreelistsync,
     description:
-      'If true, prevents the database from syncing its freelist to disk. ',
+      i18n('If true, prevents the database from syncing its freelist to disk. '),
   }),
   'db-bolt-auto-compact': Value.toggle({
-    name: 'Compact Database on Startup',
+    name: i18n('Compact Database on Startup'),
     default: dbBoltAutoCompact,
     description:
-      'Performs database compaction on startup. This is necessary to keep disk usage down over time at the cost of having longer startup times. ',
+      i18n('Performs database compaction on startup. This is necessary to keep disk usage down over time at the cost of having longer startup times. '),
   }),
   'db-bolt-auto-compact-min-age': Value.number({
-    name: 'Minimum Autocompaction Age for Bolt DB',
+    name: i18n('Minimum Autocompaction Age for Bolt DB'),
     description:
-      'How long ago (in hours) the last compaction of a database file must be for it to be considered for auto compaction again. Can be set to 0 to compact on every startup. ',
+      i18n('How long ago (in hours) the last compaction of a database file must be for it to be considered for auto compaction again. Can be set to 0 to compact on every startup. '),
     default: parseInt(dbBoltAutoCompactMinAge.split('h')[0]),
     required: true,
     min: 0,
@@ -35,9 +36,9 @@ const dbBoltSpec = InputSpec.of({
     units: 'hours',
   }),
   'db-bolt-dbtimeout': Value.number({
-    name: 'Bolt DB Timeout',
+    name: i18n('Bolt DB Timeout'),
     description:
-      'How long should LND try to open the database before giving up?',
+      i18n('How long should LND try to open the database before giving up?'),
     default: parseInt(dbBoltDbtimeout.split('s')[0]),
     required: true,
     min: 0,
@@ -53,11 +54,11 @@ export const dbBoltConfig = sdk.Action.withInput(
 
   // metadata
   async ({ effects }) => ({
-    name: 'DB Bolt Settings',
-    description: 'Edit the DB Bolt settings in lnd.conf',
+    name: i18n('DB Bolt Settings'),
+    description: i18n('Edit the DB Bolt settings in lnd.conf'),
     warning: null,
     allowedStatuses: 'any',
-    group: 'Configuration',
+    group: i18n('Configuration'),
     visibility: 'enabled',
   }),
 

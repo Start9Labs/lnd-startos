@@ -1,3 +1,4 @@
+import { i18n } from '../../i18n'
 import { lndConfFile } from '../../fileModels/lnd.conf'
 import { sdk } from '../../sdk'
 import { lndConfDefaults } from '../../utils'
@@ -15,9 +16,10 @@ const {
 
 const sweeperSpec = InputSpec.of({
   'sweeper-maxfeerate': Value.number({
-    name: 'Max Fee Rate',
-    description:
+    name: i18n('Max Fee Rate'),
+    description: i18n(
       'The max fee rate in sat/vb which can be used when sweeping funds. Setting this value too low can result in transactions not being confirmed in time, causing HTLCs to expire hence potentially losing funds.',
+    ),
     default: sweeperMaxfeerate,
     required: true,
     min: 1,
@@ -25,9 +27,10 @@ const sweeperSpec = InputSpec.of({
     units: 'Sats/vb',
   }),
   'sweeper-nodeadlineconftarget': Value.number({
-    name: 'Non-time-sensitive Sweep Confirmation Target',
-    description:
+    name: i18n('Non-time-sensitive Sweep Confirmation Target'),
+    description: i18n(
       'The conf target to use when sweeping non-time-sensitive outputs. This is useful for sweeping outputs that are not time-sensitive, and can be swept at a lower fee rate.',
+    ),
     default: sweeperNodeadlineconftarget,
     required: true,
     min: 1,
@@ -35,9 +38,10 @@ const sweeperSpec = InputSpec.of({
     units: 'Confirmations',
   }),
   'sweeper-budget-tolocalratio': Value.number({
-    name: 'Budget to Local Ratio',
-    description:
+    name: i18n('Budget to Local Ratio'),
+    description: i18n(
       'The ratio (expressed as a decimal) of the value in to_local output to allocate as the budget to pay fees when sweeping it.',
+    ),
     default: sweeperBudgetTolocalration,
     required: true,
     min: 0,
@@ -45,9 +49,10 @@ const sweeperSpec = InputSpec.of({
     integer: false,
   }),
   'sweeper-budget-anchorcpfpratio': Value.number({
-    name: 'Anchor CPFP Ratio',
-    description:
+    name: i18n('Anchor CPFP Ratio'),
+    description: i18n(
       'The ratio of a special value to allocate as the budget to pay fees when CPFPing a force close tx using the anchor output. The special value is the sum of all time-sensitive HTLCs on this commitment subtracted by their budgets.',
+    ),
     default: sweeperBudgetAnchorcpfpratio,
     required: true,
     min: 0,
@@ -55,9 +60,10 @@ const sweeperSpec = InputSpec.of({
     integer: false,
   }),
   'sweeper-budget-deadlinehtlcratio': Value.number({
-    name: 'Time-Sensitive HTLC Budget Ratio',
-    description:
+    name: i18n('Time-Sensitive HTLC Budget Ratio'),
+    description: i18n(
       'The ratio of the value in a time-sensitive (first-level) HTLC to allocate as the budget to pay fees when sweeping it.',
+    ),
     default: sweeperBudgetDeadlinehtlcratio,
     required: true,
     min: 0,
@@ -65,9 +71,10 @@ const sweeperSpec = InputSpec.of({
     integer: false,
   }),
   'sweeper-budget-nodeadlinehtlcratio': Value.number({
-    name: 'Non-Time-Sensitive HTLC Budget Ratio',
-    description:
+    name: i18n('Non-Time-Sensitive HTLC Budget Ratio'),
+    description: i18n(
       'The ratio of the value in a non-time-sensitive (second-level) HTLC to allocate as the budget to pay fees when sweeping it.',
+    ),
     default: sweeperBudgetNodeadlinehtlcratio,
     required: true,
     min: 0,
@@ -82,13 +89,15 @@ export const sweeperConfig = sdk.Action.withInput(
 
   // metadata
   async ({ effects }) => ({
-    name: 'Sweeper Settings',
-    description:
+    name: i18n('Sweeper Settings'),
+    description: i18n(
       "'Sweep' is a LND subservice that handles funds sent from dispute resolution contracts to the internal wallet. These config values help inform the sweeper to make decisions regarding how much it burns in on-chain fees in order to recover possibly contested outputs (HTLCs and Breach outputs).",
-    warning:
+    ),
+    warning: i18n(
       'These settings can result in loss of funds if poorly congifured. Refer to the LND documentation for more information: https://docs.lightning.engineering/lightning-network-tools/lnd/sweeper',
+    ),
     allowedStatuses: 'any',
-    group: 'Configuration',
+    group: i18n('Configuration'),
     visibility: 'enabled',
   }),
 

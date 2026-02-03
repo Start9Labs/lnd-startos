@@ -1,3 +1,4 @@
+import { i18n } from '../i18n'
 import { lndConfFile } from '../fileModels/lnd.conf'
 import { sdk } from '../sdk'
 import { mainMounts, TowerInfo } from '../utils'
@@ -8,16 +9,16 @@ export const towerInfo = sdk.Action.withoutInput(
 
   // metadata
   async ({ effects }) => ({
-    name: 'Watchtower Server Info',
-    description: 'Get your Tower Server URL',
+    name: i18n('Watchtower Server Info'),
+    description: i18n('Get your Tower Server URL'),
     warning: null,
     allowedStatuses: 'only-running',
-    group: 'Watchtower',
+    group: i18n('Watchtower'),
     visibility: (await lndConfFile
       .read((c) => c['watchtower.active'])
       .const(effects))
       ? 'enabled'
-      : { disabled: 'Watchtower Server must be enabled'},
+      : { disabled: i18n('Watchtower Server must be enabled') },
   }),
 
   // the execution function
@@ -41,9 +42,10 @@ export const towerInfo = sdk.Action.withoutInput(
       const parsedRes: TowerInfo = JSON.parse(res.stdout)
       return {
         version: '1',
-        title: 'Tower Info',
-        message:
+        title: i18n('Tower Info'),
+        message: i18n(
           'Sharing this URL with other LND nodes will allow them to use your server as a watchtower.',
+        ),
         result: {
           type: 'single',
           value: parsedRes.uris[0],
@@ -55,8 +57,8 @@ export const towerInfo = sdk.Action.withoutInput(
     } else {
       return {
         version: '1',
-        title: 'Tower Info',
-        message: 'Error fetching tower info',
+        title: i18n('Tower Info'),
+        message: i18n('Error fetching tower info'),
         result: {
           type: 'single',
           value: JSON.stringify(res.stderr),

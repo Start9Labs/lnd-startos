@@ -1,3 +1,4 @@
+import { i18n } from '../../i18n'
 import { lndConfFile } from '../../fileModels/lnd.conf'
 import { sdk } from '../../sdk'
 import { lndConfDefaults } from '../../utils'
@@ -17,36 +18,36 @@ const {
 
 const autopilotSpec = InputSpec.of({
   autopilot: Value.union({
-    name: 'Enable Autopilot',
+    name: i18n('Enable Autopilot'),
     description:
-      'If the autopilot agent should be active or not. The autopilot agent will attempt to AUTOMATICALLY OPEN CHANNELS to put your node in an advantageous position within the network graph.',
+      i18n('If the autopilot agent should be active or not. The autopilot agent will attempt to AUTOMATICALLY OPEN CHANNELS to put your node in an advantageous position within the network graph.'),
     warning:
-      'DO NOT ENABLE AUTOPILOT IF YOU WANT TO MANAGE CHANNELS MANUALLY OR IF YOU DO NOT UNDERSTAND THIS FEATURE.',
+      i18n('DO NOT ENABLE AUTOPILOT IF YOU WANT TO MANAGE CHANNELS MANUALLY OR IF YOU DO NOT UNDERSTAND THIS FEATURE.'),
     default: !autopilotActive ? 'disabled' : 'enabled',
     variants: Variants.of({
-      disabled: { name: 'Disabled', spec: InputSpec.of({}) },
+      disabled: { name: i18n('Disabled'), spec: InputSpec.of({}) },
       enabled: {
-        name: 'Enabled',
+        name: i18n('Enabled'),
         spec: InputSpec.of({
           private: Value.toggle({
-            name: 'Private',
+            name: i18n('Private'),
             default: autopilotPrivate,
             description:
-              "Whether the channels created by the autopilot agent should be private or not. Private channels won't be announced to the network.",
+              i18n("Whether the channels created by the autopilot agent should be private or not. Private channels won't be announced to the network."),
           }),
           maxchannels: Value.number({
-            name: 'Maximum Channels',
+            name: i18n('Maximum Channels'),
             description:
-              'The maximum number of channels that should be created.',
+              i18n('The maximum number of channels that should be created.'),
             default: autopilotMaxchannels,
             required: true,
             min: 1,
             integer: true,
           }),
           allocation: Value.number({
-            name: 'Allocation',
+            name: i18n('Allocation'),
             description:
-              'The fraction of total funds that should be committed to automatic channel establishment. For example 60% means that 60% of the total funds available within the wallet should be used to automatically establish channels. The total amount of attempted channels will still respect the "Maximum Channels" parameter. ',
+              i18n('The fraction of total funds that should be committed to automatic channel establishment. For example 60% means that 60% of the total funds available within the wallet should be used to automatically establish channels. The total amount of attempted channels will still respect the "Maximum Channels" parameter. '),
             default: autopilotAllocation,
             required: true,
             min: 0,
@@ -55,9 +56,9 @@ const autopilotSpec = InputSpec.of({
             units: '%',
           }),
           'min-channel-size': Value.number({
-            name: 'Minimum Channel Size',
+            name: i18n('Minimum Channel Size'),
             description:
-              'The smallest channel that the autopilot agent should create.',
+              i18n('The smallest channel that the autopilot agent should create.'),
             default: autopilotMinchansize,
             required: true,
             min: 0,
@@ -65,9 +66,9 @@ const autopilotSpec = InputSpec.of({
             units: 'satoshis',
           }),
           'max-channel-size': Value.number({
-            name: 'Maximum Channel Size',
+            name: i18n('Maximum Channel Size'),
             description:
-              'The largest channel that the autopilot agent should create.',
+              i18n('The largest channel that the autopilot agent should create.'),
             default: autopilotMaxchansize,
             required: true,
             min: 0,
@@ -75,9 +76,9 @@ const autopilotSpec = InputSpec.of({
             units: 'satoshis',
           }),
           'min-confirmations': Value.number({
-            name: 'Minimum Confirmations',
+            name: i18n('Minimum Confirmations'),
             description:
-              'The minimum number of confirmations each of your inputs in funding transactions created by the autopilot agent must have.',
+              i18n('The minimum number of confirmations each of your inputs in funding transactions created by the autopilot agent must have.'),
             default: autopilotMinconfs,
             required: true,
             min: 0,
@@ -85,9 +86,9 @@ const autopilotSpec = InputSpec.of({
             units: 'blocks',
           }),
           'confirmation-target': Value.number({
-            name: 'Confirmation Target',
+            name: i18n('Confirmation Target'),
             description:
-              'The confirmation target (in blocks) for channels opened by autopilot.',
+              i18n('The confirmation target (in blocks) for channels opened by autopilot.'),
             default: autopilotConftarget,
             required: true,
             min: 0,
@@ -106,11 +107,11 @@ export const autopilotConfig = sdk.Action.withInput(
 
   // metadata
   async ({ effects }) => ({
-    name: 'Autopilot Settings',
-    description: 'Edit the Autopilot settings in lnd.conf',
+    name: i18n('Autopilot Settings'),
+    description: i18n('Edit the Autopilot settings in lnd.conf'),
     warning: null,
     allowedStatuses: 'any',
-    group: 'Configuration',
+    group: i18n('Configuration'),
     visibility: 'enabled',
   }),
 
