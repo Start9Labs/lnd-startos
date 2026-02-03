@@ -1,3 +1,4 @@
+import { i18n } from '../../i18n'
 import { lndConfFile } from '../../fileModels/lnd.conf'
 import { storeJson } from '../../fileModels/store.json'
 import { sdk } from '../../sdk'
@@ -6,20 +7,20 @@ const { InputSpec, Value, Variants, List } = sdk
 
 const wtClientSpec = InputSpec.of({
   'wt-client': Value.union({
-    name: 'Enable Watchtower Client',
-    description: 'Enable or disable Watchtower Client',
+    name: i18n('Enable Watchtower Client'),
+    description: i18n('Enable or disable Watchtower Client'),
     default: 'disabled',
     variants: Variants.of({
-      disabled: { name: 'Disabled', spec: InputSpec.of({}) },
+      disabled: { name: i18n('Disabled'), spec: InputSpec.of({}) },
       enabled: {
-        name: 'Enabled',
+        name: i18n('Enabled'),
         spec: InputSpec.of({
           'add-watchtowers': Value.list(
             List.text(
               {
-                name: 'Add Watchtowers',
+                name: i18n('Add Watchtowers'),
                 default: [],
-                description: 'Add URIs of Watchtowers to connect to.',
+                description: i18n('Add URIs of Watchtowers to connect to.'),
                 minLength: 1,
               },
               { placeholder: 'pubkey@host:9911', patterns: [] },
@@ -37,11 +38,11 @@ export const wtClientConfig = sdk.Action.withInput(
 
   // metadata
   async ({ effects }) => ({
-    name: 'Watchtower Client Settings',
-    description: 'Edit the Watchtower Client settings in lnd.conf',
+    name: i18n('Watchtower Client Settings'),
+    description: i18n('Edit the Watchtower Client settings in lnd.conf'),
     warning: null,
     allowedStatuses: 'any',
-    group: 'Watchtower',
+    group: i18n('Watchtower'),
     visibility: 'enabled',
   }),
 

@@ -1,3 +1,4 @@
+import { i18n } from '../../i18n'
 import { lndConfFile } from '../../fileModels/lnd.conf'
 import { sdk } from '../../sdk'
 import { lndConfDefaults } from '../../utils'
@@ -15,42 +16,49 @@ const {
 
 const protocolSpec = InputSpec.of({
   'protocol-wumbo-channels': Value.toggle({
-    name: 'Enable Wumbo Channels',
+    name: i18n('Enable Wumbo Channels'),
     default: protocolWumboChannels,
-    description:
+    description: i18n(
       'If set, then lnd will create and accept requests for channels larger than 0.16 BTC ',
+    ),
   }),
   'protocol-zero-conf': Value.toggle({
-    name: 'Enable zero-conf Channels',
+    name: i18n('Enable zero-conf Channels'),
     default: protocolZeroConf,
-    description:
+    description: i18n(
       'Set to enable support for zero-conf channels. This requires the option-scid-alias flag to also be set. ',
-    warning:
+    ),
+    warning: i18n(
       'Zero-conf channels are channels that do not require confirmations to be used. Because of this, the fundee must trust the funder to not double-spend the channel and steal the balance of the channel.',
+    ),
   }),
   'protocol-option-scid-alias': Value.toggle({
-    name: 'Enable option-scid-alias Channels',
+    name: i18n('Enable option-scid-alias Channels'),
     default: protocolOptionScidAlias,
-    description:
+    description: i18n(
       'Set to enable support for option_scid_alias channels, which can be referred to by an alias instead of the confirmed ShortChannelID. Additionally, is needed to open zero-conf channels. ',
+    ),
   }),
   'protocol-no-anchors': Value.toggle({
-    name: 'Disable Anchor Channels',
+    name: i18n('Disable Anchor Channels'),
     default: protocolNoAnchors,
-    description:
+    description: i18n(
       'Set to disable support for anchor commitments. Anchor channels allow you to determine your fees at close time by using a Child Pays For Parent transaction. ',
+    ),
   }),
   'protocol-no-script-enforced-lease': Value.toggle({
-    name: 'Disable Script Enforced Channel Leases',
+    name: i18n('Disable Script Enforced Channel Leases'),
     default: protocolNoScriptEnforcedLease,
-    description:
+    description: i18n(
       'Set to disable support for script enforced lease channel commitments. If not set, lnd will accept these channels by default if the remote channel party proposes them. Note that lnd will require 1 UTXO to be reserved for this channel type if it is enabled. Note: This may cause you to be unable to close a channel and your wallets may not understand why',
+    ),
   }),
   'protocol-simple-taproot-chans': Value.toggle({
-    name: 'Experimental Taproot Channels',
+    name: i18n('Experimental Taproot Channels'),
     default: protocolSimpleTaprootChans,
-    description:
+    description: i18n(
       'Taproot Channels improve both privacy and cost efficiency of on-chain transactions. Note: Taproot Channels are experimental and only available for unannounced (private) channels at this time.',
+    ),
   }),
 })
 
@@ -60,11 +68,11 @@ export const protocolConfig = sdk.Action.withInput(
 
   // metadata
   async ({ effects }) => ({
-    name: 'Protocol Settings',
-    description: 'Edit the Protocol settings in lnd.conf',
+    name: i18n('Protocol Settings'),
+    description: i18n('Edit the Protocol settings in lnd.conf'),
     warning: null,
     allowedStatuses: 'any',
-    group: 'Configuration',
+    group: i18n('Configuration'),
     visibility: 'enabled',
   }),
 

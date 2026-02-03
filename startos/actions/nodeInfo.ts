@@ -1,4 +1,5 @@
 import { ActionResultMember } from '@start9labs/start-sdk/base/lib/osBindings'
+import { i18n } from '../i18n'
 import { peerInterfaceId } from '../interfaces'
 import { sdk } from '../sdk'
 import { GetInfo, mainMounts } from '../utils'
@@ -9,8 +10,8 @@ export const nodeInfo = sdk.Action.withoutInput(
 
   // metadata
   async ({ effects }) => ({
-    name: 'Node Info',
-    description: 'Get info about your LND node',
+    name: i18n('Node Info'),
+    description: i18n('Get info about your LND node'),
     warning: null,
     allowedStatuses: 'only-running',
     group: null,
@@ -36,10 +37,12 @@ export const nodeInfo = sdk.Action.withoutInput(
       )?.addressInfo?.public.format()
 
       const noPeerAddresses: ActionResultMember = {
-        name: 'Node URI',
+        name: i18n('Node URI'),
         type: 'single',
-        value: 'No Peer Addresses found',
-        description: 'Add a Peer URL in LND > Dashboard > Peer Interface > Add',
+        value: i18n('No Peer Addresses found'),
+        description: i18n(
+          'Add a Peer URL in LND > Dashboard > Peer Interface > Add',
+        ),
         copyable: false,
         qr: false,
         masked: false,
@@ -47,14 +50,14 @@ export const nodeInfo = sdk.Action.withoutInput(
 
       return {
         version: '1',
-        title: 'Node Info',
-        message: 'Information about your LND node.',
+        title: i18n('Node Info'),
+        message: i18n('Information about your LND node.'),
         result: {
           type: 'group',
           value: [
             {
-              name: 'Node Alias',
-              description: 'The friendly identifier for your node',
+              name: i18n('Node Alias'),
+              description: i18n('The friendly identifier for your node'),
               type: 'single',
               value: getInfo.alias,
               copyable: true,
@@ -62,11 +65,12 @@ export const nodeInfo = sdk.Action.withoutInput(
               masked: false,
             },
             {
-              name: 'Node Id',
+              name: i18n('Node Id'),
               type: 'single',
               value: getInfo.identity_pubkey,
-              description:
+              description: i18n(
                 'The node identifier that other nodes can use to connect to this node',
+              ),
               copyable: true,
               qr: false,
               masked: true,
@@ -78,12 +82,14 @@ export const nodeInfo = sdk.Action.withoutInput(
 
             */
             {
-              name: 'Node URI(s)',
+              name: i18n('Node URI(s)'),
               type: 'group',
-              description: 'URI(s) to allow other nodes to peer with your node',
+              description: i18n(
+                'URI(s) to allow other nodes to peer with your node',
+              ),
               value: peerAddresses?.map((e, i) => {
                 return {
-                  name: `Node URI ${i + 1}`,
+                  name: `${i18n('Node URI')} ${i + 1}`,
                   type: 'single',
                   value: `${getInfo.identity_pubkey}@${e}`,
                   description: null,
@@ -99,8 +105,8 @@ export const nodeInfo = sdk.Action.withoutInput(
     } else {
       return {
         version: '1',
-        title: 'Node Info',
-        message: 'Error fetching node info',
+        title: i18n('Node Info'),
+        message: i18n('Error fetching node info'),
         result: {
           type: 'single',
           value: JSON.stringify(getInfoRes.stderr),

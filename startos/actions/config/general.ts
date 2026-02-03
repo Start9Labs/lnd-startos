@@ -1,4 +1,5 @@
 import { utils } from '@start9labs/start-sdk'
+import { i18n } from '../../i18n'
 import { lndConfFile } from '../../fileModels/lnd.conf'
 import { storeJson } from '../../fileModels/store.json'
 import { sdk } from '../../sdk'
@@ -23,56 +24,62 @@ const {
 
 const generalSpec = InputSpec.of({
   alias: Value.text({
-    name: 'Alias',
+    name: i18n('Alias'),
     default: null,
     required: false,
-    description: 'The public, human-readable name of your Lightning node',
+    description: i18n('The public, human-readable name of your Lightning node'),
     patterns: [
       {
         regex: '.{1,32}',
-        description:
+        description: i18n(
           'Must be at least 1 character and no more than 32 characters',
+        ),
       },
     ],
   }),
   color: Value.text({
-    name: 'Color',
+    name: i18n('Color'),
     default: {
       charset: 'a-f,0-9',
       len: 6,
     },
     required: true,
-    description: 'The public color dot of your Lightning node',
+    description: i18n('The public color dot of your Lightning node'),
     patterns: [
       {
         regex: '[0-9a-fA-F]{6}',
-        description:
+        description: i18n(
           'Must be a valid 6 digit hexadecimal RGB value. The first two digits are red, middle two are green, and final two are blue',
+        ),
       },
     ],
   }),
   'accept-keysend': Value.toggle({
-    name: 'Accept Keysend',
+    name: i18n('Accept Keysend'),
     default: acceptKeysend,
-    description:
+    description: i18n(
       'Allow others to send payments directly to your public key through keysend instead of having to get a new invoice',
+    ),
   }),
   'accept-amp': Value.toggle({
-    name: 'Accept Spontaneous AMPs',
+    name: i18n('Accept Spontaneous AMPs'),
     default: acceptAmp,
-    description:
+    description: i18n(
       'If enabled, spontaneous payments through AMP will be accepted. Payments to AMP invoices will be accepted regardless of this setting.',
+    ),
   }),
   'reject-htlc': Value.toggle({
-    name: 'Reject Routing Requests',
+    name: i18n('Reject Routing Requests'),
     default: rejecthtlc,
-    description:
+    description: i18n(
       "If true, LND will not forward any HTLCs that are meant as onward payments. This option will still allow LND to send HTLCs and receive HTLCs but lnd won't be used as a hop.",
+    ),
   }),
   'min-chan-size': Value.number({
-    name: 'Minimum Channel Size',
-    description:
+    name: i18n('Minimum Channel Size'),
+    description: i18n(
       'The smallest channel size that we should accept. Incoming channels smaller than this will be rejected.',
+    ),
     default: null,
     required: false,
     min: 1,
@@ -81,9 +88,10 @@ const generalSpec = InputSpec.of({
     units: 'satoshis',
   }),
   'max-chan-size': Value.number({
-    name: 'Maximum Channel Size',
-    description:
+    name: i18n('Maximum Channel Size'),
+    description: i18n(
       "The largest channel size that we should accept. Incoming channels larger than this will be rejected. For non-Wumbo channels this limit remains 16777215 satoshis by default as specified in BOLT-0002. For wumbo channels this limit is 1,000,000,000 satoshis (10 BTC). Set this config option explicitly to restrict your maximum channel size to better align with your risk tolerance.  Don't forget to enable Wumbo channels under 'Advanced,' if desired.",
+    ),
     default: null,
     required: false,
     min: 1,
@@ -93,35 +101,39 @@ const generalSpec = InputSpec.of({
   }),
   tor: Value.object(
     {
-      name: 'Tor Config',
-      description:
+      name: i18n('Tor Config'),
+      description: i18n(
         'Advanced options for increasing privacy (at the cost of performance) using Tor',
+      ),
     },
     InputSpec.of({
       'use-tor-only': Value.toggle({
-        name: 'Use Tor for all traffic',
+        name: i18n('Use Tor for all traffic'),
         default: !torSkipProxyForClearnetTargets,
-        description:
+        description: i18n(
           "Use the tor proxy even for connections that are reachable on clearnet. This will hide your node's public IP address, but will slow down your node's performance",
+        ),
       }),
       'stream-isolation': Value.toggle({
-        name: 'Stream Isolation',
+        name: i18n('Stream Isolation'),
         default: torStreamisolation,
-        description:
+        description: i18n(
           "Enable Tor stream isolation by randomizing user credentials for each connection. With this mode active, each connection will use a new circuit. This means that multiple applications (other than lnd) using Tor won't be mixed in with lnd's traffic. This option may not be used when 'Use Tor for all traffic' is disabled, since direct connections compromise source IP privacy by default.",
+        ),
       }),
     }),
   ),
   advanced: Value.object(
     {
-      name: 'Advanced',
-      description: 'Advanced Options',
+      name: i18n('Advanced'),
+      description: i18n('Advanced Options'),
     },
     InputSpec.of({
       'debug-level': Value.select({
-        name: 'Log Verbosity',
-        description:
+        name: i18n('Log Verbosity'),
+        description: i18n(
           'Sets the level of log filtration. Trace is the most verbose, Critical is the least.',
+        ),
         default: 'info',
         values: {
           trace: 'trace',
@@ -133,9 +145,10 @@ const generalSpec = InputSpec.of({
         },
       } as const),
       'recovery-window': Value.number({
-        name: 'Recovery Window',
-        description:
+        name: i18n('Recovery Window'),
+        description: i18n(
           "Optional address 'look-ahead' when scanning for used keys during an on-chain recovery.  For example, a value of 2 would mean LND would stop looking for funds after finding 2 consecutive addresses that were generated but never used.  If an LND on-chain wallet was extensively used, then users may want to increase this value. 2500 is the default.",
+        ),
         default: null,
         required: false,
         min: 1,
@@ -143,9 +156,10 @@ const generalSpec = InputSpec.of({
         units: 'addresses',
       }),
       'payments-expiration-grace-period': Value.number({
-        name: 'Payments Expiration Grace Period',
-        description:
+        name: i18n('Payments Expiration Grace Period'),
+        description: i18n(
           'A period to wait before for closing channels with outgoing htlcs that have timed out and are a result of this nodes instead payment. In addition to our current block based deadline, is specified this grace period will also be taken into account.',
+        ),
         default: parseInt(paymentsExpirationGracePeriod.split('s')[0]),
         required: true,
         min: 1,
@@ -153,9 +167,10 @@ const generalSpec = InputSpec.of({
         units: 'seconds',
       }),
       'default-remote-max-htlcs': Value.number({
-        name: 'Maximum Remote HTLCs',
-        description:
+        name: i18n('Maximum Remote HTLCs'),
+        description: i18n(
           'The default max_htlc applied when opening or accepting channels. This value limits the number of concurrent HTLCs that the remote party can add to the commitment. The maximum possible value is 483.',
+        ),
         default: defaultRemoteMaxHtlcs,
         required: true,
         min: 1,
@@ -164,9 +179,10 @@ const generalSpec = InputSpec.of({
         units: 'htlcs',
       }),
       'max-channel-fee-allocation': Value.number({
-        name: 'Maximum Channel Fee Allocation',
-        description:
+        name: i18n('Maximum Channel Fee Allocation'),
+        description: i18n(
           "The maximum percentage of total funds that can be allocated to a channel's commitment fee. This only applies for the initiator of the channel.",
+        ),
         default: maxChannelFeeAllocation,
         required: true,
         min: 0.1,
@@ -174,34 +190,38 @@ const generalSpec = InputSpec.of({
         integer: false,
       }),
       'max-pending-channels': Value.number({
-        name: 'Maximum Pending Channels',
-        description:
+        name: i18n('Maximum Pending Channels'),
+        description: i18n(
           'The maximum number of incoming pending channels permitted per peer.',
+        ),
         default: maxpendingchannels,
         required: true,
         min: 0,
         integer: true,
       }),
       'max-commit-fee-rate-anchors': Value.number({
-        name: 'Maximum Commitment Fee for Anchor Channels',
-        description:
+        name: i18n('Maximum Commitment Fee for Anchor Channels'),
+        description: i18n(
           'The maximum fee rate in sat/vbyte that will be used for commitments of channels of the anchors type. Must be large enough to ensure transaction propagation.',
+        ),
         default: maxCommitFeeRateAnchors,
         required: true,
         min: 1,
         integer: true,
       }),
       'gc-canceled-invoices-on-startup': Value.toggle({
-        name: 'Cleanup Canceled Invoices on Startup',
+        name: i18n('Cleanup Canceled Invoices on Startup'),
         default: gcCanceledInvoicesOnStartup,
-        description:
+        description: i18n(
           'If true, LND will attempt to garbage collect canceled invoices upon start.',
+        ),
       }),
       'allow-circular-route': Value.toggle({
-        name: 'Allow Circular Route',
+        name: i18n('Allow Circular Route'),
         default: allowCircularRoute,
-        description:
+        description: i18n(
           'If true, LND will allow htlc forwards that arrive and depart on the same channel.',
+        ),
       }),
     }),
   ),
@@ -213,11 +233,11 @@ export const general = sdk.Action.withInput(
 
   // metadata
   async ({ effects }) => ({
-    name: 'General Settings',
-    description: 'General settings for your LND node',
+    name: i18n('General Settings'),
+    description: i18n('General settings for your LND node'),
     warning: null,
     allowedStatuses: 'any',
-    group: 'Configuration',
+    group: i18n('Configuration'),
     visibility: 'enabled',
   }),
 

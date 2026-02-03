@@ -1,3 +1,4 @@
+import { i18n } from '../../i18n'
 import { lndConfFile } from '../../fileModels/lnd.conf'
 import { storeJson } from '../../fileModels/store.json'
 import { sdk } from '../../sdk'
@@ -9,13 +10,14 @@ const { 'fee.url': feeUrl, 'bitcoin.node': bitcoinNode } = lndConfDefaults
 
 const backendSpec = InputSpec.of({
   bitcoind: Value.select({
-    name: 'Select Bitcoin Node',
-    description:
+    name: i18n('Select Bitcoin Node'),
+    description: i18n(
       'Select between a local bitcoin node and Neutrino as the backend for LND. As Neutrino involves reliance on third-party nodes it is advisable to use either Core or Knots instead. Once Core or Knots are selected it is not supported to switch to Neutrino; however LND can always switch from Neutrino to Core/Knots at a later time.',
+    ),
     default: 'bitcoind',
     values: {
-      bitcoind: 'Local Bitcoin Node',
-      neutrino: 'Neutrino',
+      bitcoind: i18n('Local Bitcoin Node'),
+      neutrino: i18n('Neutrino'),
     },
   }),
 })
@@ -26,11 +28,13 @@ export const backendConfig = sdk.Action.withInput(
 
   // metadata
   async ({ effects }) => ({
-    name: 'Bitcoin Backend',
-    description: 'Confirm the Bitcoin node to be used as the backend for LND',
+    name: i18n('Bitcoin Backend'),
+    description: i18n(
+      'Confirm the Bitcoin node to be used as the backend for LND',
+    ),
     warning: null,
     allowedStatuses: 'any',
-    group: 'Configuration',
+    group: i18n('Configuration'),
     visibility: (await storeJson.read().const(effects))?.bitcoindSelected
       ? 'hidden'
       : 'enabled',

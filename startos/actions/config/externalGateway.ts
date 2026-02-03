@@ -1,3 +1,4 @@
+import { i18n } from '../../i18n'
 import { lndConfFile } from '../../fileModels/lnd.conf'
 import { storeJson } from '../../fileModels/store.json'
 import { sdk } from '../../sdk'
@@ -11,11 +12,11 @@ export const setExternalGateway = sdk.Action.withInput(
 
   // metadata
   async ({ effects }) => ({
-    name: 'Set External IP',
-    description: 'Optionally advertise your IP address to the network',
+    name: i18n('Set External IP'),
+    description: i18n('Optionally advertise your IP address to the network'),
     warning: null,
     allowedStatuses: 'any',
-    group: 'Configuration',
+    group: i18n('Configuration'),
     visibility: 'enabled',
   }),
 
@@ -33,7 +34,7 @@ export const setExternalGateway = sdk.Action.withInput(
         .format('hostname-info') || []) as (T.HostnameInfo & { kind: 'ip' })[]
 
       return {
-        name: 'Select Gateway',
+        name: i18n('Select Gateway'),
         default: 'none',
         values: privateHostnameInfos.reduce(
           (obj, curr) => {
@@ -43,7 +44,7 @@ export const setExternalGateway = sdk.Action.withInput(
                 `${curr.gateway.name} (${curr.hostname.value})`,
             }
           },
-          { none: 'None' } as Record<string, string>,
+          { none: i18n('None') } as Record<string, string>,
         ),
       }
     }),

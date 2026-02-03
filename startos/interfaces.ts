@@ -1,3 +1,4 @@
+import { i18n } from './i18n'
 import { sdk } from './sdk'
 import { lndConfFile } from './fileModels/lnd.conf'
 import { lndDataDir, mainMounts } from './utils'
@@ -53,9 +54,9 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
     })
 
     const lndConnect = sdk.createInterface(effects, {
-      name: 'REST LND Connect',
+      name: i18n('REST LND Connect'),
       id: lndconnectRestId,
-      description: 'Used for REST connections',
+      description: i18n('Used for REST connections'),
       type: 'api',
       masked: true,
       schemeOverride: { ssl: 'lndconnect', noSsl: 'lndconnect' },
@@ -80,9 +81,9 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
     })
 
     const lndgRpcConnect = sdk.createInterface(effects, {
-      name: 'gRPC LND Connect',
+      name: i18n('gRPC LND Connect'),
       id: gRPCInterfaceId,
-      description: 'Used for gRPC connections',
+      description: i18n('Used for gRPC connections'),
       type: 'api',
       masked: true,
       schemeOverride: { ssl: 'lndconnect', noSsl: 'lndconnect' },
@@ -108,9 +109,9 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
     secure: { ssl: false },
   })
   const peer = sdk.createInterface(effects, {
-    name: 'Peer Interface',
+    name: i18n('Peer Interface'),
     id: peerInterfaceId,
-    description: 'Used for connecting with peers',
+    description: i18n('Used for connecting with peers'),
     type: 'p2p',
     masked: true,
     schemeOverride: null,
@@ -133,9 +134,9 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
       },
     )
     const watchtower = sdk.createInterface(effects, {
-      name: 'Watchtower',
+      name: i18n('Watchtower'),
       id: 'watchtower',
-      description: 'Allows peers to use your watchtower server',
+      description: i18n('Allows peers to use your watchtower server'),
       type: 'p2p',
       masked: true,
       schemeOverride: null,

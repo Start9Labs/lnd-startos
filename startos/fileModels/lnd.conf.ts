@@ -1,4 +1,5 @@
 import { FileHelper, matches } from '@start9labs/start-sdk'
+import { sdk } from '../sdk'
 import { lndConfDefaults } from '../utils'
 
 const { object, boolean, natural, arrayOf, literals } = matches
@@ -289,8 +290,8 @@ function toLndConf(conf: typeof shape._TYPE): string {
 
 export const lndConfFile = FileHelper.raw(
   {
+    base: sdk.volumes.main,
     subpath: '/lnd.conf',
-    volumeId: 'main',
   },
   (obj: typeof shape._TYPE) => toLndConf(obj),
   (str) => fromLndConf(str),
