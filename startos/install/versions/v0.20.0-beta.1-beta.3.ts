@@ -8,7 +8,7 @@ import { sdk } from '../../sdk'
 import { restPort } from '../../interfaces'
 
 export const v0_20_0_1 = VersionInfo.of({
-  version: '0.20.0-beta:1-beta.2',
+  version: '0.20.0-beta:1-beta.3',
   releaseNotes: {
     en_US: 'Revamped for StartOS 0.4.0',
     es_ES: 'Renovado para StartOS 0.4.0',
