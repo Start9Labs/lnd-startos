@@ -50,6 +50,14 @@ export const alertRestore = {
     "LISEZ ATTENTIVEMENT ! Tous les canaux ouverts depuis la dernière sauvegarde seront oubliés et peuvent persister indéfiniment, et les canaux contenus dans la sauvegarde seront fermés et leurs fonds restitués à votre portefeuille on-chain, moins les frais. Une fois que tous les fonds récupérables sont disponibles dans votre portefeuille on-chain, tous les fonds doivent être transférés vers un autre portefeuille. N'utilisez JAMAIS un portefeuille LND restauré pour ouvrir de nouveaux canaux. Si vous souhaitez utiliser LND après une restauration de sauvegarde, vous devrez d'abord transférer tous les fonds on-chain vers un autre portefeuille, puis LND peut être désinstallé en toute sécurité, et enfin LND peut être installé à neuf depuis le marketplace.",
 }
 
+export const depBitcoindTitle = {
+  en_US: 'A Bitcoin Full Node',
+  es_ES: 'Un nodo completo de Bitcoin',
+  de_DE: 'Ein Bitcoin-Full-Node',
+  pl_PL: 'Pełny węzeł Bitcoin',
+  fr_FR: 'Un nœud complet Bitcoin',
+}
+
 export const long = {
   en_US:
     'Lightning Network Daemon (LND) fully conforms to the Lightning Network specification (BOLTs). BOLT stands for: Basis of Lightning Technology. In the current state lnd is capable of: creating channels, closing channels, managing all channel states (including the exceptional ones!), maintaining a fully authenticated+validated channel graph, performing path finding within the network, passively forwarding incoming payments, sending outgoing onion-encrypted payments through the network, updating advertised fee schedules, and automatic channel management (autopilot).',

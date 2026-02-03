@@ -1,11 +1,5 @@
 import { setupManifest } from '@start9labs/start-sdk'
-import { SDKImageInputSpec } from '@start9labs/start-sdk/base/lib/types/ManifestTypes'
-import { short, long, alertInstall, alertUninstall, alertRestore } from './i18n'
-
-const BUILD = process.env.BUILD || ''
-
-const arch =
-  BUILD === 'x86_64' || BUILD === 'aarch64' ? [BUILD] : ['x86_64', 'aarch64']
+import { short, long, alertInstall, alertUninstall, alertRestore, depBitcoindTitle } from './i18n'
 
 export const manifest = setupManifest({
   id: 'lnd',
@@ -25,11 +19,9 @@ export const manifest = setupManifest({
       source: {
         dockerTag: 'lightninglabs/lnd:v0.20.0-beta',
       },
-      arch,
-    } as SDKImageInputSpec,
-  },
-  hardwareRequirements: {
-    arch,
+      arch: ['aarch64', 'x86_64'],
+      emulateMissingAs: 'aarch64'
+    },
   },
   alerts: {
     install: alertInstall,
@@ -44,7 +36,7 @@ export const manifest = setupManifest({
       description: 'Used to subscribe to new block events.',
       optional: true,
       metadata: {
-        title: 'A Bitcoin Full Node',
+        title: depBitcoindTitle,
         icon: 'https://bitcoin.org/img/icons/opengraph.png',
       },
     },
