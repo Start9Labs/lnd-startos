@@ -1,7 +1,7 @@
-import { rm } from 'fs/promises'
+import { readdir, rm } from 'fs/promises'
+import { join } from 'path'
 import { i18n } from '../i18n'
 import { sdk } from '../sdk'
-import { glob } from 'fs/promises'
 
 export const recreateMacaroons = sdk.Action.withoutInput(
   // id
@@ -23,8 +23,12 @@ export const recreateMacaroons = sdk.Action.withoutInput(
 
   // execution function
   async ({ effects }) => {
-    for await (const macaroonFile of glob('/media/startos/volumes/main/data/chain/bitcoin/mainnet/*.macaroon')) {
-      await rm(macaroonFile)
+    const dir = '/media/startos/volumes/main/data/chain/bitcoin/mainnet'
+    const files = await readdir(dir)
+    for (const file of files) {
+      if (file.endsWith('.macaroon')) {
+        await rm(join(dir, file))
+      }
     }
     await sdk.restart(effects)
     return {
