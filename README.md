@@ -51,7 +51,6 @@ StartOS-specific files on the `main` volume:
 | File | Purpose |
 |------|---------|
 | `store.json` | Persistent StartOS state (wallet password, cipher seed, flags) |
-| `lnd.conf` | Generated/managed LND configuration file |
 | `tls.cert` / `tls.key` | StartOS-managed TLS certificates |
 
 If using the `bitcoind` backend, the Bitcoin Core `main` volume is mounted read-only at `/mnt/bitcoin` for cookie authentication.
@@ -209,7 +208,6 @@ dependencies:
 startos_managed_env_vars: []
 startos_managed_files:
   - store.json
-  - lnd.conf
   - tls.cert
   - tls.key
 actions:
