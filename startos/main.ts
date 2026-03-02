@@ -1,20 +1,18 @@
-import { i18n } from './i18n'
-import { sdk } from './sdk'
 import { FileHelper } from '@start9labs/start-sdk'
+import { base64 } from 'rfc4648'
+import { lndConfFile } from './fileModels/lnd.conf'
+import { storeJson } from './fileModels/store.json'
+import { i18n } from './i18n'
+import { restPort } from './interfaces'
+import { sdk } from './sdk'
 import {
+  bitcoindBundle,
+  bitcoindMnt,
   GetInfo,
-  lndConfDefaults,
   lndDataDir,
   mainMounts,
   sleep,
 } from './utils'
-import { restPort } from './interfaces'
-import { lndConfFile } from './fileModels/lnd.conf'
-import { manifest } from './manifest'
-import { storeJson } from './fileModels/store.json'
-import { Effects, SIGTERM } from '@start9labs/start-sdk/base/lib/types'
-import { Mounts } from '@start9labs/start-sdk/package/lib/mainFn/Mounts'
-import { base64 } from 'rfc4648'
 
 export const main = sdk.setupMain(async ({ effects }) => {
   /**
@@ -22,71 +20,35 @@ export const main = sdk.setupMain(async ({ effects }) => {
    */
   console.info(i18n('Starting LND!'))
 
+  const store = await storeJson.read().const(effects)
+  if (!store) {
+    throw new Error('No store.json')
+  }
+
+  const conf = await lndConfFile.read().const(effects)
+  if (!conf) {
+    throw new Error('No lnd.conf')
+  }
+
   const {
-    recoveryWindow,
     resetWalletTransactions,
     restore,
-    walletInitialized,
     walletPassword,
-    watchtowers,
-  } = (await storeJson.read().once())!
+    watchtowerClients,
+  } = store
 
-  const conf = (await lndConfFile.read().const(effects))!
-
+  const useBitcoind = conf['bitcoin.node'] === 'bitcoind'
   let mounts = mainMounts
 
-  if (conf['bitcoin.node'] === 'bitcoind') {
+  if (useBitcoind) {
     mounts = mounts.mountDependency({
       dependencyId: 'bitcoind',
-      mountpoint: '/mnt/bitcoin',
-      readonly: true,
-      subpath: null,
       volumeId: 'main',
+      mountpoint: bitcoindMnt,
+      subpath: null,
+      readonly: true,
     })
   }
-
-  if (!walletInitialized) {
-    console.log('Fresh install detected. Initializing LND wallet')
-    await initializeLnd(effects, mounts)
-    await storeJson.merge(effects, { walletInitialized: true })
-  }
-
-  // Restart on storeJson changes
-  await storeJson.read().const(effects)
-
-  const osIp = await sdk.getOsIp(effects)
-
-  if (
-    ![conf.rpclisten].flat()?.includes(lndConfDefaults.rpclisten) ||
-    ![conf.restlisten].flat()?.includes(lndConfDefaults.restlisten) ||
-    conf['tor.socks'] !== `${osIp}:9050`
-  ) {
-    await lndConfFile.merge(
-      effects,
-      {
-        'tor.socks': `${osIp}:9050`,
-        rpclisten: conf.rpclisten
-          ? [
-              ...new Set(
-                [[conf.rpclisten].flat(), lndConfDefaults.rpclisten].flat(),
-              ),
-            ]
-          : lndConfDefaults.rpclisten,
-        restlisten: conf.restlisten
-          ? [
-              ...new Set(
-                [[conf.restlisten].flat(), lndConfDefaults.restlisten].flat(),
-              ),
-            ]
-          : lndConfDefaults.restlisten,
-      },
-      { allowWriteAfterConst: true },
-    )
-  }
-
-  const lndArgs: string[] = []
-
-  if (resetWalletTransactions) lndArgs.push('--reset-wallet-transactions')
 
   const lndSub = await sdk.SubContainer.of(
     effects,
@@ -95,18 +57,26 @@ export const main = sdk.setupMain(async ({ effects }) => {
     'lnd-sub',
   )
 
-  // Restart if Bitcoin .cookie changes if using bitcoin backend
-  if (conf['bitcoin.node'] === 'bitcoind') {
-    await FileHelper.string(`${lndSub.rootfs}/mnt/bitcoin/.cookie`)
+  // Restart if Bitcoin .cookie changes
+  if (useBitcoind) {
+    await FileHelper.string(
+      `${lndSub.rootfs}${bitcoindBundle['bitcoind.rpccookie']}`,
+    )
       .read()
       .const(effects)
+  }
+
+  const lndArgs: string[] = []
+
+  if (resetWalletTransactions) {
+    lndArgs.push('--reset-wallet-transactions')
   }
 
   /**
    * ======================== Daemons ========================
    */
   return sdk.Daemons.of(effects)
-    .addDaemon('primary', {
+    .addDaemon('lnd', {
       exec: { command: ['lnd', ...lndArgs] },
       subcontainer: lndSub,
       ready: {
@@ -140,14 +110,14 @@ export const main = sdk.setupMain(async ({ effects }) => {
               'POST',
               '--cacert',
               `${lndDataDir}/tls.cert`,
-              'https://lnd.startos:8080/v1/unlockwallet',
+              `https://lnd.startos:${restPort}/v1/unlockwallet`,
               '-d',
               restore
                 ? JSON.stringify({
                     wallet_password: base64.stringify(
                       Buffer.from(walletPassword),
                     ),
-                    recovery_window: recoveryWindow,
+                    recovery_window: 2_500,
                   })
                 : JSON.stringify({
                     wallet_password: base64.stringify(
@@ -159,16 +129,15 @@ export const main = sdk.setupMain(async ({ effects }) => {
             if (res.stdout === '{}') {
               break
             }
-            sleep(10_000)
+            await sleep(10_000)
           }
           return null
         },
       },
       subcontainer: lndSub,
-      requires: ['primary'],
+      requires: ['lnd'],
     })
     .addHealthCheck('sync-progress', {
-      requires: ['primary', 'unlock-wallet'],
       ready: {
         display: i18n('Network and Graph Sync Progress'),
         fn: async () => {
@@ -230,6 +199,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
           }
         },
       },
+      requires: ['lnd', 'unlock-wallet'],
     })
     .addOneshot('restore', () =>
       restore
@@ -256,12 +226,12 @@ export const main = sdk.setupMain(async ({ effects }) => {
                 }
               },
             },
-            requires: ['primary', 'unlock-wallet'],
+            requires: ['lnd', 'unlock-wallet'],
           } as const)
         : null,
     )
     .addHealthCheck('reachability', () =>
-      !conf.externalip && !conf.externalhosts?.length
+      !conf.externalip?.length
         ? ({
             ready: {
               display: i18n('Node Reachability'),
@@ -272,18 +242,18 @@ export const main = sdk.setupMain(async ({ effects }) => {
                 ),
               }),
             },
-            requires: ['primary'],
+            requires: ['lnd'],
           } as const)
         : null,
     )
     .addOneshot('add-watchtowers', () =>
-      watchtowers.length > 0
+      watchtowerClients.length > 0
         ? ({
             subcontainer: lndSub,
             exec: {
               fn: async (subcontainer: typeof lndSub, abort) => {
                 // Setup watchtowers at runtime because for some reason they can't be setup in lnd.conf
-                for (const tower of watchtowers || []) {
+                for (const tower of watchtowerClients || []) {
                   if (abort.aborted) break
                   console.log(`Watchtower client adding ${tower}`)
                   let res = await subcontainer.exec(
@@ -315,80 +285,8 @@ export const main = sdk.setupMain(async ({ effects }) => {
                 return null
               },
             },
-            requires: ['primary', 'unlock-wallet', 'sync-progress'],
+            requires: ['lnd', 'unlock-wallet', 'sync-progress'],
           } as const)
         : null,
     )
 })
-
-async function initializeLnd(
-  effects: Effects,
-  mounts: Mounts<typeof manifest>,
-) {
-  await sdk.SubContainer.withTemp(
-    effects,
-    {
-      imageId: 'lnd',
-    },
-    mounts,
-    'initialize-lnd',
-    async (subc) => {
-      const child = await subc.spawn(['lnd'])
-
-      let cipherSeed: string[] = []
-      do {
-        const res = await subc.exec([
-          'curl',
-          '--no-progress-meter',
-          'GET',
-          '--cacert',
-          `${lndDataDir}/tls.cert`,
-          '--fail-with-body',
-          'https://lnd.startos:8080/v1/genseed',
-        ])
-        if (
-          res.exitCode === 0 &&
-          res.stdout !== '' &&
-          typeof res.stdout === 'string'
-        ) {
-          cipherSeed = JSON.parse(res.stdout)['cipher_seed_mnemonic']
-          break
-        } else {
-          console.log('Waiting for RPC to start...')
-          await sleep(5_000)
-        }
-      } while (true)
-
-      const walletPassword = (await storeJson.read().once())?.walletPassword
-      if (!walletPassword) throw new Error('No wallet password found')
-
-      const status = await subc.exec([
-        'curl',
-        '--no-progress-meter',
-        '-X',
-        'POST',
-        '--cacert',
-        `${lndDataDir}/tls.cert`,
-        '--fail-with-body',
-        'https://lnd.startos:8080/v1/initwallet',
-        '-d',
-        `${JSON.stringify({
-          wallet_password: base64.stringify(Buffer.from(walletPassword)),
-          cipher_seed_mnemonic: cipherSeed,
-        })}`,
-      ])
-
-      if (status.stderr !== '' && typeof status.stderr === 'string') {
-        console.log(`Error running initwallet: ${status.stderr}`)
-      }
-
-      await storeJson.merge(effects, { aezeedCipherSeed: cipherSeed })
-
-      child.kill(SIGTERM)
-      await new Promise<void>((resolve) => {
-        child.on('exit', () => resolve())
-        setTimeout(resolve, 60_000)
-      })
-    },
-  )
-}

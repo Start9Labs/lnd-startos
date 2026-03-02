@@ -1,233 +1,448 @@
-import { FileHelper, matches } from '@start9labs/start-sdk'
+import { FileHelper, T, z } from '@start9labs/start-sdk'
+import { i18n } from '../i18n'
 import { sdk } from '../sdk'
-import { lndConfDefaults } from '../utils'
 
-const { object, boolean, natural, arrayOf, literals } = matches
+// INI coercion helpers: LND conf parsing returns strings/numbers/booleans for
+// single values, string arrays for duplicate keys. Each uses
+// .optional().catch(undefined) for user-configurable fields.
 
-const stringArray = matches.array(matches.string)
-const string = stringArray.map(([a]) => a).orParser(matches.string)
-const number = string.map((a) => Number(a)).orParser(matches.number)
-const literal = (val: string | number | boolean) => {
-  return matches
-    .literal(String(val))
-    .orParser(matches.literal(val))
-    .map((a) => (typeof val === 'number' ? Number(a) : a))
+const iniString = z
+  .union([z.array(z.string()).transform((a) => a.at(-1)!), z.coerce.string()])
+  .optional()
+  .catch(undefined)
+
+const iniStringArray = z
+  .union([
+    z.array(z.string()).transform((a) => (a.length ? a : undefined)),
+    z.string().transform((s) => [s]),
+  ])
+  .optional()
+  .catch(undefined)
+
+const iniNumber = z
+  .union([
+    z.array(z.string()).transform((a) => Number(a.at(-1))),
+    z.string().transform(Number),
+    z.number(),
+  ])
+  .optional()
+  .catch(undefined)
+
+const iniBoolean = z
+  .union([
+    z.string().transform((s) => s === 'true' || (s !== 'false' && !!Number(s))),
+    z.number().transform((n) => !!n),
+    z.boolean(),
+  ])
+  .optional()
+  .catch(undefined)
+
+export const shape = z
+  .object({
+    // ──── Enforced (StartOS) ────
+    'healthcheck.chainbackend.attempts': z.literal(0).catch(0),
+    rpclisten: z.tuple([z.literal('0.0.0.0:10009')]).catch(['0.0.0.0:10009']),
+    restlisten: z.tuple([z.literal('0.0.0.0:8080')]).catch(['0.0.0.0:8080']),
+    listen: z.literal('0.0.0.0:9735').catch('0.0.0.0:9735'),
+    'rpcmiddleware.enable': z.literal(true).catch(true),
+    'bitcoin.mainnet': z.literal(true).catch(true),
+    'bitcoind.rpcuser': z.undefined().catch(undefined),
+    'bitcoind.rpcpass': z.undefined().catch(undefined),
+    'bitcoin.active': z.undefined().catch(undefined), // deprecated
+    'tor.active': z.literal(true).catch(true),
+    'tor.v3': z.undefined().catch(undefined),
+
+    // ──── Bitcoind (set by backend config) ────
+    'bitcoind.rpchost': iniString,
+    'bitcoind.rpccookie': iniString,
+    'bitcoind.zmqpubrawblock': iniString,
+    'bitcoind.zmqpubrawtx': iniString,
+
+    // ──── Application Options ────
+    externalhosts: z.undefined().catch(undefined),
+    'accept-keysend': iniBoolean,
+    alias: iniString,
+    color: iniString,
+    'fee.url': iniString,
+    externalip: iniStringArray,
+
+    // ──── Bitcoin ────
+    'bitcoin.node': z
+      .enum(['bitcoind', 'neutrino'])
+      .optional()
+      .catch(undefined),
+    'bitcoin.defaultchanconfs': iniNumber,
+    'bitcoin.basefee': iniNumber,
+    'bitcoin.feerate': iniNumber,
+
+    // ──── Autopilot ────
+    'autopilot.active': iniBoolean,
+    'autopilot.maxchannels': iniNumber,
+    'autopilot.allocation': iniNumber,
+    'autopilot.minchansize': iniNumber,
+    'autopilot.maxchansize': iniNumber,
+    'autopilot.private': iniBoolean,
+    'autopilot.minconfs': iniNumber,
+    'autopilot.conftarget': iniNumber,
+
+    // ──── Tor ────
+    'tor.socks': iniString,
+    'tor.skip-proxy-for-clearnet-targets': iniBoolean,
+
+    // ──── Watchtower ────
+    'watchtower.active': iniBoolean,
+    'watchtower.listen': iniStringArray,
+    'watchtower.externalip': iniString,
+
+    // ──── Watchtower Client ────
+    'wtclient.active': iniBoolean,
+  })
+  .loose()
+
+export type LndConf = z.infer<typeof shape>
+
+// ════════════════════════════════════════════════════════════════════════════
+// Master InputSpec — all user-configurable form fields
+// ════════════════════════════════════════════════════════════════════════════
+
+const { InputSpec, Value, Variants, List } = sdk
+
+export const fullConfigSpec = InputSpec.of({
+  // ── General ──
+  alias: Value.text({
+    name: i18n('Alias'),
+    default: null,
+    required: false,
+    description: i18n('The public, human-readable name of your Lightning node'),
+    patterns: [
+      {
+        regex: '.{1,32}',
+        description: i18n(
+          'Must be at least 1 character and no more than 32 characters',
+        ),
+      },
+    ],
+  }),
+  color: Value.text({
+    name: i18n('Color'),
+    default: null,
+    required: false,
+    description: i18n('The public color dot of your Lightning node'),
+    patterns: [
+      {
+        regex: '[0-9a-fA-F]{6}',
+        description: i18n(
+          'Must be a valid 6 digit hexadecimal RGB value. The first two digits are red, middle two are green, and final two are blue',
+        ),
+      },
+    ],
+  }),
+  'accept-keysend': Value.toggle({
+    name: i18n('Accept Keysend'),
+    default: true,
+    description: i18n(
+      'Allow others to send payments directly to your public key through keysend instead of having to get a new invoice',
+    ),
+  }),
+  'use-tor-only': Value.toggle({
+    name: i18n('Use Tor for all traffic'),
+    default: false,
+    description: i18n(
+      "Use the tor proxy even for connections that are reachable on clearnet. This will hide your node's public IP address, but will slow down your node's performance",
+    ),
+  }),
+  // ── Bitcoin Channel ──
+  'default-channel-confirmations': Value.number({
+    name: i18n('Default Channel Confirmations'),
+    description: i18n(
+      "The default number of confirmations a channel must have before it's considered open. LND will require any incoming channel requests to wait this many confirmations before it considers the channel active. ",
+    ),
+    default: null,
+    placeholder: '3',
+    required: false,
+    min: 1,
+    max: 6,
+    integer: true,
+    units: 'blocks',
+  }),
+  'base-fee': Value.number({
+    name: i18n('Routing Base Fee'),
+    description: i18n(
+      'The base fee in millisatoshi you will charge for forwarding payments on your channels. ',
+    ),
+    default: null,
+    placeholder: '1000',
+    required: false,
+    min: 0,
+    integer: true,
+    units: 'millisatoshi',
+  }),
+  'fee-rate': Value.number({
+    name: i18n('Routing Fee Rate'),
+    description: i18n(
+      'The fee rate used when forwarding payments on your channels. The total fee charged is the Base Fee + (amount * Fee Rate / 1000000), where amount is the forwarded amount. Measured in sats per million ',
+    ),
+    default: null,
+    placeholder: '1',
+    required: false,
+    min: 0,
+    max: 1000000,
+    integer: true,
+    units: 'sats per million',
+  }),
+  // ── Autopilot ──
+  autopilot: Value.union({
+    name: i18n('Enable Autopilot'),
+    description: i18n(
+      'If the autopilot agent should be active or not. The autopilot agent will attempt to AUTOMATICALLY OPEN CHANNELS to put your node in an advantageous position within the network graph.',
+    ),
+    warning: i18n(
+      'DO NOT ENABLE AUTOPILOT IF YOU WANT TO MANAGE CHANNELS MANUALLY OR IF YOU DO NOT UNDERSTAND THIS FEATURE.',
+    ),
+    default: 'disabled',
+    variants: Variants.of({
+      disabled: { name: i18n('Disabled'), spec: InputSpec.of({}) },
+      enabled: {
+        name: i18n('Enabled'),
+        spec: InputSpec.of({
+          private: Value.toggle({
+            name: i18n('Private'),
+            default: false,
+            description: i18n(
+              "Whether the channels created by the autopilot agent should be private or not. Private channels won't be announced to the network.",
+            ),
+          }),
+          maxchannels: Value.number({
+            name: i18n('Maximum Channels'),
+            description: i18n(
+              'The maximum number of channels that should be created.',
+            ),
+            default: null,
+            placeholder: '5',
+            required: false,
+            min: 1,
+            integer: true,
+          }),
+          allocation: Value.number({
+            name: i18n('Allocation'),
+            description: i18n(
+              'The fraction of total funds that should be committed to automatic channel establishment. For example 60% means that 60% of the total funds available within the wallet should be used to automatically establish channels. The total amount of attempted channels will still respect the "Maximum Channels" parameter. ',
+            ),
+            default: null,
+            placeholder: '60',
+            required: false,
+            min: 0,
+            max: 100,
+            integer: true,
+            units: '%',
+          }),
+          'min-channel-size': Value.number({
+            name: i18n('Minimum Channel Size'),
+            description: i18n(
+              'The smallest channel that the autopilot agent should create.',
+            ),
+            default: null,
+            placeholder: '20000',
+            required: false,
+            min: 0,
+            integer: true,
+            units: 'satoshis',
+          }),
+          'max-channel-size': Value.number({
+            name: i18n('Maximum Channel Size'),
+            description: i18n(
+              'The largest channel that the autopilot agent should create.',
+            ),
+            default: null,
+            placeholder: '16777215',
+            required: false,
+            min: 0,
+            integer: true,
+            units: 'satoshis',
+          }),
+          'min-confirmations': Value.number({
+            name: i18n('Minimum Confirmations'),
+            description: i18n(
+              'The minimum number of confirmations each of your inputs in funding transactions created by the autopilot agent must have.',
+            ),
+            default: null,
+            placeholder: '1',
+            required: false,
+            min: 0,
+            integer: true,
+            units: 'blocks',
+          }),
+          'confirmation-target': Value.number({
+            name: i18n('Confirmation Target'),
+            description: i18n(
+              'The confirmation target (in blocks) for channels opened by autopilot.',
+            ),
+            default: null,
+            placeholder: '3',
+            required: false,
+            min: 0,
+            integer: true,
+            units: 'blocks',
+          }),
+        }),
+      },
+    }),
+  }),
+
+  // ── Backend ──
+  bitcoind: Value.select({
+    name: i18n('Select Bitcoin Node'),
+    description: i18n(
+      'Select between a local bitcoin node and Neutrino as the backend for LND. As Neutrino involves reliance on third-party nodes it is advisable to use either Core or Knots instead. Once Core or Knots are selected it is not supported to switch to Neutrino; however LND can always switch from Neutrino to Core/Knots at a later time.',
+    ),
+    default: 'bitcoind',
+    values: {
+      bitcoind: i18n('Local Bitcoin Node'),
+      neutrino: i18n('Neutrino'),
+    },
+  }),
+
+  // ── Watchtower Client ──
+  'wt-client': Value.union({
+    name: i18n('Enable Watchtower Client'),
+    description: i18n('Enable or disable Watchtower Client'),
+    default: 'disabled',
+    variants: Variants.of({
+      disabled: { name: i18n('Disabled'), spec: InputSpec.of({}) },
+      enabled: {
+        name: i18n('Enabled'),
+        spec: InputSpec.of({
+          'add-watchtowers': Value.list(
+            List.text(
+              {
+                name: i18n('Add Watchtowers'),
+                default: [],
+                description: i18n('Add URIs of Watchtowers to connect to.'),
+                minLength: 1,
+              },
+              { placeholder: 'pubkey@host:9911', patterns: [] },
+            ),
+          ),
+        }),
+      },
+    }),
+  }),
+})
+
+// ════════════════════════════════════════════════════════════════════════════
+// File ↔ Form conversion
+// ════════════════════════════════════════════════════════════════════════════
+
+type FormType = typeof fullConfigSpec._TYPE
+type PartialFormType = T.DeepPartial<FormType>
+
+export function fileToForm(conf: LndConf): PartialFormType {
+  return {
+    // General
+    alias: conf.alias,
+    color: conf.color?.replace('#', ''),
+    'accept-keysend': conf['accept-keysend'],
+    'use-tor-only':
+      conf['tor.skip-proxy-for-clearnet-targets'] != null
+        ? !conf['tor.skip-proxy-for-clearnet-targets']
+        : undefined,
+    // Bitcoin Channel
+    'default-channel-confirmations': conf['bitcoin.defaultchanconfs'],
+    'base-fee': conf['bitcoin.basefee'],
+    'fee-rate': conf['bitcoin.feerate'],
+
+    // Autopilot
+    autopilot: conf['autopilot.active']
+      ? {
+          selection: 'enabled' as const,
+          value: {
+            maxchannels: conf['autopilot.maxchannels'],
+            allocation:
+              conf['autopilot.allocation'] != null
+                ? conf['autopilot.allocation'] * 100
+                : undefined,
+            'min-channel-size': conf['autopilot.minchansize'],
+            'max-channel-size': conf['autopilot.maxchansize'],
+            private: conf['autopilot.private'],
+            'min-confirmations': conf['autopilot.minconfs'],
+            'confirmation-target': conf['autopilot.conftarget'],
+          },
+        }
+      : { selection: 'disabled' as const },
+
+    // Backend
+    bitcoind:
+      conf['bitcoin.node'] === 'neutrino'
+        ? ('neutrino' as const)
+        : ('bitcoind' as const),
+
+    // Watchtower Client — wt-client reads from store, not conf.
+    // Actions that need it will overlay from storeJson.
+  }
 }
 
-const {
-  externalhosts,
-  'payments-expiration-grace-period': paymentsExpirationGracePeriod,
-  listen,
-  rpclisten,
-  restlisten,
-  'rpcmiddleware.enable': rpcmiddlewareEnable,
-  debuglevel,
-  minchansize,
-  maxchansize,
-  'default-remote-max-htlcs': defaultRemoteMaxHtlcs,
-  rejecthtlc,
-  'max-channel-fee-allocation': maxChannelFeeAllocation,
-  maxpendingchannels,
-  'max-commit-fee-rate-anchors': maxCommitFeeRateAnchors,
-  'accept-keysend': acceptKeysend,
-  'accept-amp': acceptAmp,
-  'gc-canceled-invoices-on-startup': gcCanceledInvoicesOnStartup,
-  'allow-circular-route': allowCircularRoute,
-  alias,
-  color,
-  'fee.url': feeUrl,
-  'bitcoin.mainnet': bitcoinMainnet,
-  'bitcoin.node': bitcoinNode,
-  'bitcoin.defaultchanconfs': bitcoinDefaultchanconfs,
-  'bitcoin.minhtlc': bitcoinMinhtlc,
-  'bitcoin.minhtlcout': bitcoinMinhtlcout,
-  'bitcoin.basefee': bitcoinBasefee,
-  'bitcoin.feerate': bitcoinFeerate,
-  'bitcoin.timelockdelta': bitcoinTimelockdelta,
-  'bitcoind.rpchost': bitcoindRpchost,
-  'bitcoind.rpccookie': bitcoindRpccookie,
-  'bitcoind.zmqpubrawblock': bitcoindZmqpubrawblock,
-  'bitcoind.zmqpubrawtx': bitcoindZmqpubrawtx,
-  'autopilot.active': autopilotActive,
-  'autopilot.maxchannels': autopilotMaxchannels,
-  'autopilot.allocation': autopilotAllocation,
-  'autopilot.minchansize': autopilotMinchansize,
-  'autopilot.maxchansize': autopilotMaxchansize,
-  'autopilot.private': autopilotPrivate,
-  'autopilot.minconfs': autopilotMinconfs,
-  'autopilot.conftarget': autopilotConftarget,
-  'tor.active': torActive,
-  'tor.socks': torSocks,
-  'tor.skip-proxy-for-clearnet-targets': torSkipProxyForClearnetTargets,
-  'tor.streamisolation': torStreamisolation,
-  'watchtower.active': watchtowerActive,
-  'watchtower.listen': watchtowerListen,
-  'watchtower.externalip': watchtowerExternalip,
-  'wtclient.active': wtclientActive,
-  'healthcheck.chainbackend.attempts': healthcheckChainbackendAttempts,
-  'protocol.wumbo-channels': protocolWumboChannels,
-  'protocol.no-anchors': protocolNoAnchors,
-  'protocol.no-script-enforced-lease': protocolNoScriptEnforcedLease,
-  'protocol.option-scid-alias': protocolOptionScidAlias,
-  'protocol.zero-conf': protocolZeroConf,
-  'protocol.simple-taproot-chans': protocolSimpleTaprootChans,
-  'sweeper.maxfeerate': sweeperMaxfeerate,
-  'sweeper.nodeadlineconftarget': sweeperNodeadlineconftarget,
-  'sweeper.budget.tolocalratio': sweeperBudgetTolocalration,
-  'sweeper.budget.anchorcpfpratio': sweeperBudgetAnchorcpfpratio,
-  'sweeper.budget.deadlinehtlcratio': sweeperBudgetDeadlinehtlcratio,
-  'sweeper.budget.nodeadlinehtlcratio': sweeperBudgetNodeadlinehtlcratio,
-  'db.bolt.nofreelistsync': dbBoltNofreelistsync,
-  'db.bolt.auto-compact': dbBoltAutoCompact,
-  'db.bolt.auto-compact-min-age': dbBoltAutoCompactMinAge,
-  'db.bolt.dbtimeout': dbBoltDbtimeout,
-  externalip,
-} = lndConfDefaults
+export function formToFile(
+  input: PartialFormType,
+): Partial<Record<string, unknown>> {
+  const result: Record<string, unknown> = {}
 
-export const shape = object({
-  // hard coded
-
-  // Bitcoind
-  'bitcoind.rpchost': literal(bitcoindRpchost).onMismatch(bitcoindRpchost),
-  'bitcoind.rpccookie':
-    literal(bitcoindRpccookie).onMismatch(bitcoindRpccookie),
-  // Disallow rpcuser and rpcpass to allow cookie auth
-  'bitcoind.rpcuser': matches
-    .literal(undefined)
-    .optional()
-    .onMismatch(undefined),
-  'bitcoind.rpcpass': matches
-    .literal(undefined)
-    .optional()
-    .onMismatch(undefined),
-  'bitcoin.active': matches.literal(undefined).optional().onMismatch(undefined), // deprecated
-  'bitcoind.zmqpubrawblock': literal(bitcoindZmqpubrawblock).onMismatch(
-    bitcoindZmqpubrawblock,
-  ),
-  'bitcoind.zmqpubrawtx':
-    literal(bitcoindZmqpubrawtx).onMismatch(bitcoindZmqpubrawtx),
-  // TODO eventually expose other net options primarily testnet4
-  'bitcoin.mainnet': literal(bitcoinMainnet).onMismatch(bitcoinMainnet),
-  rpclisten: stringArray.orParser(string).onMismatch(rpclisten),
-  restlisten: stringArray.orParser(string).onMismatch(restlisten),
-  'healthcheck.chainbackend.attempts': literal(
-    healthcheckChainbackendAttempts,
-  ).onMismatch(healthcheckChainbackendAttempts),
-  'tor.active': literal(torActive).onMismatch(torActive),
-
-  // Application Options
-  externalhosts: stringArray
-    .orParser(string)
-    .optional()
-    .onMismatch(externalhosts),
-  'payments-expiration-grace-period': string
-    .optional()
-    .onMismatch(paymentsExpirationGracePeriod),
-  listen: string.onMismatch(listen),
-  'rpcmiddleware.enable': boolean.onMismatch(rpcmiddlewareEnable),
-  debuglevel: literals(
-    'trace',
-    'debug',
-    'info',
-    'warn',
-    'error',
-    'critical',
-  ).onMismatch(debuglevel),
-  minchansize: natural.optional().onMismatch(minchansize),
-  maxchansize: natural.optional().onMismatch(maxchansize),
-  'default-remote-max-htlcs': natural.onMismatch(defaultRemoteMaxHtlcs),
-  rejecthtlc: boolean.onMismatch(rejecthtlc),
-  'max-channel-fee-allocation': number.onMismatch(maxChannelFeeAllocation),
-  maxpendingchannels: natural.onMismatch(maxpendingchannels),
-  'max-commit-fee-rate-anchors': natural.onMismatch(maxCommitFeeRateAnchors),
-  'accept-keysend': boolean.onMismatch(acceptKeysend),
-  'accept-amp': boolean.onMismatch(acceptAmp),
-  'gc-canceled-invoices-on-startup': boolean.onMismatch(
-    gcCanceledInvoicesOnStartup,
-  ),
-  'allow-circular-route': boolean.onMismatch(allowCircularRoute),
-  alias: string.optional().onMismatch(alias),
-  color: string.optional().onMismatch(color),
-  'fee.url': string.optional().onMismatch(feeUrl),
-  externalip: string.optional().onMismatch(externalip),
-
-  // Bitcoin
-  'bitcoin.node': literals('bitcoind', 'neutrino').onMismatch(bitcoinNode),
-  'bitcoin.defaultchanconfs': natural.onMismatch(bitcoinDefaultchanconfs),
-  'bitcoin.minhtlc': natural.onMismatch(bitcoinMinhtlc),
-  'bitcoin.minhtlcout': natural.onMismatch(bitcoinMinhtlcout),
-  'bitcoin.basefee': natural.onMismatch(bitcoinBasefee),
-  'bitcoin.feerate': natural.onMismatch(bitcoinFeerate),
-  'bitcoin.timelockdelta': natural.onMismatch(bitcoinTimelockdelta),
-
-  // Autopilot
-  'autopilot.active': boolean.onMismatch(autopilotActive),
-  'autopilot.maxchannels': natural.onMismatch(autopilotMaxchannels),
-  'autopilot.allocation': natural.onMismatch(autopilotAllocation),
-  'autopilot.minchansize': natural.onMismatch(autopilotMinchansize),
-  'autopilot.maxchansize': natural.onMismatch(autopilotMaxchansize),
-  'autopilot.private': boolean.onMismatch(autopilotPrivate),
-  'autopilot.minconfs': natural.onMismatch(autopilotMinconfs),
-  'autopilot.conftarget': natural.onMismatch(autopilotConftarget),
+  // General
+  if ('alias' in input) result.alias = input.alias || undefined
+  if ('color' in input)
+    result.color = input.color ? `#${input.color}` : undefined
+  if ('accept-keysend' in input)
+    result['accept-keysend'] = input['accept-keysend']
 
   // Tor
-  'tor.socks': string.optional().onMismatch(torSocks),
-  'tor.skip-proxy-for-clearnet-targets': boolean.onMismatch(
-    torSkipProxyForClearnetTargets,
-  ),
-  'tor.streamisolation': boolean.onMismatch(torStreamisolation),
+  if ('use-tor-only' in input)
+    result['tor.skip-proxy-for-clearnet-targets'] = !input['use-tor-only']
 
-  // Watchtower Server
-  'watchtower.active': boolean.onMismatch(watchtowerActive),
-  'watchtower.listen': arrayOf(string).onMismatch(watchtowerListen),
-  'watchtower.externalip': string.optional().onMismatch(watchtowerExternalip),
+  // Bitcoin Channel
+  if ('default-channel-confirmations' in input)
+    result['bitcoin.defaultchanconfs'] = input['default-channel-confirmations']
+  if ('base-fee' in input) result['bitcoin.basefee'] = input['base-fee']
+  if ('fee-rate' in input) result['bitcoin.feerate'] = input['fee-rate']
 
-  // Watchtower Client
-  'wtclient.active': boolean.optional().onMismatch(wtclientActive),
+  // Autopilot
+  if (input.autopilot) {
+    if (input.autopilot.selection === 'disabled') {
+      result['autopilot.active'] = false
+    } else if (input.autopilot.selection === 'enabled') {
+      const val = input.autopilot.value
+      result['autopilot.active'] = true
+      if (val) {
+        if ('maxchannels' in val)
+          result['autopilot.maxchannels'] = val.maxchannels
+        if ('allocation' in val)
+          result['autopilot.allocation'] =
+            val.allocation != null ? val.allocation / 100 : undefined
+        if ('min-channel-size' in val)
+          result['autopilot.minchansize'] = val['min-channel-size']
+        if ('max-channel-size' in val)
+          result['autopilot.maxchansize'] = val['max-channel-size']
+        if ('private' in val) result['autopilot.private'] = val.private
+        if ('min-confirmations' in val)
+          result['autopilot.minconfs'] = val['min-confirmations']
+        if ('confirmation-target' in val)
+          result['autopilot.conftarget'] = val['confirmation-target']
+      }
+    }
+  }
 
-  // Protocol
-  'protocol.wumbo-channels': boolean
-    .optional()
-    .onMismatch(protocolWumboChannels),
-  'protocol.no-anchors': boolean.optional().onMismatch(protocolNoAnchors),
-  'protocol.no-script-enforced-lease': boolean
-    .optional()
-    .onMismatch(protocolNoScriptEnforcedLease),
-  'protocol.option-scid-alias': boolean
-    .optional()
-    .onMismatch(protocolOptionScidAlias),
-  'protocol.zero-conf': boolean.optional().onMismatch(protocolZeroConf),
-  'protocol.simple-taproot-chans': boolean
-    .optional()
-    .onMismatch(protocolSimpleTaprootChans),
+  // Backend
+  if ('bitcoind' in input) result['bitcoin.node'] = input.bitcoind
 
-  // Sweeper
-  'sweeper.maxfeerate': natural.optional().onMismatch(sweeperMaxfeerate),
-  'sweeper.nodeadlineconftarget': natural
-    .optional()
-    .onMismatch(sweeperNodeadlineconftarget),
-  'sweeper.budget.tolocalratio': number
-    .optional()
-    .onMismatch(sweeperBudgetTolocalration),
-  'sweeper.budget.anchorcpfpratio': number
-    .optional()
-    .onMismatch(sweeperBudgetAnchorcpfpratio),
-  'sweeper.budget.deadlinehtlcratio': number
-    .optional()
-    .onMismatch(sweeperBudgetDeadlinehtlcratio),
-  'sweeper.budget.nodeadlinehtlcratio': number
-    .optional()
-    .onMismatch(sweeperBudgetNodeadlinehtlcratio),
+  // Watchtower Client — handled by action (writes to store + conf separately)
+  if (input['wt-client']) {
+    result['wtclient.active'] = input['wt-client'].selection === 'enabled'
+  }
 
-  // Bolt
-  'db.bolt.nofreelistsync': boolean.optional().onMismatch(dbBoltNofreelistsync),
-  'db.bolt.auto-compact': boolean.optional().onMismatch(dbBoltAutoCompact),
-  // TODO: Eventually use ts-matches allow different string suffixes i.e. '168h' or '60s'
-  'db.bolt.auto-compact-min-age': string
-    .optional()
-    .onMismatch(dbBoltAutoCompactMinAge),
-  'db.bolt.dbtimeout': string.optional().onMismatch(dbBoltDbtimeout),
-})
+  return result
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// File I/O
+// ════════════════════════════════════════════════════════════════════════════
 
 export function fromLndConf(text: string): Record<string, string[]> {
   const lines = text.trimEnd().split('\n')
@@ -251,7 +466,7 @@ export function fromLndConf(text: string): Record<string, string[]> {
   const formattedDictionary = Object.fromEntries(
     Object.entries(dictionary).map(([k, v]) => {
       if (v.length === 1) {
-        let innerVal
+        let innerVal: string | number | boolean
         if (!isNaN(Number(v[0]))) {
           innerVal = Number(v[0])
         } else if (v[0] === 'true') {
@@ -269,19 +484,16 @@ export function fromLndConf(text: string): Record<string, string[]> {
   return formattedDictionary
 }
 
-function toLndConf(conf: typeof shape._TYPE): string {
+function toLndConf(conf: LndConf): string {
   let lndConfStr = ''
-  const toString = (a: any) => {
-    return a.toString()
-  }
 
   Object.entries(conf).forEach(([key, value]) => {
     if (Array.isArray(value)) {
       for (const subValue of value) {
-        lndConfStr += `${key}=${toString(subValue)}\n`
+        lndConfStr += `${key}=${String(subValue)}\n`
       }
     } else if (value !== undefined) {
-      lndConfStr += `${key}=${toString(value)}\n`
+      lndConfStr += `${key}=${String(value)}\n`
     }
   })
 
@@ -293,7 +505,7 @@ export const lndConfFile = FileHelper.raw(
     base: sdk.volumes.main,
     subpath: '/lnd.conf',
   },
-  (obj: typeof shape._TYPE) => toLndConf(obj),
+  (obj: LndConf) => toLndConf(obj),
   (str) => fromLndConf(str),
-  (obj) => shape.withMismatch((_) => shape.unsafeCast({})).unsafeCast(obj),
+  (obj) => shape.parse(obj),
 )

@@ -6,7 +6,7 @@
     "check": "tsc --noEmit"
   },
   "dependencies": {
-    "@start9labs/start-sdk": "0.4.0-beta.48",
+    "@start9labs/start-sdk": "0.4.0-beta.54",
     "bitcoind-startos": "git+https://github.com/Start9Labs/bitcoind-startos.git#update/040",
     "mime": "^4.0.7",
     "rfc4648": "1.5.4"

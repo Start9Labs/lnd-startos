@@ -1,18 +1,12 @@
-import { FileHelper, matches } from '@start9labs/start-sdk'
+import { FileHelper, z } from '@start9labs/start-sdk'
 import { sdk } from '../sdk'
 
-const { arrayOf, object, string, natural, boolean } = matches
-
-export const shape = object({
-  aezeedCipherSeed: arrayOf(string).nullable(),
-  walletPassword: string,
-  recoveryWindow: natural,
-  bitcoindSelected: boolean,
-  restore: boolean,
-  resetWalletTransactions: boolean,
-  watchtowers: arrayOf(string),
-  walletInitialized: boolean,
-  externalGateway: string.nullable().onMismatch(null),
+export const shape = z.object({
+  walletPassword: z.string(),
+  aezeedCipherSeed: z.array(z.string()).nullable().catch(null),
+  restore: z.boolean().catch(false),
+  resetWalletTransactions: z.boolean().catch(false),
+  watchtowerClients: z.array(z.string()).catch([]),
 })
 
 export const storeJson = FileHelper.json(

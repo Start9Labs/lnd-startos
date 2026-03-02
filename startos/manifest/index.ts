@@ -1,17 +1,26 @@
 import { setupManifest } from '@start9labs/start-sdk'
-import { short, long, alertInstall, alertUninstall, alertRestore, depBitcoindTitle } from './i18n'
+import {
+  alertInstall,
+  alertRestore,
+  alertUninstall,
+  depBitcoindDescription,
+  depTorDescription,
+  long,
+  short,
+} from './i18n'
 
 export const manifest = setupManifest({
   id: 'lnd',
   title: 'LND',
-  license: 'mit',
-  wrapperRepo: 'https://github.com/Start9Labs/lnd-startos',
+  license: 'MIT',
+  packageRepo: 'https://github.com/Start9Labs/lnd-startos',
   upstreamRepo: 'https://github.com/lightningnetwork/lnd',
-  supportSite: 'https://lightning.engineering/slack.html',
-  marketingSite: 'https://lightning.engineering/',
+  marketingUrl: 'https://lightning.engineering/',
   donationUrl: 'https://donate.start9.com/',
-  docsUrl:
+  docsUrls: [
+    'https://docs.start9.com/bitcoin-guides/lightning-wallets',
     'https://docs.lightning.engineering/',
+  ],
   description: { short, long },
   volumes: ['main'],
   images: {
@@ -20,24 +29,29 @@ export const manifest = setupManifest({
         dockerTag: 'lightninglabs/lnd:v0.20.0-beta',
       },
       arch: ['aarch64', 'x86_64'],
-      emulateMissingAs: 'aarch64'
+      emulateMissingAs: 'x86_64',
     },
   },
   alerts: {
     install: alertInstall,
-    update: null,
     uninstall: alertUninstall,
     restore: alertRestore,
-    start: null,
-    stop: null,
   },
   dependencies: {
     bitcoind: {
-      description: 'Used to subscribe to new block events.',
+      description: depBitcoindDescription,
       optional: true,
       metadata: {
-        title: depBitcoindTitle,
+        title: 'Bitcoin',
         icon: 'https://bitcoin.org/img/icons/opengraph.png',
+      },
+    },
+    tor: {
+      description: depTorDescription,
+      optional: true,
+      metadata: {
+        title: 'Tor',
+        icon: 'https://raw.githubusercontent.com/Start9Labs/tor-startos/refs/heads/update/040/icon.png',
       },
     },
   },

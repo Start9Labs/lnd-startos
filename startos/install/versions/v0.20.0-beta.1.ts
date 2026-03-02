@@ -1,11 +1,17 @@
-import { VersionInfo, IMPOSSIBLE, YAML } from '@start9labs/start-sdk'
+import { IMPOSSIBLE, VersionInfo, YAML } from '@start9labs/start-sdk'
 import { readFile, rm } from 'fs/promises'
-import { storeJson } from '../../fileModels/store.json'
-import { lndConfFile } from '../../fileModels/lnd.conf'
-import { lndConfDefaults, lndDataDir, mainMounts, sleep } from '../../utils'
 import { base32, base64 } from 'rfc4648'
-import { sdk } from '../../sdk'
+import { lndConfFile } from '../../fileModels/lnd.conf'
+import { storeJson } from '../../fileModels/store.json'
 import { restPort } from '../../interfaces'
+import { sdk } from '../../sdk'
+import {
+  bitcoindBundle,
+  bitcoindMnt,
+  lndDataDir,
+  mainMounts,
+  sleep,
+} from '../../utils'
 
 export const v0_20_0_1 = VersionInfo.of({
   version: '0.20.0-beta:1-beta.4',
@@ -46,18 +52,15 @@ export const v0_20_0_1 = VersionInfo.of({
         throw new Error(`Error opening pwd.dat: ${error}`)
       }
 
-      const osIp = await sdk.getOsIp(effects)
+      const torIp = await sdk
+        .getContainerIp(effects, { packageId: 'tor' })
+        .const()
 
       await lndConfFile.merge(effects, {
-        'bitcoind.rpchost': lndConfDefaults['bitcoind.rpchost'],
+        ...bitcoindBundle,
         'bitcoind.rpcuser': undefined,
         'bitcoind.rpcpass': undefined,
-        'bitcoind.zmqpubrawblock': lndConfDefaults['bitcoind.zmqpubrawblock'],
-        'bitcoind.zmqpubrawtx': lndConfDefaults['bitcoind.zmqpubrawtx'],
-        'bitcoind.rpccookie': lndConfDefaults['bitcoind.rpccookie'],
-        'tor.socks': `${osIp}:9050`,
-        rpclisten: lndConfDefaults.rpclisten,
-        restlisten: lndConfDefaults.restlisten,
+        'tor.socks': torIp ? `${torIp}:9050` : undefined,
       })
 
       let walletPassword = ''
@@ -75,10 +78,10 @@ export const v0_20_0_1 = VersionInfo.of({
         if (node === 'bitcoind') {
           mounts = mounts.mountDependency({
             dependencyId: 'bitcoind',
-            mountpoint: '/mnt/bitcoin',
+            volumeId: 'main',
+            mountpoint: bitcoindMnt,
             readonly: true,
             subpath: null,
-            volumeId: 'main',
           })
 
           try {
@@ -118,17 +121,17 @@ export const v0_20_0_1 = VersionInfo.of({
             exec: { command: ['lnd'] },
             subcontainer: lndSub,
             ready: {
-              display: 'REST Interface',
+              display: null,
               fn: () =>
                 sdk.healthCheck.checkPortListening(effects, restPort, {
-                  successMessage:
-                    'The REST interface is ready to accept connections',
-                  errorMessage: 'The REST Interface is not ready',
+                  successMessage: '',
+                  errorMessage: '',
                 }),
             },
             requires: [],
           })
           .addOneshot('changepassword', {
+            subcontainer: lndSub,
             exec: {
               fn: async (subcontainer, abort) => {
                 while (true) {
@@ -174,7 +177,6 @@ export const v0_20_0_1 = VersionInfo.of({
                 return null
               },
             },
-            subcontainer: lndSub,
             requires: ['primary'],
           })
           .runUntilSuccess(120_000)
@@ -202,16 +204,12 @@ export const v0_20_0_1 = VersionInfo.of({
         await storeJson.merge(effects, {
           aezeedCipherSeed: existingSeed.length === 24 ? existingSeed : null,
           walletPassword,
-          walletInitialized: !!walletPassword,
-          bitcoindSelected: configYaml.bitcoind.type === 'internal',
-          recoveryWindow: configYaml.advanced['recovery-window'] || 2_500,
           restore: false,
           resetWalletTransactions: false,
-          watchtowers:
+          watchtowerClients:
             configYaml.watchtowers['wt-client'].enabled === 'enabled'
               ? configYaml.watchtowers['wt-client']['add-watchtowers']
               : [],
-          externalGateway: null,
         })
 
         // remove old start9 dir

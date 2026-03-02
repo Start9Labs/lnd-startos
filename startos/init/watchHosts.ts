@@ -1,94 +1,49 @@
 import { lndConfFile } from '../fileModels/lnd.conf'
-import { storeJson } from '../fileModels/store.json'
 import { peerInterfaceId } from '../interfaces'
 import { sdk } from '../sdk'
 
 export const watchHosts = sdk.setupOnInit(async (effects, _) => {
-  const peerInterface = await sdk.serviceInterface
-    .getOwn(effects, peerInterfaceId)
+  const useTorOnly = await lndConfFile
+    .read((c) => c['tor.skip-proxy-for-clearnet-targets'] === false)
+    .const(effects)
+
+  const publicInfo = await sdk.serviceInterface
+    .getOwn(effects, peerInterfaceId, (i) => i?.addressInfo?.public)
     .const()
-  if (!peerInterface || !peerInterface?.addressInfo) {
-    return
+
+  if (!publicInfo) {
+    throw new Error('No public info')
   }
 
-  const conf = await lndConfFile
-    .read((c) => ({ externalhosts: c.externalhosts, externalip: c.externalip }))
-    .const(effects)
-  if (!conf) {
-    return
+  const externalip: string[] = []
+
+  // Add first onion address (if present)
+  const onion = publicInfo
+    .filter({
+      predicate: ({ metadata }) =>
+        metadata.kind === 'plugin' && metadata.packageId === 'tor',
+    })
+    .format()?.[0]
+
+  if (onion) externalip.push(onion)
+
+  // Add gateway IPv4 (if present and not tor-only)
+  if (!useTorOnly) {
+    const outboundGateway = await sdk.getOutboundGateway(effects).const()
+
+    const gatewayIp = publicInfo.hostnames.find(
+      (h) =>
+        'metadata' in h &&
+        h.metadata.kind === 'ipv4' &&
+        h.metadata.gateway === outboundGateway,
+    )?.hostname
+
+    if (gatewayIp) externalip.push(gatewayIp)
   }
-  const externalhosts = [conf.externalhosts || []].flat()
-  const externalip = conf.externalip
 
-  const externalGateway = await storeJson
-    .read((s) => s.externalGateway)
-    .const(effects)
-
-  const domains = peerInterface.addressInfo
-    .filter({ kind: 'domain', visibility: 'public' })
-    .format()
-  const onions = peerInterface.addressInfo
-    .filter({ kind: 'onion', visibility: 'public' })
-    .format()
-  const onionsAndDomains = [...domains, ...onions]
-
-  const externalHostsMissingFromInterface = externalhosts.filter(
-    (h) => !onionsAndDomains.includes(h),
+  await lndConfFile.merge(
+    effects,
+    { externalip },
+    { allowWriteAfterConst: true },
   )
-  const onionsAndDomainsMissingFromLnd = onionsAndDomains.filter(
-    (u) => !externalhosts.includes(u),
-  )
-
-  if (
-    externalHostsMissingFromInterface.length ||
-    onionsAndDomainsMissingFromLnd.length
-  ) {
-    await lndConfFile.merge(
-      effects,
-      {
-        externalhosts: onionsAndDomains,
-      },
-      { allowWriteAfterConst: true },
-    )
-  }
-
-  const ipForExternalGateway = peerInterface.addressInfo.public
-    .filter({ kind: 'ipv4', visibility: 'public' })
-    .format('hostname-info')
-    .find((h) => h.kind === 'ip' && h.gateway.id === externalGateway)
-    ?.hostname.value
-
-  const publicUrls = peerInterface.addressInfo.filter({
-    kind: 'ipv4',
-    visibility: 'public',
-  }).format()
-
-  if (ipForExternalGateway) {
-    const publicUrlForExternalGateway = publicUrls.find((u) =>
-      u.includes(ipForExternalGateway),
-    )
-
-    if (
-      publicUrlForExternalGateway &&
-      publicUrlForExternalGateway !== externalip
-    ) {
-      await lndConfFile.merge(
-        effects,
-        {
-          externalip: publicUrlForExternalGateway,
-        },
-        { allowWriteAfterConst: true },
-      )
-    }
-  }
-
-  if (externalip && !publicUrls.includes(externalip)) {
-    await lndConfFile.merge(
-      effects,
-      {
-        externalip: undefined,
-      },
-      { allowWriteAfterConst: true },
-    )
-  }
 })

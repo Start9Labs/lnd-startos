@@ -1,31 +1,40 @@
-import { i18n } from './i18n'
+import { T } from '@start9labs/start-sdk'
+import { autoconfig } from 'bitcoind-startos/startos/actions/config/autoconfig'
 import { lndConfFile } from './fileModels/lnd.conf'
-import { storeJson } from './fileModels/store.json'
+import { i18n } from './i18n'
 import { sdk } from './sdk'
-import { otherConfig } from 'bitcoind-startos/startos/actions/config/other'
 
 export const setDependencies = sdk.setupDependencies(async ({ effects }) => {
-  const { 'bitcoin.node': bitcoinNode } = (await lndConfFile
-    .read()
-    .const(effects))!
+  const conf = await lndConfFile
+    .read((l) => ({
+      bitcoinNode: l['bitcoin.node'],
+      useTorOnly: l['tor.skip-proxy-for-clearnet-targets'] === false,
+    }))
+    .const(effects)
 
-  const bitcoinSelected = await storeJson.read(e => e.bitcoindSelected).const(effects)
+  const deps: T.CurrentDependenciesResult<any> = {}
 
-  if (bitcoinNode === 'bitcoind' && bitcoinSelected) {
-    await sdk.action.createTask(effects, 'bitcoind', otherConfig, 'critical', {
+  if (conf?.useTorOnly) {
+    deps.tor = {
+      kind: 'running',
+      versionRange: '>=0.4.5:0',
+      healthChecks: ['tor'],
+    }
+  }
+
+  if (conf?.bitcoinNode === 'bitcoind') {
+    await sdk.action.createTask(effects, 'bitcoind', autoconfig, 'critical', {
       input: { kind: 'partial', value: { zmqEnabled: true } },
       reason: i18n('LND requires ZMQ enabled in Bitcoin'),
       when: { condition: 'input-not-matches', once: false },
-      replayId: 'enable-zmq',
     })
 
-    return {
-      bitcoind: {
-        healthChecks: ['sync-progress', 'primary'],
-        kind: 'running',
-        versionRange: '>=29.1:2-beta.0',
-      },
+    deps.bitcoind = {
+      kind: 'running',
+      versionRange: '>=29.3:0-beta.0',
+      healthChecks: ['bitcoind', 'sync-progress'],
     }
   }
-  return {}
+
+  return deps
 })

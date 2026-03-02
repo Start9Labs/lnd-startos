@@ -1,103 +1,16 @@
 // import { peerInterfaceId } from './interfaces'
 import { sdk } from './sdk'
 
-export const randomPassword = {
-  charset: 'A-Z,2-7',
-  len: 22,
-}
+const bitcoindHost = 'bitcoind.startos'
 
-export const bitcoindHost = 'bitcoind.startos'
 export const lndDataDir = '/root/.lnd'
+export const bitcoindMnt = '/mnt/bitcoin'
 
-export const lndConfDefaults = {
-  // hard coded
-  'healthcheck.chainbackend.attempts': 0,
-
-  // Application Options
-  externalhosts: [] as string[],
-  'payments-expiration-grace-period': '30s',
-  listen: '0.0.0.0:9735',
-  rpclisten: '0.0.0.0:10009',
-  restlisten: '0.0.0.0:8080',
-  'rpcmiddleware.enable': true,
-  debuglevel: 'info',
-  minchansize: undefined,
-  maxchansize: undefined,
-  'default-remote-max-htlcs': 483,
-  rejecthtlc: false,
-  'max-channel-fee-allocation': 0.5,
-  maxpendingchannels: 5,
-  'max-commit-fee-rate-anchors': 100,
-  'accept-keysend': true,
-  'accept-amp': false,
-  'gc-canceled-invoices-on-startup': false,
-  'allow-circular-route': false,
-  alias: undefined,
-  color: undefined,
-  'fee.url': undefined,
-  externalip: undefined,
-
-  // Bitcoin
-  'bitcoin.mainnet': true,
-  'bitcoin.node': 'bitcoind',
-  'bitcoin.defaultchanconfs': 3,
-  'bitcoin.minhtlc': 1,
-  'bitcoin.minhtlcout': 1_000,
-  'bitcoin.basefee': 1_000,
-  'bitcoin.feerate': 1,
-  'bitcoin.timelockdelta': 40,
-
-  // Bitcoind
+export const bitcoindBundle = {
   'bitcoind.rpchost': `${bitcoindHost}:8332`,
-  'bitcoind.rpccookie': '/mnt/bitcoin/.cookie',
+  'bitcoind.rpccookie': `${bitcoindMnt}/.cookie`,
   'bitcoind.zmqpubrawblock': `tcp://${bitcoindHost}:28332`,
   'bitcoind.zmqpubrawtx': `tcp://${bitcoindHost}:28333`,
-
-  // Autopilot
-  'autopilot.active': false,
-  'autopilot.maxchannels': 5,
-  'autopilot.allocation': 60,
-  'autopilot.minchansize': 20_000,
-  'autopilot.maxchansize': 16_777_215,
-  'autopilot.private': false,
-  'autopilot.minconfs': 1,
-  'autopilot.conftarget': 1,
-
-  // Tor
-  'tor.active': true,
-  'tor.socks': undefined,
-  'tor.skip-proxy-for-clearnet-targets': true,
-  'tor.streamisolation': false,
-
-  // Watchtower
-  'watchtower.active': false,
-  'watchtower.listen': [] as string[],
-  'watchtower.externalip': undefined,
-
-  // Wt Client
-  'wtclient.active': false,
-
-  // Protocol
-  'protocol.wumbo-channels': false,
-  'protocol.no-anchors': false,
-  'protocol.no-script-enforced-lease': false,
-  'protocol.option-scid-alias': false,
-  'protocol.zero-conf': false,
-  'protocol.simple-taproot-chans': false,
-
-  // Sweeper
-  'sweeper.maxfeerate': 1_000,
-  'sweeper.nodeadlineconftarget': 1_008,
-  'sweeper.budget.tolocalratio': 0.5,
-  'sweeper.budget.anchorcpfpratio': 0.5,
-  'sweeper.budget.deadlinehtlcratio': 0.5,
-  'sweeper.budget.nodeadlinehtlcratio': 0.5,
-
-  // Bolt
-  'db.bolt.nofreelistsync': false,
-  'db.bolt.auto-compact': false,
-  'db.bolt.auto-compact-min-age': '168h',
-  'db.bolt.dbtimeout': '60s',
 } as const
 
 export const mainMounts = sdk.Mounts.of().mountVolume({
@@ -110,6 +23,7 @@ export const mainMounts = sdk.Mounts.of().mountVolume({
 export type GetInfo = {
   identity_pubkey: string
   alias: string
+  uris: string[]
   synced_to_chain: boolean
   synced_to_graph: boolean
 }
@@ -120,6 +34,11 @@ export type TowerInfo = {
   uris: string[]
 }
 
-export function sleep(ms: any) {
+export function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+export const randomPassword = {
+  charset: 'A-Z,2-7',
+  len: 22,
 }

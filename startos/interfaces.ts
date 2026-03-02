@@ -1,12 +1,12 @@
+import { FileHelper } from '@start9labs/start-sdk'
+import { readFile } from 'fs/promises'
+import { lndConfFile } from './fileModels/lnd.conf'
 import { i18n } from './i18n'
 import { sdk } from './sdk'
-import { lndConfFile } from './fileModels/lnd.conf'
 import { lndDataDir, mainMounts } from './utils'
-import { readFile } from 'fs/promises'
-import { FileHelper } from '@start9labs/start-sdk'
 
-export const restPort = 8080
 export const gRPCPort = 10009
+export const restPort = 8080
 export const peerPort = 9735
 export const watchtowerPort = 9911
 
@@ -44,6 +44,7 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
 
     const restMulti = sdk.MultiHost.of(effects, 'control')
     const restMultiOrigin = await restMulti.bindPort(restPort, {
+      // @TODO should this be https?
       protocol: 'https',
       preferredExternalPort: restPort,
       addSsl: {
@@ -71,6 +72,7 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
 
     const gRPCMulti = sdk.MultiHost.of(effects, 'grpc')
     const gRPCMultiOrigin = await gRPCMulti.bindPort(gRPCPort, {
+      // @TODO should this be https?
       protocol: 'https',
       preferredExternalPort: gRPCPort,
       addSsl: {
