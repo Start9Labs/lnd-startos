@@ -1,7 +1,7 @@
-import { i18n } from '../i18n'
 import { lndConfFile } from '../fileModels/lnd.conf'
+import { i18n } from '../i18n'
 import { sdk } from '../sdk'
-import { mainMounts, TowerInfo } from '../utils'
+import { mainMounts } from '../utils'
 
 export const towerInfo = sdk.Action.withoutInput(
   // id
@@ -39,7 +39,11 @@ export const towerInfo = sdk.Action.withoutInput(
     )
 
     if (res.stdout !== '' && typeof res.stdout === 'string') {
-      const parsedRes: TowerInfo = JSON.parse(res.stdout)
+      const parsedRes: {
+        pubkey: string
+        listeners: string[]
+        uris: string[]
+      } = JSON.parse(res.stdout)
       return {
         version: '1',
         title: i18n('Tower Info'),

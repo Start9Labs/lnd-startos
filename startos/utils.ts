@@ -28,17 +28,6 @@ export type GetInfo = {
   synced_to_graph: boolean
 }
 
-export type TowerInfo = {
-  pubkey: string
-  listeners: string[]
-  uris: string[]
-}
-
 export function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-export const randomPassword = {
-  charset: 'A-Z,2-7',
-  len: 22,
 }
