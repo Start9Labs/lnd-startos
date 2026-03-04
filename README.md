@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="icon.png" alt="LND Logo" width="21%">
+  <img src="icon.svg" alt="LND Logo" width="21%">
 </p>
 
 # LND on StartOS
@@ -166,9 +166,9 @@ Only settings that **diverge from upstream LND defaults** are written to `lnd.co
 
 ### Seeded overrides (written to `lnd.conf` on install)
 
-| Setting | Upstream Default | Our Default | Reason |
-| --- | --- | --- | --- |
-| `accept-keysend` | Disabled | Enabled | Keysend is widely expected by wallets and apps that interact with LND nodes |
+| Setting                               | Upstream Default   | Our Default             | Reason                                                                                   |
+| ------------------------------------- | ------------------ | ----------------------- | ---------------------------------------------------------------------------------------- |
+| `accept-keysend`                      | Disabled           | Enabled                 | Keysend is widely expected by wallets and apps that interact with LND nodes              |
 | `tor.skip-proxy-for-clearnet-targets` | `false` (tor-only) | `true` (allow clearnet) | Better performance by default; users can opt into tor-only via "Use Tor for all traffic" |
 
 ### Form defaults vs placeholders

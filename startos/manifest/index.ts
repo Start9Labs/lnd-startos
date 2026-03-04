@@ -43,7 +43,7 @@ export const manifest = setupManifest({
       optional: true,
       metadata: {
         title: 'Bitcoin',
-        icon: 'https://bitcoin.org/img/icons/opengraph.png',
+        icon: 'https://raw.githubusercontent.com/Start9Labs/bitcoin-core-startos/feec0b1dae42961a257948fe39b40caf8672fce1/dep-icon.svg',
       },
     },
     tor: {
@@ -51,7 +51,7 @@ export const manifest = setupManifest({
       optional: true,
       metadata: {
         title: 'Tor',
-        icon: 'https://raw.githubusercontent.com/Start9Labs/tor-startos/refs/heads/update/040/icon.png',
+        icon: 'https://raw.githubusercontent.com/Start9Labs/tor-startos/65faea17febc739d910e8c26ff4e61f6333487a8/icon.svg',
       },
     },
   },
