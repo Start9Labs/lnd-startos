@@ -13,10 +13,10 @@ export const manifest = setupManifest({
   id: 'lnd',
   title: 'LND',
   license: 'MIT',
-  packageRepo: 'https://github.com/Start9Labs/lnd-startos',
+  packageRepo: 'https://github.com/Start9Labs/lnd-startos/tree/update/040',
   upstreamRepo: 'https://github.com/lightningnetwork/lnd',
   marketingUrl: 'https://lightning.engineering/',
-  donationUrl: 'https://donate.start9.com/',
+  donationUrl: null,
   docsUrls: [
     'https://docs.start9.com/bitcoin-guides/lightning-wallets',
     'https://docs.lightning.engineering/',
