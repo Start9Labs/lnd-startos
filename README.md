@@ -7,7 +7,7 @@
 > **Upstream docs:** <https://docs.lightning.engineering/>
 >
 > Everything not listed in this document should behave the same as upstream
-> LND v0.20.0-beta. If a feature, setting, or behavior is not mentioned
+> LND. If a feature, setting, or behavior is not mentioned
 > here, the upstream documentation is accurate and fully applicable.
 
 A complete implementation of a Lightning Network node by [Lightning Labs](https://lightning.engineering/). See the [upstream repo](https://github.com/lightningnetwork/lnd) for general LND documentation.
@@ -36,7 +36,7 @@ A complete implementation of a Lightning Network node by [Lightning Labs](https:
 
 | Property      | Value                                                   |
 | ------------- | ------------------------------------------------------- |
-| Image         | `lightninglabs/lnd:v0.20.0-beta` (upstream, unmodified) |
+| Image         | `lightninglabs/lnd` (upstream, unmodified)               |
 | Architectures | x86_64, aarch64                                         |
 | Entrypoint    | `lnd` (default upstream)                                |
 
@@ -154,9 +154,9 @@ The REST and gRPC interfaces export `lndconnect://` URIs with embedded macaroon 
 
 ## Dependencies
 
-| Dependency   | Required | Version           | Purpose                                                        |
-| ------------ | -------- | ----------------- | -------------------------------------------------------------- |
-| Bitcoin Core | Optional | `>=29.1:2-beta.0` | Block data, transaction broadcasting via ZMQ + RPC cookie auth |
+| Dependency   | Required | Purpose                                                        |
+| ------------ | -------- | -------------------------------------------------------------- |
+| Bitcoin Core | Optional | Block data, transaction broadcasting via ZMQ + RPC cookie auth |
 
 When using Bitcoin Core as backend, LND requires the `sync-progress` and `primary` health checks to pass on Bitcoin Core before starting. LND can alternatively use **Neutrino** (built-in light client) with no dependencies.
 
@@ -211,8 +211,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for build instructions and development wo
 
 ```yaml
 package_id: lnd
-upstream_version: 0.20.0-beta
-image: lightninglabs/lnd:v0.20.0-beta
+image: lightninglabs/lnd
 architectures: [x86_64, aarch64]
 volumes:
   main: /root/.lnd
@@ -222,7 +221,7 @@ ports:
   peer: 9735
   watchtower: 9911
 dependencies:
-  - bitcoind (optional, >=29.1:2-beta.0)
+  - bitcoind (optional)
 startos_managed_env_vars: []
 startos_managed_files:
   - store.json
