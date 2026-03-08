@@ -37,67 +37,62 @@ const iniBoolean = z
   .optional()
   .catch(undefined)
 
-export const shape = z
-  .object({
-    // ──── Enforced (StartOS) ────
-    'healthcheck.chainbackend.attempts': z.literal(0).catch(0),
-    rpclisten: z.tuple([z.literal('0.0.0.0:10009')]).catch(['0.0.0.0:10009']),
-    restlisten: z.tuple([z.literal('0.0.0.0:8080')]).catch(['0.0.0.0:8080']),
-    listen: z.literal('0.0.0.0:9735').catch('0.0.0.0:9735'),
-    'rpcmiddleware.enable': z.literal(true).catch(true),
-    'bitcoin.mainnet': z.literal(true).catch(true),
-    'bitcoind.rpcuser': z.undefined().catch(undefined),
-    'bitcoind.rpcpass': z.undefined().catch(undefined),
-    'bitcoin.active': z.undefined().catch(undefined), // deprecated
-    'tor.active': z.literal(true).catch(true),
-    'tor.v3': z.undefined().catch(undefined),
+export const shape = z.object({
+  // ──── Enforced (StartOS) ────
+  'healthcheck.chainbackend.attempts': z.literal(0).catch(0),
+  rpclisten: z.tuple([z.literal('0.0.0.0:10009')]).catch(['0.0.0.0:10009']),
+  restlisten: z.tuple([z.literal('0.0.0.0:8080')]).catch(['0.0.0.0:8080']),
+  listen: z.literal('0.0.0.0:9735').catch('0.0.0.0:9735'),
+  'rpcmiddleware.enable': z.literal(true).catch(true),
+  'bitcoin.mainnet': z.literal(true).catch(true),
+  'bitcoind.rpcuser': z.undefined().catch(undefined),
+  'bitcoind.rpcpass': z.undefined().catch(undefined),
+  'bitcoin.active': z.undefined().catch(undefined), // deprecated
+  'tor.active': z.literal(true).catch(true),
+  'tor.v3': z.undefined().catch(undefined),
 
-    // ──── Bitcoind (set by backend config) ────
-    'bitcoind.rpchost': iniString,
-    'bitcoind.rpccookie': iniString,
-    'bitcoind.zmqpubrawblock': iniString,
-    'bitcoind.zmqpubrawtx': iniString,
+  // ──── Bitcoind (set by backend config) ────
+  'bitcoind.rpchost': iniString,
+  'bitcoind.rpccookie': iniString,
+  'bitcoind.zmqpubrawblock': iniString,
+  'bitcoind.zmqpubrawtx': iniString,
 
-    // ──── Application Options ────
-    externalhosts: z.undefined().catch(undefined),
-    'accept-keysend': iniBoolean,
-    alias: iniString,
-    color: iniString,
-    'fee.url': iniString,
-    externalip: iniStringArray,
+  // ──── Application Options ────
+  externalhosts: z.undefined().catch(undefined),
+  'accept-keysend': iniBoolean,
+  alias: iniString,
+  color: iniString,
+  'fee.url': iniString,
+  externalip: iniStringArray,
 
-    // ──── Bitcoin ────
-    'bitcoin.node': z
-      .enum(['bitcoind', 'neutrino'])
-      .optional()
-      .catch(undefined),
-    'bitcoin.defaultchanconfs': iniNumber,
-    'bitcoin.basefee': iniNumber,
-    'bitcoin.feerate': iniNumber,
+  // ──── Bitcoin ────
+  'bitcoin.node': z.enum(['bitcoind', 'neutrino']).optional().catch(undefined),
+  'bitcoin.defaultchanconfs': iniNumber,
+  'bitcoin.basefee': iniNumber,
+  'bitcoin.feerate': iniNumber,
 
-    // ──── Autopilot ────
-    'autopilot.active': iniBoolean,
-    'autopilot.maxchannels': iniNumber,
-    'autopilot.allocation': iniNumber,
-    'autopilot.minchansize': iniNumber,
-    'autopilot.maxchansize': iniNumber,
-    'autopilot.private': iniBoolean,
-    'autopilot.minconfs': iniNumber,
-    'autopilot.conftarget': iniNumber,
+  // ──── Autopilot ────
+  'autopilot.active': iniBoolean,
+  'autopilot.maxchannels': iniNumber,
+  'autopilot.allocation': iniNumber,
+  'autopilot.minchansize': iniNumber,
+  'autopilot.maxchansize': iniNumber,
+  'autopilot.private': iniBoolean,
+  'autopilot.minconfs': iniNumber,
+  'autopilot.conftarget': iniNumber,
 
-    // ──── Tor ────
-    'tor.socks': iniString,
-    'tor.skip-proxy-for-clearnet-targets': iniBoolean,
+  // ──── Tor ────
+  'tor.socks': iniString,
+  'tor.skip-proxy-for-clearnet-targets': iniBoolean,
 
-    // ──── Watchtower ────
-    'watchtower.active': iniBoolean,
-    'watchtower.listen': iniStringArray,
-    'watchtower.externalip': iniString,
+  // ──── Watchtower ────
+  'watchtower.active': iniBoolean,
+  'watchtower.listen': iniStringArray,
+  'watchtower.externalip': iniString,
 
-    // ──── Watchtower Client ────
-    'wtclient.active': iniBoolean,
-  })
-  .loose()
+  // ──── Watchtower Client ────
+  'wtclient.active': iniBoolean,
+})
 
 export type LndConf = z.infer<typeof shape>
 

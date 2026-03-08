@@ -13,11 +13,11 @@ import { watchTorSocks } from './watchTorSocks'
 export const init = sdk.setupInit(
   seedFiles,
   restoreInit,
-  setupCerts,
   versionGraph,
   setInterfaces,
   setDependencies,
   actions,
+  setupCerts,
   watchHosts,
   watchTorSocks,
   tasksOnInstall,

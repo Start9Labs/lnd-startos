@@ -3,14 +3,14 @@ import { readFile, rm } from 'fs/promises'
 import { lndConfFile } from '../../fileModels/lnd.conf'
 import { storeJson } from '../../fileModels/store.json'
 
-export const v0_20_0_b_2_b0 = VersionInfo.of({
-  version: '0.20.0-beta:2-beta.0',
+export const v0_20_1_b_0_b0 = VersionInfo.of({
+  version: '0.20.1-beta:0-beta.0',
   releaseNotes: {
-    en_US: 'Revamped for StartOS 0.4.0',
-    es_ES: 'Renovado para StartOS 0.4.0',
-    de_DE: 'Überarbeitet für StartOS 0.4.0',
-    pl_PL: 'Przeprojektowany dla StartOS 0.4.0',
-    fr_FR: 'Refait pour StartOS 0.4.0',
+    en_US: 'Update to LND v0.20.1-beta',
+    es_ES: 'Actualización a LND v0.20.1-beta',
+    de_DE: 'Aktualisierung auf LND v0.20.1-beta',
+    pl_PL: 'Aktualizacja do LND v0.20.1-beta',
+    fr_FR: 'Mise à jour vers LND v0.20.1-beta',
   },
   migrations: {
     up: async ({ effects }) => {
@@ -69,8 +69,7 @@ export const v0_20_0_b_2_b0 = VersionInfo.of({
         await storeJson.merge(effects, {})
       }
 
-      // Read-then-write to trigger zod coercion, which strips deprecated
-      // keys and enforces enforced values in the existing lnd.conf.
+      // Read-then-write to trigger zod coercion
       await lndConfFile.merge(effects, {})
     },
     down: IMPOSSIBLE,
