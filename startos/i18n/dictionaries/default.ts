@@ -69,9 +69,9 @@ const dict = {
 
   // actions/initializeWallet.ts
   'Initialize Wallet': 204,
-  'Create a new LND wallet or migrate from Umbrel': 205,
+  'Create a new LND wallet or migrate from another device': 205,
   'Initialization Method': 206,
-  'Choose how to initialize your LND wallet. Start Fresh creates a new wallet. Migrate from Umbrel imports an existing wallet from Umbrel.': 207,
+  'Choose how to initialize your LND wallet. Start Fresh creates a new wallet. Migrate from Umbrel or StartOS imports an existing wallet.': 207,
   'Start Fresh': 208,
   'Migrate from Umbrel': 209,
   'IMPORTANT: Write down these 24 words and store them in a safe place. This is the ONLY time they will be displayed. This seed can restore on-chain funds ONLY — it has no knowledge of channel state. This is NOT a BIP-39 seed and cannot be used with wallets other than LND.': 210,
@@ -243,6 +243,15 @@ const dict = {
 
   // dependencies.ts
   'LND requires ZMQ enabled in Bitcoin': 76,
+
+  // actions/initializeWallet.ts (StartOS migration)
+  'Migrate from StartOS': 212,
+  'Origin Server Address': 213,
+  'The LAN IP address or hostname of your old StartOS server (e.g. 192.168.1.9 or adjective-noun.local).': 214,
+  'Master Password': 215,
+  'The master password for your old StartOS server.': 216,
+  'Failed to parse wallet password from origin StartOS server.': 217,
+  'Successfully imported LND data from StartOS. WARNING: Do NOT start LND on the old server again with the same wallet. Running two LND nodes with the same seed will lead to unpredictable behavior or loss of funds.': 218,
 } as const
 
 /**

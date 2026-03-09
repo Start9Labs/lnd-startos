@@ -9,3 +9,7 @@ echo "$UMBREL_PASS" | sshpass -p"$UMBREL_PASS" ssh -o StrictHostKeyChecking=no -
 >&2 echo "Copying LND Data"
 
 sshpass -p "$UMBREL_PASS" scp -o StrictHostKeyChecking=no -r -v umbrel@$UMBREL_HOST:/home/umbrel/umbrel/app-data/lightning/data/lnd/* /root/.lnd
+
+>&2 echo "Writing wallet password"
+
+echo '{"walletPassword":"moneyprintergobrrr"}' > /tmp/old-store.json

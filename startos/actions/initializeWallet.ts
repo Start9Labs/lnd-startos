@@ -4,19 +4,33 @@ import {
   Value,
   Variants,
 } from '@start9labs/start-sdk/base/lib/actions/input/builder'
+import { Pattern } from '@start9labs/start-sdk/base/lib/actions/input/inputSpecTypes'
 import { SIGTERM } from '@start9labs/start-sdk/base/lib/types'
+import { ipv4 as ipv4Pattern } from '@start9labs/start-sdk/base/lib/util/patterns'
+import {
+  ComposableRegex,
+  ipv4,
+  localHostname,
+} from '@start9labs/start-sdk/base/lib/util/regexes'
 import { base64 } from 'rfc4648'
-import { storeJson } from '../fileModels/store.json'
+import { shape, storeJson } from '../fileModels/store.json'
 import { i18n } from '../i18n'
 import { restPort } from '../interfaces'
 import { sdk } from '../sdk'
 import { lndDataDir, mainMounts, sleep } from '../utils'
 
+const lanHost: Pattern = {
+  regex: new ComposableRegex(
+    `${ipv4.asExpr()}|${localHostname.asExpr()}`,
+  ).matches(),
+  description: 'Must be a valid IPv4 address or .local hostname',
+}
+
 const initWalletSpec = InputSpec.of({
   method: Value.union({
     name: i18n('Initialization Method'),
     description: i18n(
-      'Choose how to initialize your LND wallet. Start Fresh creates a new wallet. Migrate from Umbrel imports an existing wallet from Umbrel.',
+      'Choose how to initialize your LND wallet. Start Fresh creates a new wallet. Migrate from Umbrel or StartOS imports an existing wallet.',
     ),
     default: 'fresh',
     variants: Variants.of({
@@ -35,6 +49,7 @@ const initWalletSpec = InputSpec.of({
             default: null,
             required: true,
             placeholder: '192.168.1.9',
+            patterns: [ipv4Pattern],
           }),
           'umbrel-password': Value.text({
             name: i18n('Umbrel Password'),
@@ -43,6 +58,31 @@ const initWalletSpec = InputSpec.of({
             ),
             default: null,
             required: true,
+            placeholder: 'password',
+          }),
+        }),
+      },
+      startos: {
+        name: i18n('Migrate from StartOS'),
+        spec: InputSpec.of({
+          'startos-host': Value.text({
+            name: i18n('Origin Server Address'),
+            description: i18n(
+              'The LAN IP address or hostname of your old StartOS server (e.g. 192.168.1.9 or adjective-noun.local).',
+            ),
+            default: null,
+            required: true,
+            placeholder: 'adjective-noun.local',
+            patterns: [lanHost],
+          }),
+          'startos-password': Value.text({
+            name: i18n('Master Password'),
+            description: i18n(
+              'The master password for your old StartOS server.',
+            ),
+            default: null,
+            required: true,
+            masked: true,
             placeholder: 'password',
           }),
         }),
@@ -58,7 +98,9 @@ export const initializeWallet = sdk.Action.withInput(
   // metadata
   async ({ effects }) => ({
     name: i18n('Initialize Wallet'),
-    description: i18n('Create a new LND wallet or migrate from Umbrel'),
+    description: i18n(
+      'Create a new LND wallet or migrate from another device',
+    ),
     warning: null,
     allowedStatuses: 'only-stopped',
     group: null,
@@ -75,8 +117,10 @@ export const initializeWallet = sdk.Action.withInput(
   async ({ effects, input }) => {
     if (input.method.selection === 'fresh') {
       return await initFresh(effects)
-    } else {
+    } else if (input.method.selection === 'umbrel') {
       return await importFromUmbrel(effects, input.method.value)
+    } else {
+      return await importFromStartOS(effects, input.method.value)
     }
   },
 )
@@ -178,25 +222,55 @@ async function importFromUmbrel(
   effects: T.Effects,
   input: { 'umbrel-host': string; 'umbrel-password': string },
 ): Promise<T.ActionResult & { version: '1' }> {
+  const mounts = sdk.Mounts.of()
+    .mountVolume({
+      volumeId: 'main',
+      subpath: null,
+      mountpoint: lndDataDir,
+      readonly: false,
+    })
+    .mountAssets({ subpath: null, mountpoint: '/scripts' })
+
   const res = await sdk.SubContainer.withTemp(
     effects,
     { imageId: 'lnd' },
-    sdk.Mounts.of().mountAssets({ subpath: null, mountpoint: '/scripts' }),
+    mounts,
     'import-umbrel',
     async (subc) => {
-      return await subc.exec(['sh', '/scripts/import-umbrel.sh'], {
+      const scriptRes = await subc.exec(['sh', '/scripts/import-umbrel.sh'], {
         env: {
           UMBREL_HOST: input['umbrel-host'],
           UMBREL_PASS: input['umbrel-password'],
         },
       })
+      if (scriptRes.exitCode !== 0) return scriptRes
+
+      const catRes = await subc.exec(['cat', '/tmp/old-store.json'])
+      if (catRes.exitCode !== 0 || typeof catRes.stdout !== 'string') {
+        return { ...catRes, exitCode: 1 }
+      }
+
+      return { ...catRes, exitCode: 0 }
     },
   )
 
-  if (res.exitCode === 0) {
+  if (res.exitCode === 0 && typeof res.stdout === 'string') {
+    const oldStore = shape.safeParse(JSON.parse(res.stdout))
+    if (!oldStore.success) {
+      return {
+        version: '1' as const,
+        title: i18n('Failure'),
+        message: i18n(
+          'Failed to parse wallet password from origin StartOS server.',
+        ),
+        result: null,
+      }
+    }
+
     await storeJson.merge(effects, {
-      walletPassword: 'moneyprintergobrrr',
+      walletPassword: oldStore.data.walletPassword,
     })
+
     return {
       version: '1' as const,
       title: i18n('Success'),
@@ -210,7 +284,83 @@ async function importFromUmbrel(
   return {
     version: '1' as const,
     title: i18n('Failure'),
-    message: `Failed to import LND from Umbrel: ${res}`,
+    message: `Failed to import LND from Umbrel: ${typeof res.stderr === 'string' ? res.stderr : res}`,
+    result: null,
+  }
+}
+
+async function importFromStartOS(
+  effects: T.Effects,
+  input: { 'startos-host': string; 'startos-password': string },
+): Promise<T.ActionResult & { version: '1' }> {
+  const mounts = sdk.Mounts.of()
+    .mountVolume({
+      volumeId: 'main',
+      subpath: null,
+      mountpoint: lndDataDir,
+      readonly: false,
+    })
+    .mountAssets({ subpath: null, mountpoint: '/scripts' })
+
+  const res = await sdk.SubContainer.withTemp(
+    effects,
+    { imageId: 'lnd' },
+    mounts,
+    'import-startos',
+    async (subc) => {
+      // Run the import script: stops LND on origin, copies data + store.json
+      const scriptRes = await subc.exec(
+        ['sh', '/scripts/import-startos.sh'],
+        {
+          env: {
+            STARTOS_HOST: input['startos-host'],
+            STARTOS_PASS: input['startos-password'],
+          },
+        },
+      )
+      if (scriptRes.exitCode !== 0) return scriptRes
+
+      // Extract wallet password from the old store.json
+      const catRes = await subc.exec(['cat', '/tmp/old-store.json'])
+      if (catRes.exitCode !== 0 || typeof catRes.stdout !== 'string') {
+        return { ...catRes, exitCode: 1 }
+      }
+
+      return { ...catRes, exitCode: 0 }
+    },
+  )
+
+  if (res.exitCode === 0 && typeof res.stdout === 'string') {
+    const oldStore = shape.safeParse(JSON.parse(res.stdout))
+    if (!oldStore.success) {
+      return {
+        version: '1' as const,
+        title: i18n('Failure'),
+        message: i18n(
+          'Failed to parse wallet password from origin StartOS server.',
+        ),
+        result: null,
+      }
+    }
+
+    await storeJson.merge(effects, {
+      walletPassword: oldStore.data.walletPassword,
+    })
+
+    return {
+      version: '1' as const,
+      title: i18n('Success'),
+      message: i18n(
+        'Successfully imported LND data from StartOS. WARNING: Do NOT start LND on the old server again with the same wallet. Running two LND nodes with the same seed will lead to unpredictable behavior or loss of funds.',
+      ),
+      result: null,
+    }
+  }
+
+  return {
+    version: '1' as const,
+    title: i18n('Failure'),
+    message: `Failed to import LND from StartOS: ${typeof res.stderr === 'string' ? res.stderr : res}`,
     result: null,
   }
 }

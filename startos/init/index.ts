@@ -4,6 +4,7 @@ import { setDependencies } from '../dependencies'
 import { versionGraph } from '../install/versionGraph'
 import { setInterfaces } from '../interfaces'
 import { sdk } from '../sdk'
+import { clearTasksOnUpdate } from './clearTasksOnUpdate'
 import { seedFiles } from './seedFiles'
 import { setupCerts } from './setupCerts'
 import { tasksOnInstall } from './tasksOnInstall'
@@ -21,6 +22,7 @@ export const init = sdk.setupInit(
   watchHosts,
   watchTorSocks,
   tasksOnInstall,
+  clearTasksOnUpdate,
 )
 
 export const uninit = sdk.setupUninit(versionGraph)
