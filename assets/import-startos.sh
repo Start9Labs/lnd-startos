@@ -4,23 +4,23 @@ set -e
 
 STARTOS_USER="start9"
 STARTOS_LND_VOLUME="/media/startos/data/package-data/volumes/lnd/data/main"
+SSH_OPTS="-o StrictHostKeyChecking=no"
+SSH_CMD="sshpass -p \"$STARTOS_PASS\" ssh $SSH_OPTS -T ${STARTOS_USER}@${STARTOS_HOST}"
 
 >&2 echo "Stopping LND on origin StartOS server"
 
-sshpass -p "$STARTOS_PASS" ssh -o StrictHostKeyChecking=no -T ${STARTOS_USER}@${STARTOS_HOST} \
-  "echo '${STARTOS_PASS}' | sudo -S start-cli package stop lnd" < /dev/null || true
+eval $SSH_CMD "start-cli package stop lnd" < /dev/null || true
 
 >&2 echo "Copying LND data"
 
-sshpass -p "$STARTOS_PASS" scp -o StrictHostKeyChecking=no -r \
-  ${STARTOS_USER}@${STARTOS_HOST}:${STARTOS_LND_VOLUME}/data /root/.lnd/
+eval $SSH_CMD "echo '${STARTOS_PASS}' | sudo -S tar -cf - -C ${STARTOS_LND_VOLUME} data" < /dev/null \
+  | tar -xf - -C /root/.lnd/
 
 >&2 echo "Extracting wallet password"
 
-sshpass -p "$STARTOS_PASS" scp -o StrictHostKeyChecking=no \
-  ${STARTOS_USER}@${STARTOS_HOST}:${STARTOS_LND_VOLUME}/store.json /tmp/old-store.json
+eval $SSH_CMD "echo '${STARTOS_PASS}' | sudo -S cat ${STARTOS_LND_VOLUME}/store.json" < /dev/null \
+  > /tmp/old-store.json
 
 >&2 echo "Uninstalling LND from origin StartOS server"
 
-sshpass -p "$STARTOS_PASS" ssh -o StrictHostKeyChecking=no -T ${STARTOS_USER}@${STARTOS_HOST} \
-  "echo '${STARTOS_PASS}' | sudo -S start-cli package uninstall lnd" < /dev/null
+eval $SSH_CMD "start-cli package uninstall lnd" < /dev/null

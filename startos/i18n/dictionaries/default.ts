@@ -76,8 +76,8 @@ const dict = {
   'Migrate from Umbrel': 209,
   'IMPORTANT: Write down these 24 words and store them in a safe place. This is the ONLY time they will be displayed. This seed can restore on-chain funds ONLY — it has no knowledge of channel state. This is NOT a BIP-39 seed and cannot be used with wallets other than LND.': 210,
   'Successfully Imported Umbrel Data. WARNING!!! With the Migration of LND complete, be sure to NEVER re-start your Umbrel using the same LND seed! You should never run two different lnd nodes with the same seed! This will lead to strange/unpredictable behavior or even loss of funds.': 78,
-  'Umbrel IP Address': 83,
-  'The IP Address for your Umbrel. You can find this by running the command `ping umbrel.local` while connected to your LAN.': 84,
+  'Umbrel Address': 83,
+  'The IP address or hostname of your Umbrel (e.g. 192.168.1.9 or umbrel.local).': 84,
   'Umbrel Password': 85,
   'The password you use to log into your Umbrel dashboard or SSH': 86,
 

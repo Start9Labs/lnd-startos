@@ -6,7 +6,6 @@ import {
 } from '@start9labs/start-sdk/base/lib/actions/input/builder'
 import { Pattern } from '@start9labs/start-sdk/base/lib/actions/input/inputSpecTypes'
 import { SIGTERM } from '@start9labs/start-sdk/base/lib/types'
-import { ipv4 as ipv4Pattern } from '@start9labs/start-sdk/base/lib/util/patterns'
 import {
   ComposableRegex,
   ipv4,
@@ -42,14 +41,14 @@ const initWalletSpec = InputSpec.of({
         name: i18n('Migrate from Umbrel'),
         spec: InputSpec.of({
           'umbrel-host': Value.text({
-            name: i18n('Umbrel IP Address'),
+            name: i18n('Umbrel Address'),
             description: i18n(
-              'The IP Address for your Umbrel. You can find this by running the command `ping umbrel.local` while connected to your LAN.',
+              'The IP address or hostname of your Umbrel (e.g. 192.168.1.9 or umbrel.local).',
             ),
             default: null,
             required: true,
-            placeholder: '192.168.1.9',
-            patterns: [ipv4Pattern],
+            placeholder: 'umbrel.local',
+            patterns: [lanHost],
           }),
           'umbrel-password': Value.text({
             name: i18n('Umbrel Password'),
