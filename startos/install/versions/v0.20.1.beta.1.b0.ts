@@ -3,13 +3,13 @@ import { readFile, rm } from 'fs/promises'
 import { lndConfFile } from '../../fileModels/lnd.conf'
 import { storeJson } from '../../fileModels/store.json'
 
-export const v0_20_1_b_0_b1 = VersionInfo.of({
-  version: '0.20.1-beta:0-beta.1',
+export const v_0_20_1_beta_1_b0 = VersionInfo.of({
+  version: '0.20.1-beta:1-beta.0',
   releaseNotes: {
-    en_US: 'Add StartOS migration support for Initialize Wallet action',
-    es_ES: 'Añadir soporte de migración desde StartOS para la acción Inicializar billetera',
-    de_DE: 'StartOS-Migrationsunterstützung für die Aktion Wallet initialisieren hinzugefügt',
-    pl_PL: 'Dodano obsługę migracji z StartOS dla akcji Zainicjalizuj portfel',
+    en_US: 'Update to StartOS SDK beta.59',
+    es_ES: 'Actualización a StartOS SDK beta.59',
+    de_DE: 'Update auf StartOS SDK beta.59',
+    pl_PL: 'Aktualizacja do StartOS SDK beta.59',
     fr_FR: "Ajout du support de migration StartOS pour l'action Initialiser le portefeuille",
   },
   migrations: {
