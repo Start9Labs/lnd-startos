@@ -19,7 +19,7 @@ export const manifest = setupManifest({
   donationUrl: null,
   docsUrls: [
     'https://docs.start9.com/bitcoin-guides/lightning-wallets',
-    'https://docs.lightning.engineering/',
+    'https://docs.lightning.engineering/lightning-network-tools/lnd',
   ],
   description: { short, long },
   volumes: ['main'],
