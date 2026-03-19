@@ -30,6 +30,8 @@ export const v_0_20_1_beta_1_b1 = VersionInfo.of({
       ).then(YAML.parse, () => undefined)
 
       if (configYaml) {
+        const wtClient = configYaml.watchtowers?.['wt-client']
+
         await storeJson.merge(effects, {
           // The seed file uses "N word" format, one per line. Not all
           // installations have one, so fall back to null.
@@ -56,8 +58,8 @@ export const v_0_20_1_beta_1_b1 = VersionInfo.of({
             return buf.equals(Buffer.from(decoded, 'utf8')) ? decoded : ''
           }),
           watchtowerClients:
-            configYaml.watchtowers['wt-client'].enabled === 'enabled'
-              ? configYaml.watchtowers['wt-client']['add-watchtowers']
+            wtClient?.enabled === 'enabled'
+              ? wtClient['add-watchtowers']
               : [],
         })
 
