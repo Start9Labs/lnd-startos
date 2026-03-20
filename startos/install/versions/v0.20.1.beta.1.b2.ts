@@ -3,8 +3,8 @@ import { readFile, rm } from 'fs/promises'
 import { lndConfFile } from '../../fileModels/lnd.conf'
 import { storeJson } from '../../fileModels/store.json'
 
-export const v_0_20_1_beta_1_b1 = VersionInfo.of({
-  version: '0.20.1-beta:1-beta.1',
+export const v_0_20_1_beta_1_b2 = VersionInfo.of({
+  version: '0.20.1-beta:1-beta.2',
   releaseNotes: {
     en_US: 'Update to StartOS SDK beta.60',
     es_ES: 'Actualización a StartOS SDK beta.60',
