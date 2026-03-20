@@ -114,6 +114,28 @@ export const initializeWallet = sdk.Action.withInput(
 
   // execution function
   async ({ effects, input }) => {
+    // Check if a wallet already exists to prevent accidental re-initialization
+    const walletExists = await sdk.SubContainer.withTemp(
+      effects,
+      { imageId: 'lnd' },
+      mainMounts,
+      'check-wallet',
+      async (subc) => {
+        const res = await subc.exec([
+          'test',
+          '-f',
+          `${lndDataDir}/data/chain/bitcoin/mainnet/wallet.db`,
+        ])
+        return res.exitCode === 0
+      },
+    )
+
+    if (walletExists) {
+      throw new Error(
+        'A wallet already exists. Re-initializing would overwrite your existing wallet and could lead to loss of funds.',
+      )
+    }
+
     if (input.method.selection === 'fresh') {
       return await initFresh(effects)
     } else if (input.method.selection === 'umbrel') {
