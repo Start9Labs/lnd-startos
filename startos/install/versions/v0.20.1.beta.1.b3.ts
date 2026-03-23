@@ -3,14 +3,14 @@ import { readFile, rm } from 'fs/promises'
 import { lndConfFile } from '../../fileModels/lnd.conf'
 import { storeJson } from '../../fileModels/store.json'
 
-export const v_0_20_1_beta_1_b2 = VersionInfo.of({
-  version: '0.20.1-beta:1-beta.2',
+export const v_0_20_1_beta_1_b3 = VersionInfo.of({
+  version: '0.20.1-beta:1-beta.3',
   releaseNotes: {
-    en_US: 'Update to StartOS SDK beta.60',
-    es_ES: 'Actualización a StartOS SDK beta.60',
-    de_DE: 'Update auf StartOS SDK beta.60',
-    pl_PL: 'Aktualizacja do StartOS SDK beta.60',
-    fr_FR: "Ajout du support de migration StartOS pour l'action Initialiser le portefeuille",
+    en_US: 'Update to StartOS SDK beta.65',
+    es_ES: 'Actualización a StartOS SDK beta.65',
+    de_DE: 'Update auf StartOS SDK beta.65',
+    pl_PL: 'Aktualizacja do StartOS SDK beta.65',
+    fr_FR: 'Mise à jour vers StartOS SDK beta.65',
   },
   migrations: {
     up: async ({ effects }) => {

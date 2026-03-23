@@ -29,7 +29,6 @@ export const manifest = setupManifest({
         dockerTag: 'lightninglabs/lnd:v0.20.1-beta',
       },
       arch: ['aarch64', 'x86_64'],
-      emulateMissingAs: 'x86_64',
     },
   },
   alerts: {
