@@ -115,7 +115,7 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
     id: peerInterfaceId,
     description: i18n('Used for connecting with peers'),
     type: 'p2p',
-    masked: true,
+    masked: false,
     schemeOverride: null,
     username: null,
     path: '',

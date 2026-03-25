@@ -202,7 +202,7 @@ async function initFresh(
         `https://lnd.startos:${restPort}/v1/initwallet`,
         '-d',
         JSON.stringify({
-          wallet_password: base64.stringify(Buffer.from(walletPassword)),
+          wallet_password: base64.stringify(Buffer.from(walletPassword, 'latin1')),
           cipher_seed_mnemonic: cipherSeed,
         }),
       ])

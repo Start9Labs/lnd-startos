@@ -124,13 +124,13 @@ export const main = sdk.setupMain(async ({ effects }) => {
               restore
                 ? JSON.stringify({
                     wallet_password: base64.stringify(
-                      Buffer.from(walletPassword),
+                      Buffer.from(walletPassword, 'latin1'),
                     ),
                     recovery_window: 2_500,
                   })
                 : JSON.stringify({
                     wallet_password: base64.stringify(
-                      Buffer.from(walletPassword),
+                      Buffer.from(walletPassword, 'latin1'),
                     ),
                   }),
             ])

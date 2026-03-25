@@ -32,34 +32,36 @@ export const v_0_20_1_beta_1_b5 = VersionInfo.of({
         'utf-8',
       ).then(YAML.parse, () => undefined)
 
+      const prev = await storeJson
+        .read()
+        .once()
+        .catch(() => null)
       if (configYaml) {
         const wtClient = configYaml.watchtowers?.['wt-client']
 
         await storeJson.merge(effects, {
           // The seed file uses "N word" format, one per line. Not all
           // installations have one, so fall back to null.
-          aezeedCipherSeed: await readFile(
-            '/media/startos/volumes/main/start9/cipherSeedMnemonic.txt',
-            'utf8',
-          ).then(
-            (contents) => {
-              const words = contents
-                .trimEnd()
-                .split('\n')
-                .map((line) => line.split(' ')[1])
-              return words.length === 24 ? words : null
-            },
-            () => null,
-          ),
-          // Only store the password if it's valid UTF-8. Some old
-          // installations have a binary pwd.dat, which is preserved
-          // on disk for manual recovery if needed.
-          walletPassword: await readFile(
-            '/media/startos/volumes/main/pwd.dat',
-          ).then((buf) => {
-            const decoded = buf.toString('utf8')
-            return buf.equals(Buffer.from(decoded, 'utf8')) ? decoded : ''
-          }),
+          aezeedCipherSeed:
+            prev?.aezeedCipherSeed ||
+            (await readFile(
+              '/media/startos/volumes/main/start9/cipherSeedMnemonic.txt',
+              'utf8',
+            ).then(
+              (contents) => {
+                const words = contents
+                  .trimEnd()
+                  .split('\n')
+                  .map((line) => line.split(' ')[1])
+                return words.length === 24 ? words : null
+              },
+              () => null,
+            )),
+          walletPassword:
+            prev?.walletPassword ||
+            (await readFile('/media/startos/volumes/main/pwd.dat').then((buf) =>
+              buf.toString('latin1'),
+            )),
           watchtowerClients:
             wtClient?.enabled === 'enabled' ? wtClient['add-watchtowers'] : [],
         })
