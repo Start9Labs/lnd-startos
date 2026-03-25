@@ -1,10 +1,10 @@
 import { IMPOSSIBLE, VersionInfo, YAML } from '@start9labs/start-sdk'
 import { readFile, rm } from 'fs/promises'
-import { lndConfFile } from '../../fileModels/lnd.conf'
-import { storeJson } from '../../fileModels/store.json'
 
-export const v_0_20_1_beta_1_b3 = VersionInfo.of({
-  version: '0.20.1-beta:1-beta.3',
+import { storeJson } from '../fileModels/store.json'
+
+export const v_0_20_1_beta_1_b4 = VersionInfo.of({
+  version: '0.20.1-beta:1-beta.4',
   releaseNotes: {
     en_US: 'Update to StartOS SDK beta.65',
     es_ES: 'Actualización a StartOS SDK beta.65',
@@ -71,8 +71,6 @@ export const v_0_20_1_beta_1_b3 = VersionInfo.of({
         await storeJson.merge(effects, {})
       }
 
-      // Read-then-write to trigger zod coercion
-      await lndConfFile.merge(effects, {})
     },
     down: IMPOSSIBLE,
   },
