@@ -1,10 +1,21 @@
 import { IMPOSSIBLE, VersionInfo, YAML } from '@start9labs/start-sdk'
 import { readFile, rm } from 'fs/promises'
 
+import { lndConfFile } from '../fileModels/lnd.conf'
 import { storeJson } from '../fileModels/store.json'
+import { bitcoindBundle, neutrinoBundle } from '../utils'
 
-export const v_0_20_1_beta_1_b4 = VersionInfo.of({
-  version: '0.20.1-beta:1-beta.4',
+type OldConfig = {
+  bitcoind: { type: 'none' } | { type: 'internal' }
+  watchtowers: {
+    'wt-client':
+      | { enabled: 'disabled' }
+      | { enabled: 'enabled'; 'add-watchtowers': string[] }
+  }
+}
+
+export const v_0_20_1_beta_1_b5 = VersionInfo.of({
+  version: '0.20.1-beta:1-beta.5',
   releaseNotes: {
     en_US: 'Update to StartOS SDK beta.65',
     es_ES: 'Actualización a StartOS SDK beta.65',
@@ -16,15 +27,7 @@ export const v_0_20_1_beta_1_b4 = VersionInfo.of({
     up: async ({ effects }) => {
       // Try to read the old 0.3.5.x config. If it exists, we're migrating
       // from 0.3.5.x and need to carry over settings to the new store format.
-      const configYaml:
-        | {
-            watchtowers: {
-              'wt-client':
-                | { enabled: 'disabled' }
-                | { enabled: 'enabled'; 'add-watchtowers': string[] }
-            }
-          }
-        | undefined = await readFile(
+      const configYaml: OldConfig | undefined = await readFile(
         '/media/startos/volumes/main/start9/config.yaml',
         'utf-8',
       ).then(YAML.parse, () => undefined)
@@ -58,19 +61,21 @@ export const v_0_20_1_beta_1_b4 = VersionInfo.of({
             return buf.equals(Buffer.from(decoded, 'utf8')) ? decoded : ''
           }),
           watchtowerClients:
-            wtClient?.enabled === 'enabled'
-              ? wtClient['add-watchtowers']
-              : [],
+            wtClient?.enabled === 'enabled' ? wtClient['add-watchtowers'] : [],
         })
 
         await rm('/media/startos/volumes/main/start9', {
           recursive: true,
         }).catch(console.error)
-      } else {
-        // Already migrated — initialize store with defaults.
-        await storeJson.merge(effects, {})
-      }
 
+        // Enforce backend bundle based on old config
+        await lndConfFile.merge(
+          effects,
+          configYaml.bitcoind.type === 'internal'
+            ? bitcoindBundle
+            : neutrinoBundle,
+        )
+      }
     },
     down: IMPOSSIBLE,
   },

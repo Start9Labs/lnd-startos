@@ -11,6 +11,7 @@ import {
   GetInfo,
   lndDataDir,
   mainMounts,
+  neutrinoBundle,
   sleep,
 } from './utils'
 
@@ -30,6 +31,15 @@ export const main = sdk.setupMain(async ({ effects }) => {
     throw new Error('No lnd.conf')
   }
 
+  const useBitcoind = conf['bitcoin.node'] === 'bitcoind'
+
+  // Enforce backend bundle — ensures rpccookie, zmq, fee.url stay in sync
+  await lndConfFile.merge(
+    effects,
+    useBitcoind ? bitcoindBundle : neutrinoBundle,
+    { allowWriteAfterConst: true },
+  )
+
   const {
     resetWalletTransactions,
     restore,
@@ -37,7 +47,6 @@ export const main = sdk.setupMain(async ({ effects }) => {
     watchtowerClients,
   } = store
 
-  const useBitcoind = conf['bitcoin.node'] === 'bitcoind'
   let mounts = mainMounts
 
   if (useBitcoind) {

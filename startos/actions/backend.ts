@@ -1,7 +1,7 @@
 import { fileToForm, fullConfigSpec, lndConfFile } from '../fileModels/lnd.conf'
 import { i18n } from '../i18n'
 import { sdk } from '../sdk'
-import { bitcoindBundle } from '../utils'
+import { bitcoindBundle, neutrinoBundle } from '../utils'
 
 export const backendConfig = sdk.Action.withInput(
   // id
@@ -31,21 +31,7 @@ export const backendConfig = sdk.Action.withInput(
   async ({ effects, input }) => {
     const isBitcoind = input.bitcoind === 'bitcoind'
 
-    const bitcoinSettings = isBitcoind
-      ? {
-          'bitcoin.node': 'bitcoind' as const,
-          ...bitcoindBundle,
-          'fee.url': undefined,
-        }
-      : {
-          'bitcoin.node': 'neutrino' as const,
-          'bitcoind.rpchost': undefined,
-          'bitcoind.rpccookie': undefined,
-          'bitcoind.zmqpubrawblock': undefined,
-          'bitcoind.zmqpubrawtx': undefined,
-          'fee.url':
-            'https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json',
-        }
+    const bitcoinSettings = isBitcoind ? bitcoindBundle : neutrinoBundle
 
     if (!isBitcoind) {
       await sdk.action.clearTask(effects, 'enable-zmq')

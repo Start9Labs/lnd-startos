@@ -7,10 +7,22 @@ export const lndDataDir = '/root/.lnd'
 export const bitcoindMnt = '/mnt/bitcoin'
 
 export const bitcoindBundle = {
+  'bitcoin.node': 'bitcoind',
   'bitcoind.rpchost': `${bitcoindHost}:8332`,
   'bitcoind.rpccookie': `${bitcoindMnt}/.cookie`,
   'bitcoind.zmqpubrawblock': `tcp://${bitcoindHost}:28332`,
   'bitcoind.zmqpubrawtx': `tcp://${bitcoindHost}:28333`,
+  'fee.url': undefined,
+} as const
+
+export const neutrinoBundle = {
+  'bitcoin.node': 'neutrino',
+  'bitcoind.rpchost': undefined,
+  'bitcoind.rpccookie': undefined,
+  'bitcoind.zmqpubrawblock': undefined,
+  'bitcoind.zmqpubrawtx': undefined,
+  'fee.url':
+    'https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json',
 } as const
 
 export const mainMounts = sdk.Mounts.of().mountVolume({
