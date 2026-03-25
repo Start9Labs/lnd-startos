@@ -11,9 +11,9 @@ import { watchHosts } from './watchHosts'
 import { watchTorSocks } from './watchTorSocks'
 
 export const init = sdk.setupInit(
-  seedFiles,
   restoreInit,
   versionGraph,
+  seedFiles,
   setInterfaces,
   setDependencies,
   actions,
