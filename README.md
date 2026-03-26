@@ -104,6 +104,16 @@ Settings **not** managed by StartOS (hardcoded):
 
 The REST and gRPC interfaces export `lndconnect://` URIs with embedded macaroon credentials. The watchtower interface is only exposed when the watchtower server is enabled in configuration.
 
+### External Address Advertisement
+
+StartOS automatically manages how LND advertises itself to the Lightning Network. Addresses are resolved in the following priority order:
+
+1. **Tor onion addresses** — always added to `externalip`
+2. **Public domains** — if not using tor-only mode, added to `externalhosts`
+3. **IPv4 addresses** — used as a fallback in `externalip` only when no public domains are available
+
+This means LND can advertise via domain names (not just raw IPs) when the node has a public domain configured in StartOS.
+
 ## Actions (StartOS UI)
 
 ### Information
@@ -149,7 +159,7 @@ The REST and gRPC interfaces export `lndconnect://` URIs with embedded macaroon 
 | -------------------------- | --------------------------------------------------- | ---------------------------------------------------------- |
 | **REST Interface**         | Port listening (8080)                               | Ready: "The REST interface is ready to accept connections" |
 | **Network and Graph Sync** | `lncli getinfo` (synced_to_chain + synced_to_graph) | Synced / Syncing to chain / Syncing to graph / Starting    |
-| **Node Reachability**      | Config check (conditional)                          | Disabled message if no external IP configured              |
+| **Node Reachability**      | Config check (conditional)                          | Disabled message if no external IP or hostname configured  |
 | **Backup Restoration**     | Conditional (after restore)                         | Warning to sweep funds and reinstall                       |
 
 ## Dependencies

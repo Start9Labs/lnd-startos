@@ -14,8 +14,8 @@ type OldConfig = {
   }
 }
 
-export const v_0_20_1_beta_1_b5 = VersionInfo.of({
-  version: '0.20.1-beta:1-beta.5',
+export const v_0_20_1_beta_1_b6 = VersionInfo.of({
+  version: '0.20.1-beta:1-beta.6',
   releaseNotes: {
     en_US: 'Update to StartOS SDK beta.65',
     es_ES: 'Actualización a StartOS SDK beta.65',
@@ -71,12 +71,12 @@ export const v_0_20_1_beta_1_b5 = VersionInfo.of({
         }).catch(console.error)
 
         // Enforce backend bundle based on old config
-        await lndConfFile.merge(
-          effects,
-          configYaml.bitcoind.type === 'internal'
+        await lndConfFile.merge(effects, {
+          externalhosts: undefined,
+          ...(configYaml.bitcoind.type === 'internal'
             ? bitcoindBundle
-            : neutrinoBundle,
-        )
+            : neutrinoBundle),
+        })
       }
     },
     down: IMPOSSIBLE,

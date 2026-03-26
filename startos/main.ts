@@ -212,7 +212,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
     })
     .addOneshot('restore', () =>
       restore
-        ? ({
+        ? {
             subcontainer: lndSub,
             exec: {
               fn: async () => {
@@ -236,12 +236,12 @@ export const main = sdk.setupMain(async ({ effects }) => {
               },
             },
             requires: ['lnd', 'unlock-wallet'],
-          } as const)
+          }
         : null,
     )
     .addHealthCheck('reachability', () =>
-      !conf.externalip?.length
-        ? ({
+      !conf.externalip?.length && !conf.externalhosts?.length
+        ? {
             ready: {
               display: i18n('Node Reachability'),
               fn: () => ({
@@ -252,7 +252,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
               }),
             },
             requires: ['lnd'],
-          } as const)
+          }
         : null,
     )
     .addOneshot('add-watchtowers', () =>

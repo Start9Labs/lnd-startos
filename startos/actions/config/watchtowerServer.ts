@@ -1,5 +1,5 @@
-import { i18n } from '../../i18n'
 import { lndConfFile } from '../../fileModels/lnd.conf'
+import { i18n } from '../../i18n'
 import { sdk } from '../../sdk'
 
 const { InputSpec } = sdk
@@ -26,44 +26,36 @@ export const watchtowerServerConfig = sdk.Action.withInput(
   watchtowerServerSpec,
 
   // optionally pre-fill the input form
-  ({ effects }) => read(effects),
+  async ({ effects }) => ({
+    'watchtower.externalip':
+      (await lndConfFile.read((c) => c['watchtower.externalip']).once()) ||
+      'none',
+  }),
 
   // the execution function
-  ({ effects, input }) => write(effects, input),
+  async ({ effects, input }) => {
+    {
+      const watchtowerEnabled = input['watchtower.externalip'] !== 'none'
+
+      let watchtowerSettings
+      if (watchtowerEnabled) {
+        watchtowerSettings = {
+          'watchtower.active': true,
+          'watchtower.listen': ['0.0.0.0:9911'],
+          'watchtower.externalip': input['watchtower.externalip'],
+        }
+      } else {
+        watchtowerSettings = {
+          'watchtower.active': false,
+          'watchtower.listen': undefined,
+          'watchtower.externalip': undefined,
+        }
+      }
+
+      await lndConfFile.merge(effects, watchtowerSettings)
+    }
+  },
 )
-
-async function read(effects: any): Promise<WatchtowerServerSpec> {
-  const lndConf = (await lndConfFile.read().const(effects))!
-
-  return {
-    'watchtower.externalip': lndConf['watchtower.externalip']
-      ? lndConf['watchtower.externalip']
-      : 'none',
-  }
-}
-
-async function write(effects: any, input: WatchtowerServerSpec) {
-  const watchtowerEnabled = input['watchtower.externalip'] !== 'none'
-
-  let watchtowerSettings
-  if (watchtowerEnabled) {
-    watchtowerSettings = {
-      'watchtower.active': true,
-      'watchtower.listen': ['0.0.0.0:9911'],
-      'watchtower.externalip': input['watchtower.externalip'],
-    }
-  } else {
-    watchtowerSettings = {
-      'watchtower.active': false,
-      'watchtower.listen': undefined,
-      'watchtower.externalip': undefined,
-    }
-  }
-
-  await lndConfFile.merge(effects, watchtowerSettings)
-}
-
-type WatchtowerServerSpec = typeof watchtowerServerSpec._TYPE
 
 export function getExternalAddresses() {
   return sdk.Value.dynamicSelect(async ({ effects }) => {
@@ -76,8 +68,9 @@ export function getExternalAddresses() {
     if (urls.length === 0) {
       return {
         name: i18n('External Address'),
-        description:
-          i18n('No available address at which your watchtower can be reached by LND peers.'),
+        description: i18n(
+          'No available address at which your watchtower can be reached by LND peers.',
+        ),
         values: { none: 'none' },
         default: 'none',
       }
@@ -95,8 +88,9 @@ export function getExternalAddresses() {
 
     return {
       name: i18n('External Address'),
-      description:
-        i18n("Address at which your node can be reached by peers. Select 'none' to disable the watchtower server."),
+      description: i18n(
+        "Address at which your node can be reached by peers. Select 'none' to disable the watchtower server.",
+      ),
       values: urlsWithNone,
       default: urls.find((u) => u.endsWith('.onion')) || '',
     }

@@ -16,34 +16,41 @@ export const watchHosts = sdk.setupOnInit(async (effects, _) => {
   }
 
   const externalip: string[] = []
+  const externalhosts: string[] = []
 
   // Add first onion address (if present)
-  const onion = publicInfo
+  const onions = publicInfo
     .filter({
       predicate: ({ metadata }) =>
         metadata.kind === 'plugin' && metadata.packageId === 'tor',
     })
-    .format()?.[0]
+    .format()
 
-  if (onion) externalip.push(onion)
+  externalip.push(...onions)
 
-  // Add gateway IPv4 (if present and not tor-only)
   if (!useTorOnly) {
-    const outboundGateway = await sdk.getOutboundGateway(effects).const()
+    const domains = publicInfo
+      .filter({
+        predicate: ({ metadata }) => metadata.kind === 'public-domain',
+      })
+      .format()
 
-    const gatewayIp = publicInfo.hostnames.find(
-      (h) =>
-        'metadata' in h &&
-        h.metadata.kind === 'ipv4' &&
-        h.metadata.gateway === outboundGateway,
-    )?.hostname
+    externalhosts.push(...domains)
 
-    if (gatewayIp) externalip.push(gatewayIp)
+    if (!externalhosts.length) {
+      const ipv4s = publicInfo
+        .filter({
+          predicate: ({ metadata }) => metadata.kind === 'ipv4',
+        })
+        .format()
+
+      externalip.push(...ipv4s)
+    }
   }
 
   await lndConfFile.merge(
     effects,
-    { externalip },
+    { externalip, externalhosts },
     { allowWriteAfterConst: true },
   )
 })

@@ -58,7 +58,7 @@ export const shape = z.object({
   'bitcoind.zmqpubrawtx': iniString,
 
   // ──── Application Options ────
-  externalhosts: z.undefined().catch(undefined),
+  externalhosts: iniStringArray,
   'accept-keysend': iniBoolean,
   alias: iniString,
   color: iniString,
