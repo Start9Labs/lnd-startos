@@ -14,14 +14,14 @@ type OldConfig = {
   }
 }
 
-export const v_0_20_1_beta_1_b6 = VersionInfo.of({
-  version: '0.20.1-beta:1-beta.6',
+export const v_0_20_1_beta_1_b8 = VersionInfo.of({
+  version: '0.20.1-beta:1-beta.8',
   releaseNotes: {
-    en_US: 'Update to StartOS SDK beta.65',
-    es_ES: 'Actualización a StartOS SDK beta.65',
-    de_DE: 'Update auf StartOS SDK beta.65',
-    pl_PL: 'Aktualizacja do StartOS SDK beta.65',
-    fr_FR: 'Mise à jour vers StartOS SDK beta.65',
+    en_US: 'Fix missing gRPC and REST interfaces on fresh install',
+    es_ES: 'Corrección de interfaces gRPC y REST faltantes en instalación nueva',
+    de_DE: 'Fehlende gRPC- und REST-Schnittstellen bei Neuinstallation behoben',
+    pl_PL: 'Naprawiono brakujące interfejsy gRPC i REST przy nowej instalacji',
+    fr_FR: 'Correction des interfaces gRPC et REST manquantes lors d\'une nouvelle installation',
   },
   migrations: {
     up: async ({ effects }) => {
