@@ -1,6 +1,5 @@
 import { IMPOSSIBLE, VersionInfo, YAML } from '@start9labs/start-sdk'
 import { readFile, rm } from 'fs/promises'
-
 import { lndConfFile } from '../fileModels/lnd.conf'
 import { storeJson } from '../fileModels/store.json'
 import { bitcoindBundle, neutrinoBundle } from '../utils'
@@ -14,14 +13,19 @@ type OldConfig = {
   }
 }
 
-export const v_0_20_1_beta_1_b8 = VersionInfo.of({
-  version: '0.20.1-beta:1-beta.8',
+export const v_0_20_1_beta_1_b9 = VersionInfo.of({
+  version: '0.20.1-beta:1-beta.9',
   releaseNotes: {
-    en_US: 'Fix missing gRPC and REST interfaces on fresh install',
-    es_ES: 'Corrección de interfaces gRPC y REST faltantes en instalación nueva',
-    de_DE: 'Fehlende gRPC- und REST-Schnittstellen bei Neuinstallation behoben',
-    pl_PL: 'Naprawiono brakujące interfejsy gRPC i REST przy nowej instalacji',
-    fr_FR: 'Correction des interfaces gRPC et REST manquantes lors d\'une nouvelle installation',
+    en_US:
+      'Expanded configuration options: new Channel Settings action (min/max channel size, wumbo, zero-conf, SCID alias, pending channels, circular route, reject push, coop close target), new Performance action (DB auto-compact, invoice cleanup, reconnect stagger, gossip filters, graph pruning), new Routing Fees action with timelock delta, and Accept AMP toggle in General Settings. Renamed "Bitcoin Channel Configuration" to "Routing Fees" for clarity.',
+    es_ES:
+      'Opciones de configuración ampliadas: nueva acción Configuración de Canales (tamaño mín/máx de canal, wumbo, zero-conf, alias SCID, canales pendientes, ruta circular, rechazo de push, cierre cooperativo), nueva acción Rendimiento (auto-compactación de BD, limpieza de facturas, reconexión escalonada, filtros gossip, poda del grafo), nueva acción Comisiones de Enrutamiento con delta de timelock, y opción Aceptar AMP en Configuración General.',
+    de_DE:
+      'Erweiterte Konfigurationsoptionen: neue Aktion Kanaleinstellungen (min/max Kanalgröße, Wumbo, Zero-conf, SCID-Alias, ausstehende Kanäle, zirkuläre Route, Push ablehnen, kooperatives Schließungsziel), neue Aktion Leistung (DB-Auto-Komprimierung, Rechnungsbereinigung, gestaffelte Wiederverbindung, Gossip-Filter, Graph-Bereinigung), neue Aktion Routing-Gebühren mit Timelock-Delta und AMP-Akzeptanz in den allgemeinen Einstellungen.',
+    pl_PL:
+      'Rozszerzone opcje konfiguracji: nowa akcja Ustawienia kanałów (min/maks rozmiar kanału, wumbo, zero-conf, alias SCID, oczekujące kanały, trasa kołowa, odrzucenie push, cel kooperacyjnego zamknięcia), nowa akcja Wydajność (auto-kompaktacja BD, czyszczenie faktur, rozłożone ponowne połączenia, filtry gossip, przycinanie grafu), nowa akcja Opłaty routingowe z deltą timelocka i opcja Akceptuj AMP w ustawieniach ogólnych.',
+    fr_FR:
+      "Options de configuration étendues : nouvelle action Paramètres des canaux (taille min/max, wumbo, zero-conf, alias SCID, canaux en attente, route circulaire, rejet push, cible de fermeture coopérative), nouvelle action Performance (compactage auto de la BD, nettoyage des factures, reconnexion échelonnée, filtres gossip, élagage du graphe), nouvelle action Frais de routage avec delta de timelock et option Accepter AMP dans les paramètres généraux.",
   },
   migrations: {
     up: async ({ effects }) => {

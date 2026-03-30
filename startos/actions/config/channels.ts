@@ -7,15 +7,15 @@ import {
 import { sdk } from '../../sdk'
 import { i18n } from '../../i18n'
 
-export const bitcoinConfig = sdk.Action.withInput(
+export const channelsConfig = sdk.Action.withInput(
   // id
-  'bitcoin-config',
+  'channels-config',
 
   // metadata
   async ({ effects }) => ({
-    name: i18n('Bitcoin Channel Configuration Settings'),
+    name: i18n('Channel Settings'),
     description: i18n(
-      'Configuration options for lightning network channel management operating over the Bitcoin network',
+      'Configure channel acceptance policies including size limits, pending channel limits, and close behavior',
     ),
     warning: null,
     allowedStatuses: 'any',
@@ -26,8 +26,15 @@ export const bitcoinConfig = sdk.Action.withInput(
   // form input specification
   fullConfigSpec.filter({
     'default-channel-confirmations': true,
-    'base-fee': true,
-    'fee-rate': true,
+    'min-channel-size': true,
+    'max-channel-size': true,
+    'wumbo-channels': true,
+    'option-scid-alias': true,
+    'zero-conf': true,
+    'max-pending-channels': true,
+    'allow-circular-route': true,
+    'reject-push': true,
+    'coop-close-target': true,
   }),
 
   // optionally pre-fill the input form

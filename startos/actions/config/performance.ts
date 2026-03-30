@@ -7,14 +7,16 @@ import {
 import { sdk } from '../../sdk'
 import { i18n } from '../../i18n'
 
-export const general = sdk.Action.withInput(
+export const performanceConfig = sdk.Action.withInput(
   // id
-  'general',
+  'performance-config',
 
   // metadata
   async ({ effects }) => ({
-    name: i18n('General Settings'),
-    description: i18n('General settings for your LND node'),
+    name: i18n('Performance'),
+    description: i18n(
+      'Performance and maintenance settings for database compaction, invoice cleanup, and network efficiency',
+    ),
     warning: null,
     allowedStatuses: 'any',
     group: i18n('Configuration'),
@@ -23,11 +25,12 @@ export const general = sdk.Action.withInput(
 
   // form input specification
   fullConfigSpec.filter({
-    alias: true,
-    color: true,
-    'accept-keysend': true,
-    'accept-amp': true,
-    'use-tor-only': true,
+    'auto-compact': true,
+    'gc-canceled-invoices-startup': true,
+    'gc-canceled-invoices-live': true,
+    'stagger-initial-reconnect': true,
+    'ignore-historical-gossip': true,
+    'strict-graph-pruning': true,
   }),
 
   // optionally pre-fill the input form

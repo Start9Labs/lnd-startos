@@ -59,7 +59,7 @@ If using the `bitcoind` backend, the Bitcoin Core `main` volume is mounted read-
 
 1. On install, StartOS creates two **critical tasks**:
    - **Select a Bitcoin backend** (local Bitcoin Core or Neutrino)
-   - **Initialize wallet** (start fresh or migrate from Umbrel 1.x)
+   - **Initialize wallet** (start fresh, or migrate from Umbrel 1.x or another StartOS server)
 2. TLS certificates are generated using StartOS's certificate system
 3. The **Initialize Wallet** action generates a new wallet via the LND `/v1/genseed` and `/v1/initwallet` API. The 24-word Aezeed mnemonic is displayed **once** in the action result — it is **not stored**. The wallet password is saved to `store.json`
 4. The wallet is **automatically unlocked** on every start via the `/v1/unlockwallet` API
@@ -71,17 +71,16 @@ Users never interact with `lncli create` or `lncli unlock` — StartOS handles b
 
 LND is configured entirely through **StartOS actions** (see [Actions](#actions-startos-ui) below). Each configuration category has a dedicated action that writes to the `lnd.conf` file on the `main` volume.
 
-| StartOS-Managed (via Actions) | Details                                                          |
-| ----------------------------- | ---------------------------------------------------------------- |
-| Bitcoin backend selection     | `bitcoind` or `neutrino`                                         |
-| General settings              | Alias, color, debug level, keysend, AMP, routing, channel sizes  |
-| Bitcoin channel settings      | Base fee, fee rate, timelock delta, min HTLC, confirmations      |
-| Autopilot                     | Enable/disable, max channels, allocation, channel size limits    |
-| Watchtower server             | Enable/disable, listen address                                   |
-| Watchtower client             | Enable/disable, tower URIs                                       |
-| Protocol options              | Wumbo channels, anchors, taproot channels, zero-conf, SCID alias |
-| Sweeper settings              | Max fee rate, budget ratios, confirmation targets                |
-| DB/Bolt settings              | Auto-compact, freelist sync, timeouts                            |
+| StartOS-Managed (via Actions) | Details                                                                |
+| ----------------------------- | ---------------------------------------------------------------------- |
+| Bitcoin backend selection     | `bitcoind` or `neutrino`                                               |
+| General settings              | Alias, color, keysend, AMP, tor-only mode                                     |
+| Routing fees                  | Base fee, fee rate, timelock delta                                             |
+| Channel settings              | Min/max size, wumbo, zero-conf, SCID alias, pending, circular route, closes    |
+| Autopilot                     | Enable/disable, max channels, allocation, channel size limits          |
+| Performance                   | DB auto-compact, invoice cleanup, reconnect stagger, graph pruning     |
+| Watchtower server             | Enable/disable, listen address                                         |
+| Watchtower client             | Enable/disable, tower URIs                                             |
 
 Settings **not** managed by StartOS (hardcoded):
 
@@ -89,6 +88,10 @@ Settings **not** managed by StartOS (hardcoded):
 | ----------------------------------- | ----------------------- | -------------------------------- |
 | `bitcoin.mainnet`                   | `true`                  | Only mainnet supported           |
 | `tor.active`                        | `true`                  | Always routed through Tor        |
+| `rpclisten`                         | `0.0.0.0:10009`         | Fixed gRPC listen address        |
+| `restlisten`                        | `0.0.0.0:8080`          | Fixed REST listen address        |
+| `listen`                            | `0.0.0.0:9735`          | Fixed peer listen address        |
+| `rpcmiddleware.enable`              | `true`                  | Required for StartOS integration |
 | `bitcoind.rpchost`                  | `bitcoind.startos:8332` | StartOS service networking       |
 | `bitcoind.rpccookie`                | `/mnt/bitcoin/.cookie`  | Cookie auth via mounted volume   |
 | `healthcheck.chainbackend.attempts` | `0`                     | Managed by StartOS health checks |
@@ -125,29 +128,28 @@ This means LND can advertise via domain names (not just raw IPs) when the node h
 
 ### Configuration
 
-| Action                     | Purpose                                                               | Availability |
-| -------------------------- | --------------------------------------------------------------------- | ------------ |
-| **General Settings**       | Alias, color, debug level, keysend, AMP, routing, channel sizes, fees | Any          |
-| **Bitcoin Backend**        | Select `bitcoind` or `neutrino`                                       | Any          |
-| **Bitcoin Channel Config** | Default confirmations, HTLC limits, base fee, fee rate, timelock      | Any          |
-| **Autopilot**              | Enable/configure automatic channel management                         | Any          |
-| **Watchtower Server**      | Enable/configure watchtower server                                    | Any          |
-| **Watchtower Client**      | Enable/configure watchtower client, add tower URIs                    | Any          |
-| **Protocol Options**       | Wumbo, anchors, taproot channels, zero-conf, SCID alias               | Any          |
-| **Sweeper**                | Fee rate limits and budget ratios                                     | Any          |
-| **DB/Bolt**                | Auto-compact, freelist sync, timeouts                                 | Any          |
+| Action                     | Purpose                                                                   | Availability |
+| -------------------------- | ------------------------------------------------------------------------- | ------------ |
+| **General Settings**       | Alias, color, keysend, AMP, tor-only mode                                | Any          |
+| **Routing Fees**           | Base fee, fee rate, timelock delta                                        | Any          |
+| **Channel Settings**       | Min/max size, wumbo, zero-conf, SCID alias, pending, circular route, closes | Any        |
+| **Autopilot**              | Enable/configure automatic channel management                             | Any          |
+| **Bitcoin Backend**        | Select `bitcoind` or `neutrino` (hidden; triggered as critical task on install) | Any    |
+| **Performance**            | DB auto-compact, invoice cleanup, reconnect stagger, graph pruning        | Any          |
+| **Watchtower Server**      | Enable/configure watchtower server                                        | Any          |
+| **Watchtower Client**      | Enable/configure watchtower client, add tower URIs                        | Any          |
 
 ### Maintenance
 
 | Action                        | Purpose                                                                                        | Availability | Warning                                   |
 | ----------------------------- | ---------------------------------------------------------------------------------------------- | ------------ | ----------------------------------------- |
-| **Initialize Wallet**         | Create a new wallet or migrate from Umbrel 1.x (hidden; triggered as critical task on install) | Stopped only | Mnemonic shown once and not stored        |
+| **Initialize Wallet**         | Create a new wallet or migrate from Umbrel/StartOS (hidden; triggered as critical task on install) | Stopped only | Mnemonic shown once and not stored      |
 | **Reset Wallet Transactions** | Rescan on-chain transactions from wallet birthday                                              | Any          | None                                      |
 | **Recreate Macaroons**        | Delete and regenerate all macaroon files                                                       | Any          | May require restarting dependent services |
 
 ## Backups and Restore
 
-**Backed up:** The entire `main` volume, **excluding** `data/graph` (the network graph cache, which is rebuilt automatically).
+**Backed up:** The entire `main` volume, **excluding** files that are rebuilt automatically: `data/graph`, `data/chain/bitcoin/mainnet/channel.db`, `data/chain/bitcoin/mainnet/sphinxreplay.db`, `data/chain/bitcoin/mainnet/neutrino.db`, `data/chain/bitcoin/mainnet/block_headers.bin`, `data/chain/bitcoin/mainnet/reg_filter_headers.bin`, and `logs`.
 
 **Restore behavior:** After restore, LND automatically runs `restorechanbackup` to request force-close of all channels from the Static Channel Backup. A persistent health check warning is displayed advising the user to sweep funds and reinstall LND fresh.
 
@@ -167,8 +169,9 @@ This means LND can advertise via domain names (not just raw IPs) when the node h
 | Dependency   | Required | Purpose                                                        |
 | ------------ | -------- | -------------------------------------------------------------- |
 | Bitcoin Core | Optional | Block data, transaction broadcasting via ZMQ + RPC cookie auth |
+| Tor          | Optional | Required when "Use Tor for all traffic" is enabled             |
 
-When using Bitcoin Core as backend, LND requires the `sync-progress` and `primary` health checks to pass on Bitcoin Core before starting. LND can alternatively use **Neutrino** (built-in light client) with no dependencies.
+When using Bitcoin Core as backend, LND requires the `sync-progress` and `bitcoind` health checks to pass on Bitcoin Core before starting. LND can alternatively use **Neutrino** (built-in light client) with no Bitcoin Core dependency.
 
 ## Default Overrides
 
@@ -232,6 +235,7 @@ ports:
   watchtower: 9911
 dependencies:
   - bitcoind (optional)
+  - tor (optional)
 startos_managed_env_vars: []
 startos_managed_files:
   - store.json
@@ -239,14 +243,13 @@ startos_managed_files:
   - tls.key
 actions:
   - general
-  - backend-config
-  - bitcoin-config
+  - routing-fees-config
+  - channels-config
   - autopilot-config
+  - backend-config
+  - performance-config
   - watchtower-server-config
   - watchtower-client-config
-  - protocol-config
-  - sweeper-config
-  - db-bolt-config
   - node-info
   - tower-info
   - initialize-wallet
@@ -257,5 +260,5 @@ health_checks:
   - lncli_getinfo: synced_to_chain, synced_to_graph
   - reachability: conditional
 backup_volumes:
-  - main (excluding data/graph)
+  - main (excluding data/graph, channel.db, sphinxreplay.db, neutrino.db, block_headers.bin, reg_filter_headers.bin, logs)
 ```

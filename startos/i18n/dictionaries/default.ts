@@ -252,6 +252,44 @@ const dict = {
   'The master password for your old StartOS server.': 216,
   'Failed to parse wallet password from origin StartOS server.': 217,
   'Successfully imported LND data from StartOS. WARNING: Do NOT start LND on the old server again with the same wallet. Running two LND nodes with the same seed will lead to unpredictable behavior or loss of funds.': 218,
+
+  // actions/config — new config fields
+  'Accept AMP': 219,
+  'Accept Atomic Multi-Path spontaneous payments. AMP allows a single payment to be split across multiple channels for better reliability': 220,
+  'The number of blocks subtracted from the incoming HTLC timelock for forwarded payments. Higher values are safer but may reduce routing competitiveness. Routing nodes commonly use 144 (approximately 24 hours)': 221,
+  'The smallest channel size in satoshis that your node will accept. Increase this to reject tiny, uneconomical channels. The upstream default is 20,000 sats': 222,
+  'The largest channel size in satoshis that your node will accept. To accept channels larger than ~0.167 BTC (16,777,215 sats), you must also enable Wumbo Channels': 223,
+  'Wumbo Channels': 224,
+  'Enable support for channels larger than ~0.167 BTC (16,777,215 sats). Both peers must have Wumbo enabled to open a large channel. Required if you set a Maximum Channel Size above 16,777,215': 225,
+  'Max Pending Channels': 226,
+  'The maximum number of incoming channel requests waiting to be confirmed per peer. Increase this if you want to allow peers to batch-open multiple channels with you': 227,
+  'Allow a payment to arrive and depart through the same channel. Required for self-rebalancing tools such as Balance of Satoshis or circular rebalance scripts': 228,
+  'Reject Push': 229,
+  'Reject incoming channel open requests that include a non-zero push amount (where the opener gifts sats to your side). This can be used as a precaution against certain probing attacks': 230,
+  'Cooperative Close Confirmation Target': 231,
+  'The target number of blocks for cooperative channel close transactions. Lower values pay higher on-chain fees for faster confirmation. Higher values (e.g. 100-1000) can save fees when speed is not important': 232,
+  'Auto-Compact Database': 233,
+  'Automatically compact the bolt database on startup. Compaction reclaims wasted disk space and can improve performance over time. Recommended for most nodes': 234,
+  'Delete Canceled Invoices on Startup': 235,
+  'Delete all canceled invoices when LND starts. This reduces database size and improves performance': 236,
+  'Delete Canceled Invoices Immediately': 237,
+  'Delete canceled invoices immediately as they are canceled, rather than waiting for startup cleanup': 238,
+  'Stagger Initial Reconnect': 239,
+  'Randomize the delay between reconnection attempts to peers on startup. Prevents a bandwidth spike when all peers reconnect simultaneously. Recommended for routing nodes': 240,
+  'Ignore Historical Gossip Filters': 241,
+  'Do not serve historical gossip data to peers that request it. Saves bandwidth and CPU at the cost of being less helpful to peers bootstrapping their network graph': 242,
+  'Strict Graph Pruning': 243,
+  'Prune a channel from the network graph if even one of its edges (direction announcements) is stale. Results in a smaller, more accurate routing graph': 244,
+
+  'Enable support for zero-confirmation channels. Requires option-scid-alias to also be enabled. Zero-conf channels can be used immediately without waiting for on-chain confirmations. Required for Lightning Loop and Pool integration': 251,
+
+  // actions — new action names/descriptions
+  'Routing Fees': 245,
+  'Configure the default fees and timelock delta applied to forwarded payments on your channels': 246,
+  'Channel Settings': 247,
+  'Configure channel acceptance policies including size limits, pending channel limits, and close behavior': 248,
+  Performance: 249,
+  'Performance and maintenance settings for database compaction, invoice cleanup, and network efficiency': 250,
 } as const
 
 /**

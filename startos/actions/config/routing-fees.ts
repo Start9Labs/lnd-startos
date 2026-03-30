@@ -7,14 +7,16 @@ import {
 import { sdk } from '../../sdk'
 import { i18n } from '../../i18n'
 
-export const general = sdk.Action.withInput(
+export const routingFeesConfig = sdk.Action.withInput(
   // id
-  'general',
+  'routing-fees-config',
 
   // metadata
   async ({ effects }) => ({
-    name: i18n('General Settings'),
-    description: i18n('General settings for your LND node'),
+    name: i18n('Routing Fees'),
+    description: i18n(
+      'Configure the default fees and timelock delta applied to forwarded payments on your channels',
+    ),
     warning: null,
     allowedStatuses: 'any',
     group: i18n('Configuration'),
@@ -23,11 +25,9 @@ export const general = sdk.Action.withInput(
 
   // form input specification
   fullConfigSpec.filter({
-    alias: true,
-    color: true,
-    'accept-keysend': true,
-    'accept-amp': true,
-    'use-tor-only': true,
+    'base-fee': true,
+    'fee-rate': true,
+    'timelock-delta': true,
   }),
 
   // optionally pre-fill the input form
