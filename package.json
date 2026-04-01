@@ -1,0 +1,26 @@
+{
+  "name": "lnd-startos",
+  "scripts": {
+    "build": "ncc build startos/index.ts -o ./javascript",
+    "prettier": "prettier --write startos",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@start9labs/start-sdk": "1.0.0",
+    "bitcoind-startos": "git+https://github.com/Start9Labs/bitcoind-startos.git#30.x",
+    "mime": "^4.0.7",
+    "rfc4648": "1.5.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.1.0",
+    "@vercel/ncc": "^0.38.1",
+    "prettier": "^3.2.5",
+    "typescript": "^5.4.3"
+  },
+  "prettier": {
+    "trailingComma": "all",
+    "tabWidth": 2,
+    "semi": false,
+    "singleQuote": true
+  }
+}

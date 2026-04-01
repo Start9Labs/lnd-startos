@@ -1,6 +1,0 @@
-.git
-lnd/.git
-configurator
-!configurator/target/**/release/configurator
-health-check
-!health-check/target/**/release/health-check

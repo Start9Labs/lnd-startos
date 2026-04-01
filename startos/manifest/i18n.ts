@@ -1,0 +1,73 @@
+export const short = {
+  en_US:
+    'A complete implementation of a Lightning Network node by Lightning Labs',
+  es_ES:
+    'Una implementación completa de un nodo de la Red Lightning por Lightning Labs',
+  de_DE:
+    'Eine vollständige Implementierung eines Lightning-Netzwerk-Knotens von Lightning Labs',
+  pl_PL: 'Kompletna implementacja węzła Lightning Network od Lightning Labs',
+  fr_FR:
+    "Une implémentation complète d'un nœud du réseau Lightning par Lightning Labs",
+}
+
+export const long = {
+  en_US:
+    'Lightning Network Daemon (LND) fully conforms to the Lightning Network specification (BOLTs). BOLT stands for: Basis of Lightning Technology. In the current state lnd is capable of: creating channels, closing channels, managing all channel states (including the exceptional ones!), maintaining a fully authenticated+validated channel graph, performing path finding within the network, passively forwarding incoming payments, sending outgoing onion-encrypted payments through the network, updating advertised fee schedules, and automatic channel management (autopilot).',
+  es_ES:
+    'Lightning Network Daemon (LND) cumple completamente con la especificación de la Red Lightning (BOLTs). BOLT significa: Basis of Lightning Technology. En su estado actual, LND es capaz de: crear canales, cerrar canales, gestionar todos los estados de canales (¡incluyendo los excepcionales!), mantener un grafo de canales completamente autenticado y validado, realizar búsqueda de rutas dentro de la red, reenviar pasivamente pagos entrantes, enviar pagos salientes cifrados con onion a través de la red, actualizar los calendarios de tarifas anunciados y gestión automática de canales (autopilot).',
+  de_DE:
+    'Lightning Network Daemon (LND) entspricht vollständig der Lightning-Netzwerk-Spezifikation (BOLTs). BOLT steht für: Basis of Lightning Technology. Im aktuellen Zustand ist LND in der Lage: Kanäle zu erstellen, Kanäle zu schließen, alle Kanalzustände zu verwalten (einschließlich der außergewöhnlichen!), einen vollständig authentifizierten und validierten Kanalgraphen zu pflegen, Pfadfindung innerhalb des Netzwerks durchzuführen, eingehende Zahlungen passiv weiterzuleiten, ausgehende Onion-verschlüsselte Zahlungen durch das Netzwerk zu senden, beworbene Gebührenpläne zu aktualisieren und automatische Kanalverwaltung (Autopilot).',
+  pl_PL:
+    'Lightning Network Daemon (LND) w pełni jest zgodny ze specyfikacją Lightning Network (BOLTs). BOLT oznacza: Basis of Lightning Technology. W obecnym stanie LND jest zdolny do: tworzenia kanałów, zamykania kanałów, zarządzania wszystkimi stanami kanałów (w tym wyjątkowymi!), utrzymywania w pełni uwierzytelnionego i zwalidowanego grafu kanałów, wyszukiwania ścieżek w sieci, pasywnego przekazywania płatności przychodzących, wysyłania wychodzących płatności zaszyfrowanych onion przez sieć, aktualizowania ogłaszanych harmonogramów opłat oraz automatycznego zarządzania kanałami (autopilot).',
+  fr_FR:
+    'Lightning Network Daemon (LND) est entièrement conforme à la spécification du réseau Lightning (BOLTs). BOLT signifie : Basis of Lightning Technology. Dans son état actuel, LND est capable de : créer des canaux, fermer des canaux, gérer tous les états de canaux (y compris les exceptionnels !), maintenir un graphe de canaux entièrement authentifié et validé, effectuer la recherche de chemin dans le réseau, transférer passivement les paiements entrants, envoyer des paiements sortants chiffrés en oignon à travers le réseau, mettre à jour les grilles tarifaires annoncées et la gestion automatique des canaux (autopilot).',
+}
+
+export const alertInstall = {
+  en_US:
+    'READ CAREFULLY! LND and the Lightning Network are considered beta software. Please use with caution and do not risk more money than you are willing to lose. We encourage frequent backups, particularly after opening or closing channels. If for any reason, you need to restore LND from a backup, your on-chain wallet will be restored. Any channels in the backup will be closed and their funds returned to your on-chain wallet, minus fees. It may also take some time for this process to occur. Any channels opened after the last backup CANNOT be recovered by backup restore.',
+  es_ES:
+    '¡LEA CUIDADOSAMENTE! LND y la Red Lightning se consideran software beta. Úselo con precaución y no arriesgue más dinero del que esté dispuesto a perder. Recomendamos copias de seguridad frecuentes, especialmente después de abrir o cerrar canales. Si por alguna razón necesita restaurar LND desde una copia de seguridad, se restaurará su billetera on-chain. Todos los canales en la copia de seguridad se cerrarán y sus fondos se devolverán a su billetera on-chain, menos las comisiones. Este proceso también puede tomar algún tiempo. Los canales abiertos después de la última copia de seguridad NO se pueden recuperar mediante la restauración de la copia de seguridad.',
+  de_DE:
+    'SORGFÄLTIG LESEN! LND und das Lightning-Netzwerk gelten als Beta-Software. Bitte verwenden Sie es mit Vorsicht und riskieren Sie nicht mehr Geld, als Sie bereit sind zu verlieren. Wir empfehlen häufige Backups, insbesondere nach dem Öffnen oder Schließen von Kanälen. Wenn Sie aus irgendeinem Grund LND aus einem Backup wiederherstellen müssen, wird Ihre On-Chain-Wallet wiederhergestellt. Alle Kanäle im Backup werden geschlossen und ihre Guthaben abzüglich Gebühren an Ihre On-Chain-Wallet zurückgegeben. Dieser Vorgang kann auch einige Zeit dauern. Kanäle, die nach dem letzten Backup geöffnet wurden, können NICHT durch eine Backup-Wiederherstellung wiederhergestellt werden.',
+  pl_PL:
+    'PRZECZYTAJ UWAŻNIE! LND i Lightning Network są uważane za oprogramowanie w wersji beta. Proszę używać z ostrożnością i nie ryzykować więcej pieniędzy, niż jesteś gotów stracić. Zachęcamy do częstych kopii zapasowych, szczególnie po otwarciu lub zamknięciu kanałów. Jeśli z jakiegokolwiek powodu musisz przywrócić LND z kopii zapasowej, Twój portfel on-chain zostanie przywrócony. Wszystkie kanały w kopii zapasowej zostaną zamknięte, a ich środki zwrócone do Twojego portfela on-chain, pomniejszone o opłaty. Ten proces może również zająć trochę czasu. Kanały otwarte po ostatniej kopii zapasowej NIE MOGĄ zostać odzyskane przez przywracanie z kopii zapasowej.',
+  fr_FR:
+    "LISEZ ATTENTIVEMENT ! LND et le réseau Lightning sont considérés comme des logiciels bêta. Veuillez les utiliser avec prudence et ne risquez pas plus d'argent que vous n'êtes prêt à perdre. Nous encourageons les sauvegardes fréquentes, en particulier après l'ouverture ou la fermeture de canaux. Si pour une raison quelconque vous devez restaurer LND à partir d'une sauvegarde, votre portefeuille on-chain sera restauré. Tous les canaux de la sauvegarde seront fermés et leurs fonds restitués à votre portefeuille on-chain, moins les frais. Ce processus peut également prendre un certain temps. Les canaux ouverts après la dernière sauvegarde NE PEUVENT PAS être récupérés par la restauration de sauvegarde.",
+}
+
+export const alertUninstall = {
+  en_US:
+    'READ CAREFULLY! Uninstalling LND will result in permanent loss of data, including its private keys for its on-chain wallet and all channel states. Please make a backup if you have any funds in your on-chain wallet or in any channels. Recovering from backup will restore your on-chain wallet, but due to the architecture of the Lightning Network, your channels cannot be recovered. All channels included in the backup will be closed and their funds returned to your on-chain wallet, minus fees. Any channels opened after the last backup CANNOT be recovered by backup restore',
+  es_ES:
+    'LEA CUIDADOSAMENTE! La desinstalación de LND resultará en la pérdida permanente de datos, incluyendo las claves privadas de su billetera on-chain y todos los estados de canales. Por favor, haga una copia de seguridad si tiene fondos en su billetera on-chain o en cualquier canal. La recuperación desde una copia de seguridad restaurará su billetera on-chain, pero debido a la arquitectura de la Red Lightning, sus canales no pueden ser recuperados. Todos los canales incluidos en la copia de seguridad se cerrarán y sus fondos se devolverán a su billetera on-chain, menos las comisiones. Los canales abiertos después de la última copia de seguridad NO se pueden recuperar mediante la restauración de la copia de seguridad.',
+  de_DE:
+    'SORGFÄLTIG LESEN! Die Deinstallation von LND führt zum dauerhaften Verlust von Daten, einschließlich der privaten Schlüssel für die On-Chain-Wallet und aller Kanalzustände. Bitte erstellen Sie ein Backup, wenn Sie Guthaben in Ihrer On-Chain-Wallet oder in Kanälen haben. Die Wiederherstellung aus einem Backup stellt Ihre On-Chain-Wallet wieder her, aber aufgrund der Architektur des Lightning-Netzwerks können Ihre Kanäle nicht wiederhergestellt werden. Alle im Backup enthaltenen Kanäle werden geschlossen und ihre Guthaben abzüglich Gebühren an Ihre On-Chain-Wallet zurückgegeben. Kanäle, die nach dem letzten Backup geöffnet wurden, können NICHT durch eine Backup-Wiederherstellung wiederhergestellt werden.',
+  pl_PL:
+    'PRZECZYTAJ UWAŻNIE! Odinstalowanie LND spowoduje trwałą utratę danych, w tym kluczy prywatnych portfela on-chain i wszystkich stanów kanałów. Proszę wykonać kopię zapasową, jeśli masz jakiekolwiek środki w portfelu on-chain lub w jakichkolwiek kanałach. Odzyskiwanie z kopii zapasowej przywróci Twój portfel on-chain, ale ze względu na architekturę Lightning Network, Twoje kanały nie mogą zostać odzyskane. Wszystkie kanały zawarte w kopii zapasowej zostaną zamknięte, a ich środki zwrócone do Twojego portfela on-chain, pomniejszone o opłaty. Kanały otwarte po ostatniej kopii zapasowej NIE MOGĄ zostać odzyskane przez przywracanie z kopii zapasowej.',
+  fr_FR:
+    "LISEZ ATTENTIVEMENT ! La désinstallation de LND entraînera la perte permanente de données, y compris les clés privées de son portefeuille on-chain et tous les états des canaux. Veuillez effectuer une sauvegarde si vous avez des fonds dans votre portefeuille on-chain ou dans des canaux. La récupération à partir d'une sauvegarde restaurera votre portefeuille on-chain, mais en raison de l'architecture du réseau Lightning, vos canaux ne peuvent pas être récupérés. Tous les canaux inclus dans la sauvegarde seront fermés et leurs fonds restitués à votre portefeuille on-chain, moins les frais. Les canaux ouverts après la dernière sauvegarde NE PEUVENT PAS être récupérés par la restauration de sauvegarde.",
+}
+
+export const alertRestore = {
+  en_US:
+    'READ CAREFULLY! Any channels opened since the last backup will be forgotten and may linger indefinitely, and channels contained in the backup will be closed and their funds returned to your on-chain wallet, minus fees. After all recoverable funds are available in your on-chain wallet, all funds should be swept to a different wallet. NEVER use a restored LND wallet to open new channels. If you would like to use LND after a backup restore you will first need to sweep all on-chain funds to a different wallet, next LND can be safely uninstalled, and finally LND can be installed fresh from the marketplace.',
+  es_ES:
+    '¡LEA CUIDADOSAMENTE! Todos los canales abiertos desde la última copia de seguridad serán olvidados y pueden permanecer indefinidamente, y los canales contenidos en la copia de seguridad se cerrarán y sus fondos se devolverán a su billetera on-chain, menos las comisiones. Una vez que todos los fondos recuperables estén disponibles en su billetera on-chain, todos los fondos deben transferirse a una billetera diferente. NUNCA use una billetera LND restaurada para abrir nuevos canales. Si desea usar LND después de una restauración de copia de seguridad, primero deberá transferir todos los fondos on-chain a una billetera diferente, luego LND puede desinstalarse de forma segura y finalmente LND puede instalarse de nuevo desde el marketplace.',
+  de_DE:
+    'SORGFÄLTIG LESEN! Alle seit dem letzten Backup geöffneten Kanäle werden vergessen und können auf unbestimmte Zeit bestehen bleiben, und die im Backup enthaltenen Kanäle werden geschlossen und ihre Guthaben abzüglich Gebühren an Ihre On-Chain-Wallet zurückgegeben. Nachdem alle wiederherstellbaren Guthaben in Ihrer On-Chain-Wallet verfügbar sind, sollten alle Guthaben auf eine andere Wallet übertragen werden. Verwenden Sie NIEMALS eine wiederhergestellte LND-Wallet, um neue Kanäle zu öffnen. Wenn Sie LND nach einer Backup-Wiederherstellung verwenden möchten, müssen Sie zunächst alle On-Chain-Guthaben auf eine andere Wallet übertragen, dann kann LND sicher deinstalliert und schließlich frisch aus dem Marktplatz installiert werden.',
+  pl_PL:
+    'PRZECZYTAJ UWAŻNIE! Wszystkie kanały otwarte od ostatniej kopii zapasowej zostaną zapomniane i mogą istnieć w nieskończoność, a kanały zawarte w kopii zapasowej zostaną zamknięte, a ich środki zwrócone do Twojego portfela on-chain, pomniejszone o opłaty. Po udostępnieniu wszystkich odzyskiwalnych środków w portfelu on-chain, wszystkie środki powinny zostać przetransferowane do innego portfela. NIGDY nie używaj przywróconego portfela LND do otwierania nowych kanałów. Jeśli chcesz używać LND po przywróceniu z kopii zapasowej, musisz najpierw przetransferować wszystkie środki on-chain do innego portfela, następnie LND można bezpiecznie odinstalować, a na końcu LND można zainstalować na nowo z marketplace.',
+  fr_FR:
+    "LISEZ ATTENTIVEMENT ! Tous les canaux ouverts depuis la dernière sauvegarde seront oubliés et peuvent persister indéfiniment, et les canaux contenus dans la sauvegarde seront fermés et leurs fonds restitués à votre portefeuille on-chain, moins les frais. Une fois que tous les fonds récupérables sont disponibles dans votre portefeuille on-chain, tous les fonds doivent être transférés vers un autre portefeuille. N'utilisez JAMAIS un portefeuille LND restauré pour ouvrir de nouveaux canaux. Si vous souhaitez utiliser LND après une restauration de sauvegarde, vous devrez d'abord transférer tous les fonds on-chain vers un autre portefeuille, puis LND peut être désinstallé en toute sécurité, et enfin LND peut être installé à neuf depuis le marketplace.",
+}
+
+export const depBitcoindDescription = {
+  en_US: 'Used to subscribe to new block events.',
+  es_ES: 'Utilizado para suscribirse a eventos de nuevos bloques.',
+  de_DE: 'Wird verwendet, um neue Block-Ereignisse zu abonnieren.',
+  pl_PL: 'Używany do subskrybowania wydarzeń nowych bloków.',
+  fr_FR: "Utilisé pour s'abonner aux événements de nouveaux blocs.",
+}
+
+export const depTorDescription = {}
