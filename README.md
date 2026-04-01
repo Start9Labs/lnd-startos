@@ -21,7 +21,7 @@ A complete implementation of a Lightning Network node by [Lightning Labs](https:
 - [Installation and First-Run Flow](#installation-and-first-run-flow)
 - [Configuration Management](#configuration-management)
 - [Network Access and Interfaces](#network-access-and-interfaces)
-- [Actions](#actions-startos-ui)
+- [Actions (StartOS UI)](#actions-startos-ui)
 - [Backups and Restore](#backups-and-restore)
 - [Health Checks](#health-checks)
 - [Dependencies](#dependencies)
@@ -34,11 +34,11 @@ A complete implementation of a Lightning Network node by [Lightning Labs](https:
 
 ## Image and Container Runtime
 
-| Property      | Value                                                   |
-| ------------- | ------------------------------------------------------- |
-| Image         | `lightninglabs/lnd` (upstream, unmodified)               |
-| Architectures | x86_64, aarch64                                         |
-| Entrypoint    | `lnd` (default upstream)                                |
+| Property      | Value                                    |
+| ------------- | ---------------------------------------- |
+| Image         | `lightninglabs/lnd` (upstream, unmodified) |
+| Architectures | x86_64, aarch64                          |
+| Entrypoint    | `lnd` (default upstream)                 |
 
 ## Volume and Data Layout
 
@@ -51,7 +51,8 @@ StartOS-specific files on the `main` volume:
 | File                   | Purpose                                                                      |
 | ---------------------- | ---------------------------------------------------------------------------- |
 | `store.json`           | Persistent StartOS state (wallet password, restore flag, watchtower clients) |
-| `tls.cert` / `tls.key` | StartOS-managed TLS certificates                                             |
+| `tls.cert` / `tls.key` | StartOS-managed TLS certificates                                            |
+| `lnd.conf`             | LND configuration (managed by StartOS actions)                               |
 
 If using the `bitcoind` backend, the Bitcoin Core `main` volume is mounted read-only at `/mnt/bitcoin` for cookie authentication.
 
@@ -74,9 +75,9 @@ LND is configured entirely through **StartOS actions** (see [Actions](#actions-s
 | StartOS-Managed (via Actions) | Details                                                                |
 | ----------------------------- | ---------------------------------------------------------------------- |
 | Bitcoin backend selection     | `bitcoind` or `neutrino`                                               |
-| General settings              | Alias, color, keysend, AMP, tor-only mode                                     |
-| Routing fees                  | Base fee, fee rate, timelock delta                                             |
-| Channel settings              | Min/max size, wumbo, zero-conf, SCID alias, pending, circular route, closes    |
+| General settings              | Alias, color, keysend, AMP, tor-only mode                             |
+| Routing fees                  | Base fee, fee rate, timelock delta                                     |
+| Channel settings              | Min/max size, wumbo, zero-conf, SCID alias, pending, circular route, closes |
 | Autopilot                     | Enable/disable, max channels, allocation, channel size limits          |
 | Performance                   | DB auto-compact, invoice cleanup, reconnect stagger, graph pruning     |
 | Watchtower server             | Enable/disable, listen address                                         |
@@ -95,6 +96,23 @@ Settings **not** managed by StartOS (hardcoded):
 | `bitcoind.rpchost`                  | `bitcoind.startos:8332` | StartOS service networking       |
 | `bitcoind.rpccookie`                | `/mnt/bitcoin/.cookie`  | Cookie auth via mounted volume   |
 | `healthcheck.chainbackend.attempts` | `0`                     | Managed by StartOS health checks |
+
+### Default Overrides
+
+Only settings that **diverge from upstream LND defaults** are written to `lnd.conf` on install. All other settings are left unset, allowing LND to use its built-in defaults. This keeps `lnd.conf` minimal and avoids drift when upstream defaults change between versions.
+
+| Setting                               | Upstream Default   | Our Default             | Reason                                                                                   |
+| ------------------------------------- | ------------------ | ----------------------- | ---------------------------------------------------------------------------------------- |
+| `accept-keysend`                      | Disabled           | Enabled                 | Keysend is widely expected by wallets and apps that interact with LND nodes              |
+| `tor.skip-proxy-for-clearnet-targets` | `false` (tor-only) | `true` (allow clearnet) | Better performance by default; users can opt into tor-only via "Use Tor for all traffic" |
+
+### Form Defaults vs Placeholders
+
+Configuration actions use a consistent pattern for number and text fields:
+
+- **`default: null`** — the field is empty; if the user saves without setting a value, the key is omitted from `lnd.conf` and LND uses its upstream default
+- **`placeholder`** — shows the upstream LND default, so the user knows what value applies when the field is left empty
+- **`default: <value>`** — used only when we intentionally override the upstream default (e.g. `accept-keysend: true`); "reset defaults" restores our override, not the upstream value
 
 ## Network Access and Interfaces
 
@@ -119,33 +137,123 @@ This means LND can advertise via domain names (not just raw IPs) when the node h
 
 ## Actions (StartOS UI)
 
-### Information
+### Node Info
 
-| Action                     | Purpose                                     | Availability                                   | Inputs |
-| -------------------------- | ------------------------------------------- | ---------------------------------------------- | ------ |
-| **Node Info**              | Display node alias, pubkey, and peer URI(s) | Running only                                   | None   |
-| **Watchtower Server Info** | Display watchtower URI for sharing          | Running only (disabled if watchtower inactive) | None   |
+- **Name:** Node Info
+- **Purpose:** Display node alias, pubkey, and peer URI(s)
+- **Visibility:** Enabled
+- **Availability:** Running only
+- **Inputs:** None
+- **Outputs:** Node alias (copyable), node ID (masked, copyable), node URI(s) (masked, copyable, QR)
 
-### Configuration
+### Watchtower Server Info
 
-| Action                     | Purpose                                                                   | Availability |
-| -------------------------- | ------------------------------------------------------------------------- | ------------ |
-| **General Settings**       | Alias, color, keysend, AMP, tor-only mode                                | Any          |
-| **Routing Fees**           | Base fee, fee rate, timelock delta                                        | Any          |
-| **Channel Settings**       | Min/max size, wumbo, zero-conf, SCID alias, pending, circular route, closes | Any        |
-| **Autopilot**              | Enable/configure automatic channel management                             | Any          |
-| **Bitcoin Backend**        | Select `bitcoind` or `neutrino` (hidden; triggered as critical task on install) | Any    |
-| **Performance**            | DB auto-compact, invoice cleanup, reconnect stagger, graph pruning        | Any          |
-| **Watchtower Server**      | Enable/configure watchtower server                                        | Any          |
-| **Watchtower Client**      | Enable/configure watchtower client, add tower URIs                        | Any          |
+- **Name:** Watchtower Server Info
+- **Purpose:** Display watchtower URI for sharing with peers
+- **Visibility:** Conditional — disabled if watchtower server is not active
+- **Availability:** Running only
+- **Inputs:** None
+- **Outputs:** Tower URI (masked, copyable, QR)
 
-### Maintenance
+### General Settings
 
-| Action                        | Purpose                                                                                        | Availability | Warning                                   |
-| ----------------------------- | ---------------------------------------------------------------------------------------------- | ------------ | ----------------------------------------- |
-| **Initialize Wallet**         | Create a new wallet or migrate from Umbrel/StartOS (hidden; triggered as critical task on install) | Stopped only | Mnemonic shown once and not stored      |
-| **Reset Wallet Transactions** | Rescan on-chain transactions from wallet birthday                                              | Any          | None                                      |
-| **Recreate Macaroons**        | Delete and regenerate all macaroon files                                                       | Any          | May require restarting dependent services |
+- **Name:** General Settings
+- **Purpose:** Configure alias, color, keysend, AMP, tor-only mode
+- **Visibility:** Enabled
+- **Availability:** Any status
+- **Inputs:** Alias (text, max 32 chars), color (hex), accept-keysend (toggle, default: true), accept-amp (toggle, default: false), use-tor-only (toggle, default: false)
+- **Outputs:** None
+
+### Routing Fees
+
+- **Name:** Routing Fees
+- **Purpose:** Configure default fees and timelock delta for forwarded payments
+- **Visibility:** Enabled
+- **Availability:** Any status
+- **Inputs:** Base fee (millisatoshi), fee rate (sats per million), timelock delta (blocks, min 18, max 2016)
+- **Outputs:** None
+
+### Channel Settings
+
+- **Name:** Channel Settings
+- **Purpose:** Configure channel acceptance policies including size limits, pending channel limits, and close behavior
+- **Visibility:** Enabled
+- **Availability:** Any status
+- **Inputs:** Default channel confirmations, min/max channel size, wumbo channels (toggle), option-scid-alias (toggle), zero-conf (toggle), max pending channels, allow circular route (toggle), reject push (toggle), coop close target (blocks)
+- **Outputs:** None
+
+### Autopilot Settings
+
+- **Name:** Autopilot Settings
+- **Purpose:** Enable/configure automatic channel management
+- **Visibility:** Enabled
+- **Availability:** Any status
+- **Inputs:** Enable/disable union; when enabled: max channels, allocation (0–100%), min/max channel size, private (toggle), min confirmations, confirmation target
+- **Outputs:** None
+
+### Bitcoin Backend
+
+- **Name:** Bitcoin Backend
+- **Purpose:** Select `bitcoind` or `neutrino` as the chain backend
+- **Visibility:** Hidden (triggered as critical task on install)
+- **Availability:** Any status
+- **Inputs:** Select: bitcoind or neutrino
+- **Outputs:** None
+
+### Performance
+
+- **Name:** Performance
+- **Purpose:** Database compaction, invoice cleanup, and network efficiency settings
+- **Visibility:** Enabled
+- **Availability:** Any status
+- **Inputs:** Auto-compact (toggle), GC canceled invoices on startup (toggle), GC canceled invoices live (toggle), stagger initial reconnect (toggle), ignore historical gossip (toggle), strict graph pruning (toggle)
+- **Outputs:** None
+
+### Watchtower Server
+
+- **Name:** Watchtower Server
+- **Purpose:** Enable/configure the watchtower server and select the external address to advertise
+- **Visibility:** Enabled
+- **Availability:** Any status
+- **Inputs:** External IP selection (from available peer interface public addresses, or "none" to disable)
+- **Outputs:** None
+
+### Watchtower Client Settings
+
+- **Name:** Watchtower Client Settings
+- **Purpose:** Enable/configure watchtower client and add tower URIs
+- **Visibility:** Enabled
+- **Availability:** Any status
+- **Inputs:** Enable/disable union; when enabled: list of watchtower URIs (`pubkey@host:9911`)
+- **Outputs:** None
+
+### Initialize Wallet
+
+- **Name:** Initialize Wallet
+- **Purpose:** Create a new wallet or migrate from Umbrel 1.x / another StartOS server
+- **Visibility:** Hidden (triggered as critical task on install)
+- **Availability:** Stopped only
+- **Inputs:** Select variant: "Start Fresh" (no inputs), "Migrate from Umbrel" (host + password), or "Migrate from StartOS" (host + master password)
+- **Outputs:** For fresh: 24-word Aezeed mnemonic (masked, copyable — shown once, not stored). For migration: success/failure message
+
+### Reset Wallet Transactions
+
+- **Name:** Reset Wallet Transactions
+- **Purpose:** Rescan on-chain transactions from wallet birthday; useful for picking up missed transactions
+- **Visibility:** Enabled
+- **Availability:** Any status
+- **Inputs:** None
+- **Outputs:** None (restarts LND with `--reset-wallet-transactions`)
+
+### Recreate Macaroons
+
+- **Name:** Recreate Macaroons
+- **Purpose:** Delete and regenerate all macaroon files
+- **Visibility:** Enabled
+- **Availability:** Any status
+- **Inputs:** None
+- **Outputs:** None
+- **Warning:** May require restarting dependent services
 
 ## Backups and Restore
 
@@ -157,40 +265,23 @@ This means LND can advertise via domain names (not just raw IPs) when the node h
 
 ## Health Checks
 
-| Check                      | Method                                              | Messages                                                   |
-| -------------------------- | --------------------------------------------------- | ---------------------------------------------------------- |
-| **REST Interface**         | Port listening (8080)                               | Ready: "The REST interface is ready to accept connections" |
-| **Network and Graph Sync** | `lncli getinfo` (synced_to_chain + synced_to_graph) | Synced / Syncing to chain / Syncing to graph / Starting    |
-| **Node Reachability**      | Config check (conditional)                          | Disabled message if no external IP or hostname configured  |
-| **Backup Restoration**     | Conditional (after restore)                         | Warning to sweep funds and reinstall                       |
+| Check                      | Method                                              | Grace Period | Messages                                                   |
+| -------------------------- | --------------------------------------------------- | ------------ | ---------------------------------------------------------- |
+| **REST Interface**         | Port listening (8080)                               | Default      | Success: "The REST interface is ready to accept connections" / Error: "The REST Interface is not ready" |
+| **Network and Graph Sync** | `lncli getinfo` (synced_to_chain + synced_to_graph) | Default      | Synced / Syncing to chain / Syncing to graph / Starting    |
+| **Node Reachability**      | Config check (conditional)                          | N/A          | Disabled message if no external IP or hostname configured  |
+| **Backup Restoration**     | Conditional (after restore)                         | N/A          | Warning to sweep funds and reinstall                       |
 
 ## Dependencies
 
-| Dependency   | Required | Purpose                                                        |
-| ------------ | -------- | -------------------------------------------------------------- |
-| Bitcoin Core | Optional | Block data, transaction broadcasting via ZMQ + RPC cookie auth |
-| Tor          | Optional | Required when "Use Tor for all traffic" is enabled             |
+| Dependency   | Required | Mounted Volume                          | Health Checks Required         | Purpose                                                        |
+| ------------ | -------- | --------------------------------------- | ------------------------------ | -------------------------------------------------------------- |
+| Bitcoin Core | Optional | `main` → `/mnt/bitcoin` (read-only)    | `sync-progress`, `bitcoind`    | Block data, transaction broadcasting via ZMQ + RPC cookie auth |
+| Tor          | Optional | None                                    | None                           | Required when "Use Tor for all traffic" is enabled             |
 
-When using Bitcoin Core as backend, LND requires the `sync-progress` and `bitcoind` health checks to pass on Bitcoin Core before starting. LND can alternatively use **Neutrino** (built-in light client) with no Bitcoin Core dependency.
+When using Bitcoin Core as backend, LND requires the listed health checks to pass on Bitcoin Core before starting. LND uses cookie authentication via the mounted `.cookie` file.
 
-## Default Overrides
-
-Only settings that **diverge from upstream LND defaults** are written to `lnd.conf` on install. All other settings are left unset, allowing LND to use its built-in defaults. This keeps `lnd.conf` minimal and avoids drift when upstream defaults change between versions.
-
-### Seeded overrides (written to `lnd.conf` on install)
-
-| Setting                               | Upstream Default   | Our Default             | Reason                                                                                   |
-| ------------------------------------- | ------------------ | ----------------------- | ---------------------------------------------------------------------------------------- |
-| `accept-keysend`                      | Disabled           | Enabled                 | Keysend is widely expected by wallets and apps that interact with LND nodes              |
-| `tor.skip-proxy-for-clearnet-targets` | `false` (tor-only) | `true` (allow clearnet) | Better performance by default; users can opt into tor-only via "Use Tor for all traffic" |
-
-### Form defaults vs placeholders
-
-Configuration actions use a consistent pattern for number and text fields:
-
-- **`default: null`** — the field is empty; if the user saves without setting a value, the key is omitted from `lnd.conf` and LND uses its upstream default
-- **`placeholder`** — shows the upstream LND default, so the user knows what value applies when the field is left empty
-- **`default: <value>`** — used only when we intentionally override the upstream default (e.g. `accept-keysend: true`); "reset defaults" restores our override, not the upstream value
+LND can alternatively use **Neutrino** (built-in light client) with no Bitcoin Core dependency.
 
 ## Limitations and Differences
 
@@ -224,6 +315,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for build instructions and development wo
 
 ```yaml
 package_id: lnd
+upstream_version: see manifest dockerTag
 image: lightninglabs/lnd
 architectures: [x86_64, aarch64]
 volumes:
@@ -238,6 +330,7 @@ dependencies:
   - tor (optional)
 startos_managed_env_vars: []
 startos_managed_files:
+  - lnd.conf
   - store.json
   - tls.cert
   - tls.key
