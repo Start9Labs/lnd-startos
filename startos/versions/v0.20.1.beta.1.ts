@@ -13,8 +13,8 @@ type OldConfig = {
   }
 }
 
-export const v_0_20_1_beta_1_b9 = VersionInfo.of({
-  version: '0.20.1-beta:1-beta.9',
+export const v_0_20_1_beta_1 = VersionInfo.of({
+  version: '0.20.1-beta:1',
   releaseNotes: {
     en_US:
       'Expanded configuration options: new Channel Settings action (min/max channel size, wumbo, zero-conf, SCID alias, pending channels, circular route, reject push, coop close target), new Performance action (DB auto-compact, invoice cleanup, reconnect stagger, gossip filters, graph pruning), new Routing Fees action with timelock delta, and Accept AMP toggle in General Settings. Renamed "Bitcoin Channel Configuration" to "Routing Fees" for clarity.',
