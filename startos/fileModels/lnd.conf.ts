@@ -138,6 +138,7 @@ export const fullConfigSpec = InputSpec.of({
         ),
       },
     ],
+    footnote: `${i18n('Default')}: first 10 hex chars of node pubkey`,
   }),
   color: Value.text({
     name: i18n('Color'),
@@ -152,27 +153,31 @@ export const fullConfigSpec = InputSpec.of({
         ),
       },
     ],
+    footnote: `${i18n('Default')}: 3399FF`,
   }),
-  'accept-keysend': Value.toggle({
+  'accept-keysend': Value.triState({
     name: i18n('Accept Keysend'),
     default: true,
     description: i18n(
       'Allow others to send payments directly to your public key through keysend instead of having to get a new invoice',
     ),
+    footnote: `${i18n('Default')}: false`,
   }),
-  'accept-amp': Value.toggle({
+  'accept-amp': Value.triState({
     name: i18n('Accept AMP'),
-    default: false,
+    default: null,
     description: i18n(
       'Accept Atomic Multi-Path spontaneous payments. AMP allows a single payment to be split across multiple channels for better reliability',
     ),
+    footnote: `${i18n('Default')}: false`,
   }),
-  'use-tor-only': Value.toggle({
+  'use-tor-only': Value.triState({
     name: i18n('Use Tor for all traffic'),
     default: false,
     description: i18n(
       "Use the tor proxy even for connections that are reachable on clearnet. This will hide your node's public IP address, but will slow down your node's performance",
     ),
+    footnote: `${i18n('Default')}: true`,
   }),
   // ── Routing Fees ──
   'base-fee': Value.number({
@@ -181,11 +186,11 @@ export const fullConfigSpec = InputSpec.of({
       'The base fee in millisatoshi you will charge for forwarding payments on your channels. ',
     ),
     default: null,
-    placeholder: '1000',
     required: false,
     min: 0,
     integer: true,
     units: 'millisatoshi',
+    footnote: `${i18n('Default')}: 1000 millisatoshi`,
   }),
   'fee-rate': Value.number({
     name: i18n('Routing Fee Rate'),
@@ -193,12 +198,12 @@ export const fullConfigSpec = InputSpec.of({
       'The fee rate used when forwarding payments on your channels. The total fee charged is the Base Fee + (amount * Fee Rate / 1000000), where amount is the forwarded amount. Measured in sats per million ',
     ),
     default: null,
-    placeholder: '1',
     required: false,
     min: 0,
     max: 1000000,
     integer: true,
     units: 'sats per million',
+    footnote: `${i18n('Default')}: 1 sats per million`,
   }),
   'timelock-delta': Value.number({
     name: i18n('Time Lock Delta'),
@@ -206,12 +211,12 @@ export const fullConfigSpec = InputSpec.of({
       'The number of blocks subtracted from the incoming HTLC timelock for forwarded payments. Higher values are safer but may reduce routing competitiveness. Routing nodes commonly use 144 (approximately 24 hours)',
     ),
     default: null,
-    placeholder: '80',
     required: false,
     min: 18,
     max: 2016,
     integer: true,
     units: 'blocks',
+    footnote: `${i18n('Default')}: 80 blocks`,
   }),
   // ── Channel Settings ──
   'default-channel-confirmations': Value.number({
@@ -220,24 +225,24 @@ export const fullConfigSpec = InputSpec.of({
       "The default number of confirmations a channel must have before it's considered open. LND will require any incoming channel requests to wait this many confirmations before it considers the channel active. ",
     ),
     default: null,
-    placeholder: '3',
     required: false,
     min: 1,
     max: 6,
     integer: true,
     units: 'blocks',
+    footnote: `${i18n('Default')}: 3 blocks`,
   }),
   'min-channel-size': Value.number({
     name: i18n('Minimum Channel Size'),
     description: i18n(
-      'The smallest channel size in satoshis that your node will accept. Increase this to reject tiny, uneconomical channels. The upstream default is 20,000 sats',
+      'The smallest channel size in satoshis that your node will accept. Increase this to reject tiny, uneconomical channels.',
     ),
     default: null,
-    placeholder: '20000',
     required: false,
     min: 20000,
     integer: true,
     units: 'satoshis',
+    footnote: `${i18n('Default')}: 20000 satoshis`,
   }),
   'max-channel-size': Value.number({
     name: i18n('Maximum Channel Size'),
@@ -245,32 +250,35 @@ export const fullConfigSpec = InputSpec.of({
       'The largest channel size in satoshis that your node will accept. To accept channels larger than ~0.167 BTC (16,777,215 sats), you must also enable Wumbo Channels',
     ),
     default: null,
-    placeholder: '16777215',
     required: false,
     min: 20000,
     integer: true,
     units: 'satoshis',
+    footnote: `${i18n('Default')}: 16777215 satoshis (without wumbo)`,
   }),
-  'wumbo-channels': Value.toggle({
+  'wumbo-channels': Value.triState({
     name: i18n('Wumbo Channels'),
-    default: false,
+    default: null,
     description: i18n(
       'Enable support for channels larger than ~0.167 BTC (16,777,215 sats). Both peers must have Wumbo enabled to open a large channel. Required if you set a Maximum Channel Size above 16,777,215',
     ),
+    footnote: `${i18n('Default')}: false`,
   }),
-  'option-scid-alias': Value.toggle({
+  'option-scid-alias': Value.triState({
     name: i18n('Enable option-scid-alias Channels'),
-    default: false,
+    default: null,
     description: i18n(
       'Set to enable support for option_scid_alias channels, which can be referred to by an alias instead of the confirmed ShortChannelID. Additionally, is needed to open zero-conf channels. ',
     ),
+    footnote: `${i18n('Default')}: false`,
   }),
-  'zero-conf': Value.toggle({
+  'zero-conf': Value.triState({
     name: i18n('Enable zero-conf Channels'),
-    default: false,
+    default: null,
     description: i18n(
       'Enable support for zero-confirmation channels. Requires option-scid-alias to also be enabled. Zero-conf channels can be used immediately without waiting for on-chain confirmations. Required for Lightning Loop and Pool integration',
     ),
+    footnote: `${i18n('Default')}: false`,
   }),
   'max-pending-channels': Value.number({
     name: i18n('Max Pending Channels'),
@@ -278,25 +286,27 @@ export const fullConfigSpec = InputSpec.of({
       'The maximum number of incoming channel requests waiting to be confirmed per peer. Increase this if you want to allow peers to batch-open multiple channels with you',
     ),
     default: null,
-    placeholder: '1',
     required: false,
     min: 1,
     max: 10,
     integer: true,
+    footnote: `${i18n('Default')}: 1`,
   }),
-  'allow-circular-route': Value.toggle({
+  'allow-circular-route': Value.triState({
     name: i18n('Allow Circular Route'),
-    default: false,
+    default: null,
     description: i18n(
       'Allow a payment to arrive and depart through the same channel. Required for self-rebalancing tools such as Balance of Satoshis or circular rebalance scripts',
     ),
+    footnote: `${i18n('Default')}: false`,
   }),
-  'reject-push': Value.toggle({
+  'reject-push': Value.triState({
     name: i18n('Reject Push'),
-    default: false,
+    default: null,
     description: i18n(
       'Reject incoming channel open requests that include a non-zero push amount (where the opener gifts sats to your side). This can be used as a precaution against certain probing attacks',
     ),
+    footnote: `${i18n('Default')}: false`,
   }),
   'coop-close-target': Value.number({
     name: i18n('Cooperative Close Confirmation Target'),
@@ -304,54 +314,60 @@ export const fullConfigSpec = InputSpec.of({
       'The target number of blocks for cooperative channel close transactions. Lower values pay higher on-chain fees for faster confirmation. Higher values (e.g. 100-1000) can save fees when speed is not important',
     ),
     default: null,
-    placeholder: '6',
     required: false,
     min: 1,
     integer: true,
     units: 'blocks',
+    footnote: `${i18n('Default')}: 6 blocks`,
   }),
   // ── Performance ──
-  'auto-compact': Value.toggle({
+  'auto-compact': Value.triState({
     name: i18n('Auto-Compact Database'),
-    default: false,
+    default: null,
     description: i18n(
       'Automatically compact the bolt database on startup. Compaction reclaims wasted disk space and can improve performance over time. Recommended for most nodes',
     ),
+    footnote: `${i18n('Default')}: false`,
   }),
-  'gc-canceled-invoices-startup': Value.toggle({
+  'gc-canceled-invoices-startup': Value.triState({
     name: i18n('Delete Canceled Invoices on Startup'),
-    default: false,
+    default: null,
     description: i18n(
       'Delete all canceled invoices when LND starts. This reduces database size and improves performance',
     ),
+    footnote: `${i18n('Default')}: false`,
   }),
-  'gc-canceled-invoices-live': Value.toggle({
+  'gc-canceled-invoices-live': Value.triState({
     name: i18n('Delete Canceled Invoices Immediately'),
-    default: false,
+    default: null,
     description: i18n(
       'Delete canceled invoices immediately as they are canceled, rather than waiting for startup cleanup',
     ),
+    footnote: `${i18n('Default')}: false`,
   }),
-  'stagger-initial-reconnect': Value.toggle({
+  'stagger-initial-reconnect': Value.triState({
     name: i18n('Stagger Initial Reconnect'),
-    default: false,
+    default: null,
     description: i18n(
       'Randomize the delay between reconnection attempts to peers on startup. Prevents a bandwidth spike when all peers reconnect simultaneously. Recommended for routing nodes',
     ),
+    footnote: `${i18n('Default')}: false`,
   }),
-  'ignore-historical-gossip': Value.toggle({
+  'ignore-historical-gossip': Value.triState({
     name: i18n('Ignore Historical Gossip Filters'),
-    default: false,
+    default: null,
     description: i18n(
       'Do not serve historical gossip data to peers that request it. Saves bandwidth and CPU at the cost of being less helpful to peers bootstrapping their network graph',
     ),
+    footnote: `${i18n('Default')}: false`,
   }),
-  'strict-graph-pruning': Value.toggle({
+  'strict-graph-pruning': Value.triState({
     name: i18n('Strict Graph Pruning'),
-    default: false,
+    default: null,
     description: i18n(
       'Prune a channel from the network graph if even one of its edges (direction announcements) is stale. Results in a smaller, more accurate routing graph',
     ),
+    footnote: `${i18n('Default')}: false`,
   }),
   // ── Autopilot ──
   autopilot: Value.union({
@@ -368,12 +384,13 @@ export const fullConfigSpec = InputSpec.of({
       enabled: {
         name: i18n('Enabled'),
         spec: InputSpec.of({
-          private: Value.toggle({
+          private: Value.triState({
             name: i18n('Private'),
-            default: false,
+            default: null,
             description: i18n(
               "Whether the channels created by the autopilot agent should be private or not. Private channels won't be announced to the network.",
             ),
+            footnote: `${i18n('Default')}: false`,
           }),
           maxchannels: Value.number({
             name: i18n('Maximum Channels'),
@@ -381,10 +398,10 @@ export const fullConfigSpec = InputSpec.of({
               'The maximum number of channels that should be created.',
             ),
             default: null,
-            placeholder: '5',
             required: false,
             min: 1,
             integer: true,
+            footnote: `${i18n('Default')}: 5`,
           }),
           allocation: Value.number({
             name: i18n('Allocation'),
@@ -392,12 +409,12 @@ export const fullConfigSpec = InputSpec.of({
               'The fraction of total funds that should be committed to automatic channel establishment. For example 60% means that 60% of the total funds available within the wallet should be used to automatically establish channels. The total amount of attempted channels will still respect the "Maximum Channels" parameter. ',
             ),
             default: null,
-            placeholder: '60',
             required: false,
             min: 0,
             max: 100,
             integer: true,
             units: '%',
+            footnote: `${i18n('Default')}: 60%`,
           }),
           'min-channel-size': Value.number({
             name: i18n('Minimum Channel Size'),
@@ -405,11 +422,11 @@ export const fullConfigSpec = InputSpec.of({
               'The smallest channel that the autopilot agent should create.',
             ),
             default: null,
-            placeholder: '20000',
             required: false,
             min: 0,
             integer: true,
             units: 'satoshis',
+            footnote: `${i18n('Default')}: 20000 satoshis`,
           }),
           'max-channel-size': Value.number({
             name: i18n('Maximum Channel Size'),
@@ -417,11 +434,11 @@ export const fullConfigSpec = InputSpec.of({
               'The largest channel that the autopilot agent should create.',
             ),
             default: null,
-            placeholder: '16777215',
             required: false,
             min: 0,
             integer: true,
             units: 'satoshis',
+            footnote: `${i18n('Default')}: 16777215 satoshis`,
           }),
           'min-confirmations': Value.number({
             name: i18n('Minimum Confirmations'),
@@ -429,11 +446,11 @@ export const fullConfigSpec = InputSpec.of({
               'The minimum number of confirmations each of your inputs in funding transactions created by the autopilot agent must have.',
             ),
             default: null,
-            placeholder: '1',
             required: false,
             min: 0,
             integer: true,
             units: 'blocks',
+            footnote: `${i18n('Default')}: 1 block`,
           }),
           'confirmation-target': Value.number({
             name: i18n('Confirmation Target'),
@@ -441,11 +458,11 @@ export const fullConfigSpec = InputSpec.of({
               'The confirmation target (in blocks) for channels opened by autopilot.',
             ),
             default: null,
-            placeholder: '3',
             required: false,
             min: 0,
             integer: true,
             units: 'blocks',
+            footnote: `${i18n('Default')}: 3 blocks`,
           }),
         }),
       },
@@ -573,56 +590,65 @@ export function formToFile(
   if ('color' in input)
     result.color = input.color ? `#${input.color}` : undefined
   if ('accept-keysend' in input)
-    result['accept-keysend'] = input['accept-keysend']
-  if ('accept-amp' in input) result['accept-amp'] = input['accept-amp']
+    result['accept-keysend'] = input['accept-keysend'] ?? undefined
+  if ('accept-amp' in input)
+    result['accept-amp'] = input['accept-amp'] ?? undefined
 
   // Tor
   if ('use-tor-only' in input)
-    result['tor.skip-proxy-for-clearnet-targets'] = !input['use-tor-only']
+    result['tor.skip-proxy-for-clearnet-targets'] =
+      input['use-tor-only'] == null ? undefined : !input['use-tor-only']
 
   // Routing Fees
-  if ('base-fee' in input) result['bitcoin.basefee'] = input['base-fee']
-  if ('fee-rate' in input) result['bitcoin.feerate'] = input['fee-rate']
+  if ('base-fee' in input)
+    result['bitcoin.basefee'] = input['base-fee'] ?? undefined
+  if ('fee-rate' in input)
+    result['bitcoin.feerate'] = input['fee-rate'] ?? undefined
   if ('timelock-delta' in input)
-    result['bitcoin.timelockdelta'] = input['timelock-delta']
+    result['bitcoin.timelockdelta'] = input['timelock-delta'] ?? undefined
 
   // Channel Settings
   if ('default-channel-confirmations' in input)
-    result['bitcoin.defaultchanconfs'] = input['default-channel-confirmations']
+    result['bitcoin.defaultchanconfs'] =
+      input['default-channel-confirmations'] ?? undefined
   if ('min-channel-size' in input)
-    result.minchansize = input['min-channel-size']
+    result.minchansize = input['min-channel-size'] ?? undefined
   if ('max-channel-size' in input)
-    result.maxchansize = input['max-channel-size']
+    result.maxchansize = input['max-channel-size'] ?? undefined
   if ('wumbo-channels' in input)
-    result['protocol.wumbo-channels'] = input['wumbo-channels']
+    result['protocol.wumbo-channels'] = input['wumbo-channels'] ?? undefined
   if ('option-scid-alias' in input)
-    result['protocol.option-scid-alias'] = input['option-scid-alias']
+    result['protocol.option-scid-alias'] =
+      input['option-scid-alias'] ?? undefined
   if ('zero-conf' in input)
-    result['protocol.zero-conf'] = input['zero-conf']
+    result['protocol.zero-conf'] = input['zero-conf'] ?? undefined
   if ('max-pending-channels' in input)
-    result.maxpendingchannels = input['max-pending-channels']
+    result.maxpendingchannels = input['max-pending-channels'] ?? undefined
   if ('allow-circular-route' in input)
-    result['allow-circular-route'] = input['allow-circular-route']
-  if ('reject-push' in input) result.rejectpush = input['reject-push']
+    result['allow-circular-route'] = input['allow-circular-route'] ?? undefined
+  if ('reject-push' in input)
+    result.rejectpush = input['reject-push'] ?? undefined
   if ('coop-close-target' in input)
-    result['coop-close-target-confs'] = input['coop-close-target']
+    result['coop-close-target-confs'] = input['coop-close-target'] ?? undefined
 
   // Performance
   if ('auto-compact' in input)
-    result['db.bolt.auto-compact'] = input['auto-compact']
+    result['db.bolt.auto-compact'] = input['auto-compact'] ?? undefined
   if ('gc-canceled-invoices-startup' in input)
     result['gc-canceled-invoices-on-startup'] =
-      input['gc-canceled-invoices-startup']
+      input['gc-canceled-invoices-startup'] ?? undefined
   if ('gc-canceled-invoices-live' in input)
     result['gc-canceled-invoices-on-the-fly'] =
-      input['gc-canceled-invoices-live']
+      input['gc-canceled-invoices-live'] ?? undefined
   if ('stagger-initial-reconnect' in input)
-    result['stagger-initial-reconnect'] = input['stagger-initial-reconnect']
+    result['stagger-initial-reconnect'] =
+      input['stagger-initial-reconnect'] ?? undefined
   if ('ignore-historical-gossip' in input)
     result['ignore-historical-gossip-filters'] =
-      input['ignore-historical-gossip']
+      input['ignore-historical-gossip'] ?? undefined
   if ('strict-graph-pruning' in input)
-    result['routing.strictgraphpruning'] = input['strict-graph-pruning']
+    result['routing.strictgraphpruning'] =
+      input['strict-graph-pruning'] ?? undefined
 
   // Autopilot
   if (input.autopilot) {
@@ -633,19 +659,21 @@ export function formToFile(
       result['autopilot.active'] = true
       if (val) {
         if ('maxchannels' in val)
-          result['autopilot.maxchannels'] = val.maxchannels
+          result['autopilot.maxchannels'] = val.maxchannels ?? undefined
         if ('allocation' in val)
           result['autopilot.allocation'] =
             val.allocation != null ? val.allocation / 100 : undefined
         if ('min-channel-size' in val)
-          result['autopilot.minchansize'] = val['min-channel-size']
+          result['autopilot.minchansize'] = val['min-channel-size'] ?? undefined
         if ('max-channel-size' in val)
-          result['autopilot.maxchansize'] = val['max-channel-size']
-        if ('private' in val) result['autopilot.private'] = val.private
+          result['autopilot.maxchansize'] = val['max-channel-size'] ?? undefined
+        if ('private' in val)
+          result['autopilot.private'] = val.private ?? undefined
         if ('min-confirmations' in val)
-          result['autopilot.minconfs'] = val['min-confirmations']
+          result['autopilot.minconfs'] = val['min-confirmations'] ?? undefined
         if ('confirmation-target' in val)
-          result['autopilot.conftarget'] = val['confirmation-target']
+          result['autopilot.conftarget'] =
+            val['confirmation-target'] ?? undefined
       }
     }
   }

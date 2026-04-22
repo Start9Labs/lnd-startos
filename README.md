@@ -106,13 +106,14 @@ Only settings that **diverge from upstream LND defaults** are written to `lnd.co
 | `accept-keysend`                      | Disabled           | Enabled                 | Keysend is widely expected by wallets and apps that interact with LND nodes              |
 | `tor.skip-proxy-for-clearnet-targets` | `false` (tor-only) | `true` (allow clearnet) | Better performance by default; users can opt into tor-only via "Use Tor for all traffic" |
 
-### Form Defaults vs Placeholders
+### Form Defaults and Footnotes
 
-Configuration actions use a consistent pattern for number and text fields:
+Configuration actions use a consistent pattern across number, text, and boolean fields:
 
-- **`default: null`** — the field is empty; if the user saves without setting a value, the key is omitted from `lnd.conf` and LND uses its upstream default
-- **`placeholder`** — shows the upstream LND default, so the user knows what value applies when the field is left empty
+- **`default: null`** — the field is empty (for numbers/text) or set to the middle "—" state (for tri-state booleans); if the user saves without changing the value, the key is omitted from `lnd.conf` and LND uses its upstream default
+- **`footnote: "Default: <value>"`** — shows the upstream LND default persistently beneath the field, so the user knows what value applies when the field is left unset
 - **`default: <value>`** — used only when we intentionally override the upstream default (e.g. `accept-keysend: true`); "reset defaults" restores our override, not the upstream value
+- Optional booleans use `Value.triState` (true / false / null) rather than `Value.toggle` so the "null" middle state maps cleanly to "use the upstream default"
 
 ## Network Access and Interfaces
 
@@ -161,7 +162,7 @@ This means LND can advertise via domain names (not just raw IPs) when the node h
 - **Purpose:** Configure alias, color, keysend, AMP, tor-only mode
 - **Visibility:** Enabled
 - **Availability:** Any status
-- **Inputs:** Alias (text, max 32 chars), color (hex), accept-keysend (toggle, default: true), accept-amp (toggle, default: false), use-tor-only (toggle, default: false)
+- **Inputs:** Alias (text, max 32 chars), color (hex), accept-keysend (tri-state, default: true), accept-amp (tri-state, default: null), use-tor-only (tri-state, default: false)
 - **Outputs:** None
 
 ### Routing Fees
@@ -179,7 +180,7 @@ This means LND can advertise via domain names (not just raw IPs) when the node h
 - **Purpose:** Configure channel acceptance policies including size limits, pending channel limits, and close behavior
 - **Visibility:** Enabled
 - **Availability:** Any status
-- **Inputs:** Default channel confirmations, min/max channel size, wumbo channels (toggle), option-scid-alias (toggle), zero-conf (toggle), max pending channels, allow circular route (toggle), reject push (toggle), coop close target (blocks)
+- **Inputs:** Default channel confirmations, min/max channel size, wumbo channels (tri-state), option-scid-alias (tri-state), zero-conf (tri-state), max pending channels, allow circular route (tri-state), reject push (tri-state), coop close target (blocks)
 - **Outputs:** None
 
 ### Autopilot Settings
@@ -188,7 +189,7 @@ This means LND can advertise via domain names (not just raw IPs) when the node h
 - **Purpose:** Enable/configure automatic channel management
 - **Visibility:** Enabled
 - **Availability:** Any status
-- **Inputs:** Enable/disable union; when enabled: max channels, allocation (0–100%), min/max channel size, private (toggle), min confirmations, confirmation target
+- **Inputs:** Enable/disable union; when enabled: max channels, allocation (0–100%), min/max channel size, private (tri-state), min confirmations, confirmation target
 - **Outputs:** None
 
 ### Bitcoin Backend
@@ -206,7 +207,7 @@ This means LND can advertise via domain names (not just raw IPs) when the node h
 - **Purpose:** Database compaction, invoice cleanup, and network efficiency settings
 - **Visibility:** Enabled
 - **Availability:** Any status
-- **Inputs:** Auto-compact (toggle), GC canceled invoices on startup (toggle), GC canceled invoices live (toggle), stagger initial reconnect (toggle), ignore historical gossip (toggle), strict graph pruning (toggle)
+- **Inputs:** Auto-compact (tri-state), GC canceled invoices on startup (tri-state), GC canceled invoices live (tri-state), stagger initial reconnect (tri-state), ignore historical gossip (tri-state), strict graph pruning (tri-state)
 - **Outputs:** None
 
 ### Watchtower Server
@@ -265,12 +266,14 @@ This means LND can advertise via domain names (not just raw IPs) when the node h
 
 ## Health Checks
 
-| Check                      | Method                                              | Grace Period | Messages                                                   |
-| -------------------------- | --------------------------------------------------- | ------------ | ---------------------------------------------------------- |
-| **REST Interface**         | Port listening (8080)                               | Default      | Success: "The REST interface is ready to accept connections" / Error: "The REST Interface is not ready" |
-| **Network and Graph Sync** | `lncli getinfo` (synced_to_chain + synced_to_graph) | Default      | Synced / Syncing to chain / Syncing to graph / Starting    |
-| **Node Reachability**      | Config check (conditional)                          | N/A          | Disabled message if no external IP or hostname configured  |
-| **Backup Restoration**     | Conditional (after restore)                         | N/A          | Warning to sweep funds and reinstall                       |
+| Check                      | Method                                                               | Grace Period | Messages                                                  |
+| -------------------------- | -------------------------------------------------------------------- | ------------ | --------------------------------------------------------- |
+| **LND Server**             | HTTPS `GET /v1/state` on port 8080 using the self-signed `tls.cert`  | Default      | Success: "LND is ready" / Starting: (no message, waiting) |
+| **Network and Graph Sync** | `lncli getinfo` (synced_to_chain + synced_to_graph)                  | Default      | Synced / Syncing to chain / Syncing to graph / Starting   |
+| **Node Reachability**      | Config check (conditional)                                           | N/A          | Disabled message if no external IP or hostname configured |
+| **Backup Restoration**     | Conditional (after restore)                                          | N/A          | Warning to sweep funds and reinstall                      |
+
+The LND Server check calls the REST `/v1/state` endpoint and returns `success` once the server replies with any valid state JSON. It is a stronger readiness signal than a bare port-listening check — the port binds before LND is actually ready to serve RPCs — so dependent services (like Mempool) that gate on this health check will wait until LND can answer API calls.
 
 ## Dependencies
 
@@ -349,7 +352,7 @@ actions:
   - reset-wallet-transactions
   - recreate-macaroons
 health_checks:
-  - port_listening: 8080
+  - lnd_state: https GET /v1/state on 8080 (self-signed cert from tls.cert)
   - lncli_getinfo: synced_to_chain, synced_to_graph
   - reachability: conditional
 backup_volumes:

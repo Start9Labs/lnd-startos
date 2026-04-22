@@ -3,9 +3,6 @@ export const DEFAULT_LANG = 'en_US'
 const dict = {
   // main.ts
   'Starting LND!': 0,
-  'REST Interface': 1,
-  'The REST interface is ready to accept connections': 2,
-  'The REST Interface is not ready': 3,
   'Network and Graph Sync Progress': 4,
   'Synced to chain and graph': 5,
   'Syncing to chain': 6,
@@ -290,6 +287,16 @@ const dict = {
   'Configure channel acceptance policies including size limits, pending channel limits, and close behavior': 248,
   Performance: 249,
   'Performance and maintenance settings for database compaction, invoice cleanup, and network efficiency': 250,
+
+  // main.ts — ready check
+  'LND Server': 252,
+  'LND is ready': 253,
+
+  // Footnote label for showing upstream default value
+  Default: 254,
+
+  // Refreshed description after moving upstream default into the footnote
+  'The smallest channel size in satoshis that your node will accept. Increase this to reject tiny, uneconomical channels.': 255,
 } as const
 
 /**

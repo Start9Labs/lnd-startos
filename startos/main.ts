@@ -1,4 +1,7 @@
 import { FileHelper } from '@start9labs/start-sdk'
+import { manifest as bitcoinManifest } from 'bitcoin-core-startos/startos/manifest'
+import { readFile } from 'node:fs/promises'
+import { request } from 'node:https'
 import { base64 } from 'rfc4648'
 import { lndConfFile } from './fileModels/lnd.conf'
 import { storeJson } from './fileModels/store.json'
@@ -14,6 +17,36 @@ import {
   neutrinoBundle,
   sleep,
 } from './utils'
+
+const certPath = '/media/startos/volumes/main/tls.cert'
+/** Hit LND's /v1/state REST endpoint using the self-signed TLS cert. */
+async function getLndState(): Promise<string | null> {
+  const ca = await readFile(certPath).catch(() => null)
+  return new Promise((resolve) => {
+    const req = request(
+      `https://lnd.startos:${restPort}/v1/state`,
+      { ca: ca ?? undefined, rejectUnauthorized: !!ca, timeout: 5000 },
+      (res) => {
+        let data = ''
+        res.on('data', (c) => (data += c))
+        res.on('end', () => {
+          try {
+            resolve((JSON.parse(data) as { state: string }).state)
+          } catch {
+            resolve(null)
+          }
+        })
+      },
+    )
+    req.on('error', () => resolve(null))
+    req.on('timeout', () => {
+      req.destroy()
+      resolve(null)
+    })
+    req.end()
+  })
+}
+
 
 export const main = sdk.setupMain(async ({ effects }) => {
   /**
@@ -50,7 +83,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
   let mounts = mainMounts
 
   if (useBitcoind) {
-    mounts = mounts.mountDependency({
+    mounts = mounts.mountDependency<typeof bitcoinManifest>({
       dependencyId: 'bitcoind',
       volumeId: 'main',
       mountpoint: bitcoindMnt,
@@ -89,14 +122,14 @@ export const main = sdk.setupMain(async ({ effects }) => {
       exec: { command: ['lnd', ...lndArgs] },
       subcontainer: lndSub,
       ready: {
-        display: i18n('REST Interface'),
-        fn: () =>
-          sdk.healthCheck.checkPortListening(effects, restPort, {
-            successMessage: i18n(
-              'The REST interface is ready to accept connections',
-            ),
-            errorMessage: i18n('The REST Interface is not ready'),
-          }),
+        display: i18n('LND Server'),
+        fn: async () => {
+          const lndState = await getLndState()
+          if (!lndState) {
+            return { result: 'starting', message: null }
+          }
+          return { result: 'success', message: i18n('LND is ready') }
+        },
       },
       requires: [],
     })

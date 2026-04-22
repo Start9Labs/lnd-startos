@@ -13,19 +13,19 @@ type OldConfig = {
   }
 }
 
-export const v_0_20_1_beta_1 = VersionInfo.of({
-  version: '0.20.1-beta:1',
+export const v_0_20_1_beta_2 = VersionInfo.of({
+  version: '0.20.1-beta:2',
   releaseNotes: {
     en_US:
-      'Expanded configuration options: new Channel Settings action (min/max channel size, wumbo, zero-conf, SCID alias, pending channels, circular route, reject push, coop close target), new Performance action (DB auto-compact, invoice cleanup, reconnect stagger, gossip filters, graph pruning), new Routing Fees action with timelock delta, and Accept AMP toggle in General Settings. Renamed "Bitcoin Channel Configuration" to "Routing Fees" for clarity.',
+      'Stronger LND readiness check: the "LND Server" health check now queries the REST /v1/state endpoint over TLS instead of only verifying port 8080 is listening, so dependent services wait until LND can actually answer API calls.',
     es_ES:
-      'Opciones de configuración ampliadas: nueva acción Configuración de Canales (tamaño mín/máx de canal, wumbo, zero-conf, alias SCID, canales pendientes, ruta circular, rechazo de push, cierre cooperativo), nueva acción Rendimiento (auto-compactación de BD, limpieza de facturas, reconexión escalonada, filtros gossip, poda del grafo), nueva acción Comisiones de Enrutamiento con delta de timelock, y opción Aceptar AMP en Configuración General.',
+      'Comprobación de preparación más estricta: el health check "LND Server" ahora consulta el endpoint REST /v1/state sobre TLS en lugar de limitarse a comprobar que el puerto 8080 está escuchando, de modo que los servicios dependientes esperan hasta que LND pueda responder realmente a llamadas API.',
     de_DE:
-      'Erweiterte Konfigurationsoptionen: neue Aktion Kanaleinstellungen (min/max Kanalgröße, Wumbo, Zero-conf, SCID-Alias, ausstehende Kanäle, zirkuläre Route, Push ablehnen, kooperatives Schließungsziel), neue Aktion Leistung (DB-Auto-Komprimierung, Rechnungsbereinigung, gestaffelte Wiederverbindung, Gossip-Filter, Graph-Bereinigung), neue Aktion Routing-Gebühren mit Timelock-Delta und AMP-Akzeptanz in den allgemeinen Einstellungen.',
+      'Strengere LND-Bereitschaftsprüfung: der Health-Check "LND Server" fragt jetzt den REST-Endpunkt /v1/state über TLS ab, anstatt nur zu prüfen, ob Port 8080 lauscht. Abhängige Dienste warten damit, bis LND tatsächlich API-Aufrufe beantworten kann.',
     pl_PL:
-      'Rozszerzone opcje konfiguracji: nowa akcja Ustawienia kanałów (min/maks rozmiar kanału, wumbo, zero-conf, alias SCID, oczekujące kanały, trasa kołowa, odrzucenie push, cel kooperacyjnego zamknięcia), nowa akcja Wydajność (auto-kompaktacja BD, czyszczenie faktur, rozłożone ponowne połączenia, filtry gossip, przycinanie grafu), nowa akcja Opłaty routingowe z deltą timelocka i opcja Akceptuj AMP w ustawieniach ogólnych.',
+      'Mocniejsza kontrola gotowości LND: health check "LND Server" odpytuje teraz endpoint REST /v1/state przez TLS zamiast jedynie sprawdzać, czy port 8080 nasłuchuje, dzięki czemu usługi zależne czekają, aż LND naprawdę będzie w stanie odpowiadać na wywołania API.',
     fr_FR:
-      "Options de configuration étendues : nouvelle action Paramètres des canaux (taille min/max, wumbo, zero-conf, alias SCID, canaux en attente, route circulaire, rejet push, cible de fermeture coopérative), nouvelle action Performance (compactage auto de la BD, nettoyage des factures, reconnexion échelonnée, filtres gossip, élagage du graphe), nouvelle action Frais de routage avec delta de timelock et option Accepter AMP dans les paramètres généraux.",
+      "Vérification de disponibilité LND renforcée : le bilan de santé « LND Server » interroge désormais l'endpoint REST /v1/state via TLS au lieu de se contenter de vérifier l'écoute du port 8080, pour que les services dépendants attendent que LND puisse réellement répondre aux appels API.",
   },
   migrations: {
     up: async ({ effects }) => {

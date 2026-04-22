@@ -1,5 +1,5 @@
 import { T } from '@start9labs/start-sdk'
-import { autoconfig } from 'bitcoind-startos/startos/actions/config/autoconfig'
+import { autoconfig } from 'bitcoin-core-startos/startos/actions/config/autoconfig'
 import { lndConfFile } from './fileModels/lnd.conf'
 import { i18n } from './i18n'
 import { sdk } from './sdk'
@@ -31,7 +31,7 @@ export const setDependencies = sdk.setupDependencies(async ({ effects }) => {
 
     deps.bitcoind = {
       kind: 'running',
-      versionRange: '>=28.3:5',
+      versionRange: '>=28.3:7',
       healthChecks: ['bitcoind', 'sync-progress'],
     }
   }
