@@ -17,15 +17,15 @@ export const v_0_20_1_beta_3 = VersionInfo.of({
   version: '0.20.1-beta:3',
   releaseNotes: {
     en_US:
-      'Fix a hang on update where the wallet-unlock oneshot could loop forever if LND reported "wallet already unlocked", blocking sync-progress and every dependent oneshot. The oneshot now checks /v1/state first and treats "already unlocked" as success.',
+      'Fix LND startup: the "LND Server" ready check now waits until the wallet unlocker endpoint is actually serving (past WAITING_TO_START), and the wallet-unlock oneshot polls LND\'s state machine and only POSTs /v1/unlockwallet when the wallet is in LOCKED. Prevents a hang where the oneshot skipped the unlock too early and LND stayed locked indefinitely.',
     es_ES:
-      'Corrige un bloqueo durante la actualización en el que la tarea de desbloqueo de wallet podía repetirse indefinidamente si LND respondía "wallet already unlocked", dejando bloqueados el progreso de sincronización y todas las tareas dependientes. Ahora la tarea consulta /v1/state primero y trata "already unlocked" como éxito.',
+      'Corrige el arranque de LND: la comprobación de preparación "LND Server" ahora espera hasta que el endpoint del wallet unlocker esté realmente sirviendo (pasado WAITING_TO_START), y la tarea de desbloqueo consulta la máquina de estados de LND y solo hace POST a /v1/unlockwallet cuando el wallet está en LOCKED. Evita un bloqueo en el que la tarea omitía el desbloqueo demasiado pronto y LND quedaba bloqueado indefinidamente.',
     de_DE:
-      'Behebt ein Hängen beim Update, bei dem der Wallet-Unlock-Oneshot in einer Endlosschleife lief, wenn LND "wallet already unlocked" meldete, und damit den Sync-Progress sowie alle abhängigen Oneshots blockierte. Der Oneshot prüft jetzt zuerst /v1/state und behandelt "already unlocked" als Erfolg.',
+      'Behebt den LND-Start: die Bereitschaftsprüfung "LND Server" wartet jetzt, bis der Wallet-Unlocker-Endpunkt tatsächlich bedient (hinter WAITING_TO_START), und der Wallet-Unlock-Oneshot fragt den LND-Zustandsautomaten ab und POSTet /v1/unlockwallet nur, wenn das Wallet in LOCKED ist. Verhindert ein Hängen, bei dem der Oneshot das Entsperren zu früh übersprang und LND dauerhaft gesperrt blieb.',
     pl_PL:
-      'Poprawka zawieszania podczas aktualizacji, gdzie jednorazowe zadanie odblokowania portfela mogło pętlać się bez końca, jeśli LND zgłosił "wallet already unlocked", blokując postęp synchronizacji i wszystkie zależne zadania. Zadanie najpierw sprawdza /v1/state i traktuje "already unlocked" jako sukces.',
+      'Poprawka startu LND: sprawdzanie gotowości "LND Server" czeka teraz, aż endpoint wallet unlocker faktycznie obsługuje żądania (poza WAITING_TO_START), a jednorazowe zadanie odblokowania odpytuje maszynę stanów LND i wysyła POST do /v1/unlockwallet tylko gdy portfel jest w stanie LOCKED. Zapobiega zawieszeniu, gdy zadanie pomijało odblokowanie zbyt wcześnie i LND pozostawał zablokowany.',
     fr_FR:
-      "Corrige un blocage lors de la mise à jour où le oneshot de déverrouillage du portefeuille pouvait boucler indéfiniment si LND renvoyait « wallet already unlocked », bloquant la progression de la synchronisation et tous les oneshots dépendants. Le oneshot interroge désormais d'abord /v1/state et traite « already unlocked » comme un succès.",
+      "Corrige le démarrage de LND : le bilan de disponibilité « LND Server » attend désormais que l'endpoint du wallet unlocker serve réellement (au-delà de WAITING_TO_START), et le oneshot de déverrouillage interroge la machine à états de LND et n'envoie POST /v1/unlockwallet que lorsque le portefeuille est en LOCKED. Évite un blocage où le oneshot sautait le déverrouillage trop tôt et LND restait verrouillé indéfiniment.",
   },
   migrations: {
     up: async ({ effects }) => {

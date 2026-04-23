@@ -125,7 +125,11 @@ export const main = sdk.setupMain(async ({ effects }) => {
         display: i18n('LND Server'),
         fn: async () => {
           const lndState = await getLndState()
-          if (!lndState) {
+          // WAITING_TO_START (255) is earliest in the state machine — the
+          // wallet unlocker sub-server isn't up yet, so don't let the
+          // unlock-wallet oneshot fire. LOCKED onward means the unlocker
+          // endpoint is serving.
+          if (!lndState || lndState === 'WAITING_TO_START') {
             return { result: 'starting', message: null }
           }
           return { result: 'success', message: i18n('LND is ready') }
@@ -142,12 +146,25 @@ export const main = sdk.setupMain(async ({ effects }) => {
               break
             }
 
-            // Skip the unlock call (and its noisy LND error log) if the
-            // wallet is already past the LOCKED state.
+            // Skip the unlock call (and its noisy LND error log) only when
+            // the wallet is strictly past LOCKED. Per stateservice.proto:
+            //   NON_EXISTING=0, LOCKED=1, UNLOCKED=2, RPC_ACTIVE=3,
+            //   SERVER_ACTIVE=4, WAITING_TO_START=255.
+            // WAITING_TO_START means "not started yet" — keep polling.
             const state = await getLndState()
-            if (state && state !== 'NON_EXISTING' && state !== 'LOCKED') {
+            if (
+              state === 'UNLOCKED' ||
+              state === 'RPC_ACTIVE' ||
+              state === 'SERVER_ACTIVE'
+            ) {
               console.log(`wallet-unlock skipped, state=${state}`)
               break
+            }
+            if (state !== 'LOCKED') {
+              // NON_EXISTING, WAITING_TO_START, or endpoint unreachable —
+              // wallet unlocker isn't ready for a POST yet.
+              await sleep(2_000)
+              continue
             }
 
             if (!walletPassword)
