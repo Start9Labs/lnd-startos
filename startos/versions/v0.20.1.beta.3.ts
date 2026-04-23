@@ -13,19 +13,19 @@ type OldConfig = {
   }
 }
 
-export const v_0_20_1_beta_2 = VersionInfo.of({
-  version: '0.20.1-beta:2',
+export const v_0_20_1_beta_3 = VersionInfo.of({
+  version: '0.20.1-beta:3',
   releaseNotes: {
     en_US:
-      'Stronger LND readiness check: the "LND Server" health check now queries the REST /v1/state endpoint over TLS instead of only verifying port 8080 is listening, so dependent services wait until LND can actually answer API calls.',
+      'Fix a hang on update where the wallet-unlock oneshot could loop forever if LND reported "wallet already unlocked", blocking sync-progress and every dependent oneshot. The oneshot now checks /v1/state first and treats "already unlocked" as success.',
     es_ES:
-      'Comprobación de preparación más estricta: el health check "LND Server" ahora consulta el endpoint REST /v1/state sobre TLS en lugar de limitarse a comprobar que el puerto 8080 está escuchando, de modo que los servicios dependientes esperan hasta que LND pueda responder realmente a llamadas API.',
+      'Corrige un bloqueo durante la actualización en el que la tarea de desbloqueo de wallet podía repetirse indefinidamente si LND respondía "wallet already unlocked", dejando bloqueados el progreso de sincronización y todas las tareas dependientes. Ahora la tarea consulta /v1/state primero y trata "already unlocked" como éxito.',
     de_DE:
-      'Strengere LND-Bereitschaftsprüfung: der Health-Check "LND Server" fragt jetzt den REST-Endpunkt /v1/state über TLS ab, anstatt nur zu prüfen, ob Port 8080 lauscht. Abhängige Dienste warten damit, bis LND tatsächlich API-Aufrufe beantworten kann.',
+      'Behebt ein Hängen beim Update, bei dem der Wallet-Unlock-Oneshot in einer Endlosschleife lief, wenn LND "wallet already unlocked" meldete, und damit den Sync-Progress sowie alle abhängigen Oneshots blockierte. Der Oneshot prüft jetzt zuerst /v1/state und behandelt "already unlocked" als Erfolg.',
     pl_PL:
-      'Mocniejsza kontrola gotowości LND: health check "LND Server" odpytuje teraz endpoint REST /v1/state przez TLS zamiast jedynie sprawdzać, czy port 8080 nasłuchuje, dzięki czemu usługi zależne czekają, aż LND naprawdę będzie w stanie odpowiadać na wywołania API.',
+      'Poprawka zawieszania podczas aktualizacji, gdzie jednorazowe zadanie odblokowania portfela mogło pętlać się bez końca, jeśli LND zgłosił "wallet already unlocked", blokując postęp synchronizacji i wszystkie zależne zadania. Zadanie najpierw sprawdza /v1/state i traktuje "already unlocked" jako sukces.',
     fr_FR:
-      "Vérification de disponibilité LND renforcée : le bilan de santé « LND Server » interroge désormais l'endpoint REST /v1/state via TLS au lieu de se contenter de vérifier l'écoute du port 8080, pour que les services dépendants attendent que LND puisse réellement répondre aux appels API.",
+      "Corrige un blocage lors de la mise à jour où le oneshot de déverrouillage du portefeuille pouvait boucler indéfiniment si LND renvoyait « wallet already unlocked », bloquant la progression de la synchronisation et tous les oneshots dépendants. Le oneshot interroge désormais d'abord /v1/state et traite « already unlocked » comme un succès.",
   },
   migrations: {
     up: async ({ effects }) => {

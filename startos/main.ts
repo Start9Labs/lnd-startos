@@ -142,6 +142,14 @@ export const main = sdk.setupMain(async ({ effects }) => {
               break
             }
 
+            // Skip the unlock call (and its noisy LND error log) if the
+            // wallet is already past the LOCKED state.
+            const state = await getLndState()
+            if (state && state !== 'NON_EXISTING' && state !== 'LOCKED') {
+              console.log(`wallet-unlock skipped, state=${state}`)
+              break
+            }
+
             if (!walletPassword)
               throw new Error('Wallet Password is undefined!')
 
@@ -168,7 +176,11 @@ export const main = sdk.setupMain(async ({ effects }) => {
                   }),
             ])
             console.log('wallet-unlock response', res)
-            if (res.stdout === '{}') {
+            const stdout = res.stdout.toString().trim()
+            // `{}` = unlock succeeded. "wallet already unlocked" = wallet is
+            // already past the LOCKED state (e.g. because /v1/state raced
+            // with the oneshot). Both mean we're done.
+            if (stdout === '{}' || stdout.includes('wallet already unlocked')) {
               break
             }
             await sleep(10_000)
