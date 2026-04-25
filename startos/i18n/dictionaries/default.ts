@@ -297,6 +297,14 @@ const dict = {
 
   // Refreshed description after moving upstream default into the footnote
   'The smallest channel size in satoshis that your node will accept. Increase this to reject tiny, uneconomical channels.': 255,
+
+  // Tor master toggle — separate from "Use Tor for all traffic" (which only
+  // forces Tor for clearnet peers). Exposed so operators can disable Tor
+  // outbound entirely in environments where Tor interferes with LND/btcwallet
+  // sync.
+  'Route outbound through Tor': 256,
+  "Route LND's outbound peer connections through the Tor SOCKS proxy. When disabled, LND uses the host's normal network stack. Disable if Tor is unavailable or is interfering with wallet sync (btcwallet's embedded rescanner does not always respect this setting, so sync can stall on Tor-only environments).": 257,
+  "Use the tor proxy even for connections that are reachable on clearnet. This will hide your node's public IP address, but will slow down your node's performance. Only takes effect when 'Route outbound through Tor' is enabled.": 258,
 } as const
 
 /**

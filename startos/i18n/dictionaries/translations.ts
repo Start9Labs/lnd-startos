@@ -242,6 +242,9 @@ export default {
     253: 'LND está listo',
     254: 'Valor por defecto',
     255: 'El tamaño mínimo de canal en satoshis que tu nodo aceptará. Auméntalo para rechazar canales pequeños y no rentables.',
+    256: 'Route outbound through Tor',
+    257: "Route LND's outbound peer connections through the Tor SOCKS proxy. When disabled, LND uses the host's normal network stack. Disable if Tor is unavailable or is interfering with wallet sync (btcwallet's embedded rescanner does not always respect this setting, so sync can stall on Tor-only environments).",
+    258: "Use the tor proxy even for connections that are reachable on clearnet. This will hide your node's public IP address, but will slow down your node's performance. Only takes effect when 'Route outbound through Tor' is enabled.",
   },
   de_DE: {
     0: 'Starte LND!',
@@ -484,6 +487,9 @@ export default {
     253: 'LND ist bereit',
     254: 'Standardwert',
     255: 'Die kleinste Kanalgröße in Satoshis, die dein Knoten akzeptiert. Erhöhe diesen Wert, um winzige, unwirtschaftliche Kanäle abzulehnen.',
+    256: 'Route outbound through Tor',
+    257: "Route LND's outbound peer connections through the Tor SOCKS proxy. When disabled, LND uses the host's normal network stack. Disable if Tor is unavailable or is interfering with wallet sync (btcwallet's embedded rescanner does not always respect this setting, so sync can stall on Tor-only environments).",
+    258: "Use the tor proxy even for connections that are reachable on clearnet. This will hide your node's public IP address, but will slow down your node's performance. Only takes effect when 'Route outbound through Tor' is enabled.",
   },
   pl_PL: {
     0: 'Uruchamianie LND!',
@@ -726,6 +732,9 @@ export default {
     253: 'LND jest gotowy',
     254: 'Domyślnie',
     255: 'Najmniejszy rozmiar kanału w satoshi, jaki zaakceptuje Twój węzeł. Zwiększ tę wartość, aby odrzucać małe, nieopłacalne kanały.',
+    256: 'Route outbound through Tor',
+    257: "Route LND's outbound peer connections through the Tor SOCKS proxy. When disabled, LND uses the host's normal network stack. Disable if Tor is unavailable or is interfering with wallet sync (btcwallet's embedded rescanner does not always respect this setting, so sync can stall on Tor-only environments).",
+    258: "Use the tor proxy even for connections that are reachable on clearnet. This will hide your node's public IP address, but will slow down your node's performance. Only takes effect when 'Route outbound through Tor' is enabled.",
   },
   fr_FR: {
     0: 'Démarrage de LND !',
@@ -968,5 +977,8 @@ export default {
     253: 'LND est prêt',
     254: 'Par défaut',
     255: 'La plus petite taille de canal en satoshis que votre nœud acceptera. Augmentez cette valeur pour rejeter les petits canaux non rentables.',
+    256: 'Route outbound through Tor',
+    257: "Route LND's outbound peer connections through the Tor SOCKS proxy. When disabled, LND uses the host's normal network stack. Disable if Tor is unavailable or is interfering with wallet sync (btcwallet's embedded rescanner does not always respect this setting, so sync can stall on Tor-only environments).",
+    258: "Use the tor proxy even for connections that are reachable on clearnet. This will hide your node's public IP address, but will slow down your node's performance. Only takes effect when 'Route outbound through Tor' is enabled.",
   },
 } satisfies Record<string, LangDict>
