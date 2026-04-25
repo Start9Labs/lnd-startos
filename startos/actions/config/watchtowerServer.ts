@@ -59,11 +59,16 @@ export const watchtowerServerConfig = sdk.Action.withInput(
 
 export function getExternalAddresses() {
   return sdk.Value.dynamicSelect(async ({ effects }) => {
-    const peerInterface = await sdk.serviceInterface
-      .getOwn(effects, 'peer')
+    // Read from the 'watchtower' interface, not 'peer'. The watchtower
+    // listens on port 9911; the peer interface advertises port 9735.
+    // Selecting a peer-interface URL would advertise the wrong port to
+    // watchtower clients, who would then dial LND's main p2p port and
+    // fail to negotiate the watchtower (BOLT-13) protocol.
+    const watchtowerInterface = await sdk.serviceInterface
+      .getOwn(effects, 'watchtower')
       .const()
 
-    const urls = peerInterface?.addressInfo?.public.format() || []
+    const urls = watchtowerInterface?.addressInfo?.public.format() || []
 
     if (urls.length === 0) {
       return {

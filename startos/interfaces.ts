@@ -1,6 +1,5 @@
 import { FileHelper } from '@start9labs/start-sdk'
 import { readFile } from 'fs/promises'
-import { lndConfFile } from './fileModels/lnd.conf'
 import { i18n } from './i18n'
 import { sdk } from './sdk'
 
@@ -122,31 +121,37 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
   })
   receipts.push(await peerMultiOrigin.export([peer]))
 
-  if ((await lndConfFile.read().once())?.['watchtower.active']) {
-    // watchtower
-    const watchtowerMulti = sdk.MultiHost.of(effects, 'watchtower')
-    const watchtowerMultiOrigin = await watchtowerMulti.bindPort(
-      watchtowerPort,
-      {
-        protocol: null,
-        addSsl: null,
-        preferredExternalPort: watchtowerPort,
-        secure: null,
-      },
-    )
-    const watchtower = sdk.createInterface(effects, {
-      name: i18n('Watchtower'),
-      id: 'watchtower',
-      description: i18n('Allows peers to use your watchtower server'),
-      type: 'p2p',
-      masked: true,
-      schemeOverride: null,
-      username: null,
-      path: '',
-      query: {},
-    })
-    receipts.push(await watchtowerMultiOrigin.export([watchtower]))
-  }
+  // watchtower — always exported. The Tor onion + port mapping exists
+  // unconditionally; LND only listens on watchtowerPort when
+  // `watchtower.active=true` in lnd.conf (controlled by the
+  // watchtower-server config action). Decoupling the interface from the
+  // active flag avoids two problems: (1) `setInterfaces` does not reactively
+  // re-run on lnd.conf changes, so a gated interface never appears after a
+  // config-action toggle; (2) the watchtower-server action's address
+  // dropdown reads from this interface, so it must exist before the user
+  // can pick an external address — chicken-and-egg otherwise.
+  const watchtowerMulti = sdk.MultiHost.of(effects, 'watchtower')
+  const watchtowerMultiOrigin = await watchtowerMulti.bindPort(
+    watchtowerPort,
+    {
+      protocol: null,
+      addSsl: null,
+      preferredExternalPort: watchtowerPort,
+      secure: null,
+    },
+  )
+  const watchtower = sdk.createInterface(effects, {
+    name: i18n('Watchtower'),
+    id: 'watchtower',
+    description: i18n('Allows peers to use your watchtower server'),
+    type: 'p2p',
+    masked: true,
+    schemeOverride: null,
+    username: null,
+    path: '',
+    query: {},
+  })
+  receipts.push(await watchtowerMultiOrigin.export([watchtower]))
 
   return receipts
 })
