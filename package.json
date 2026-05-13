@@ -6,13 +6,10 @@
     "check": "tsc --noEmit"
   },
   "dependencies": {
-    "@start9labs/start-sdk": "1.5.0",
-    "bitcoin-core-startos": "github:Start9Labs/bitcoin-core-startos#28.x",
+    "@start9labs/start-sdk": "1.5.1",
+    "bitcoin-core-startos": "github:Start9Labs/bitcoin-core-startos#next/28.x",
     "mime": "^4.0.7",
     "rfc4648": "1.5.4"
-  },
-  "overrides": {
-    "@start9labs/start-sdk": "1.5.0"
   },
   "devDependencies": {
     "@types/node": "^22.1.0",
