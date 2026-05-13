@@ -98,7 +98,7 @@ const dict = {
   'Maximum Channel Size': 101,
   "The largest channel size that we should accept. Incoming channels larger than this will be rejected. For non-Wumbo channels this limit remains 16777215 satoshis by default as specified in BOLT-0002. For wumbo channels this limit is 1,000,000,000 satoshis (10 BTC). Set this config option explicitly to restrict your maximum channel size to better align with your risk tolerance.  Don't forget to enable Wumbo channels under 'Advanced,' if desired.": 102,
   'Use Tor for all traffic': 105,
-  "Use the tor proxy even for connections that are reachable on clearnet. This will hide your node's public IP address, but will slow down your node's performance": 106,
+  "Use the tor proxy even for connections that are reachable on clearnet. This will hide your node's public IP address, but will slow down your node's performance. Only takes effect when 'Route outbound through Tor' is enabled.": 106,
   'Stream Isolation': 107,
   "Enable Tor stream isolation by randomizing user credentials for each connection. With this mode active, each connection will use a new circuit. This means that multiple applications (other than lnd) using Tor won't be mixed in with lnd's traffic. This option may not be used when 'Use Tor for all traffic' is disabled, since direct connections compromise source IP privacy by default.": 108,
   Advanced: 109,
@@ -298,13 +298,8 @@ const dict = {
   // Refreshed description after moving upstream default into the footnote
   'The smallest channel size in satoshis that your node will accept. Increase this to reject tiny, uneconomical channels.': 255,
 
-  // Tor master toggle — separate from "Use Tor for all traffic" (which only
-  // forces Tor for clearnet peers). Exposed so operators can disable Tor
-  // outbound entirely in environments where Tor interferes with LND/btcwallet
-  // sync.
   'Route outbound through Tor': 256,
   "Route LND's outbound peer connections through the Tor SOCKS proxy. When disabled, LND uses the host's normal network stack. Disable if Tor is unavailable or is interfering with wallet sync (btcwallet's embedded rescanner does not always respect this setting, so sync can stall on Tor-only environments).": 257,
-  "Use the tor proxy even for connections that are reachable on clearnet. This will hide your node's public IP address, but will slow down your node's performance. Only takes effect when 'Route outbound through Tor' is enabled.": 258,
 } as const
 
 /**

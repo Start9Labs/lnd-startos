@@ -121,15 +121,7 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
   })
   receipts.push(await peerMultiOrigin.export([peer]))
 
-  // watchtower — always exported. The Tor onion + port mapping exists
-  // unconditionally; LND only listens on watchtowerPort when
-  // `watchtower.active=true` in lnd.conf (controlled by the
-  // watchtower-server config action). Decoupling the interface from the
-  // active flag avoids two problems: (1) `setInterfaces` does not reactively
-  // re-run on lnd.conf changes, so a gated interface never appears after a
-  // config-action toggle; (2) the watchtower-server action's address
-  // dropdown reads from this interface, so it must exist before the user
-  // can pick an external address — chicken-and-egg otherwise.
+  // watchtower — always exported; LND only listens when watchtower.active=true
   const watchtowerMulti = sdk.MultiHost.of(effects, 'watchtower')
   const watchtowerMultiOrigin = await watchtowerMulti.bindPort(
     watchtowerPort,

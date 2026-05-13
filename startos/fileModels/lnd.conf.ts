@@ -603,7 +603,8 @@ export function formToFile(
     result['accept-amp'] = input['accept-amp'] ?? undefined
 
   // Tor
-  if ('tor-active' in input) result['tor.active'] = input['tor-active']
+  if ('tor-active' in input)
+    result['tor.active'] = input['tor-active'] ?? undefined
   if ('use-tor-only' in input)
     result['tor.skip-proxy-for-clearnet-targets'] =
       input['use-tor-only'] == null ? undefined : !input['use-tor-only']

@@ -75,7 +75,7 @@ LND is configured entirely through **StartOS actions** (see [Actions](#actions-s
 | StartOS-Managed (via Actions) | Details                                                                |
 | ----------------------------- | ---------------------------------------------------------------------- |
 | Bitcoin backend selection     | `bitcoind` or `neutrino`                                               |
-| General settings              | Alias, color, keysend, AMP, tor-only mode                             |
+| General settings              | Alias, color, keysend, AMP, Tor outbound toggle, tor-only mode        |
 | Routing fees                  | Base fee, fee rate, timelock delta                                     |
 | Channel settings              | Min/max size, wumbo, zero-conf, SCID alias, pending, circular route, closes |
 | Autopilot                     | Enable/disable, max channels, allocation, channel size limits          |
@@ -88,7 +88,6 @@ Settings **not** managed by StartOS (hardcoded):
 | Setting                             | Value                   | Reason                           |
 | ----------------------------------- | ----------------------- | -------------------------------- |
 | `bitcoin.mainnet`                   | `true`                  | Only mainnet supported           |
-| `tor.active`                        | `true`                  | Always routed through Tor        |
 | `rpclisten`                         | `0.0.0.0:10009`         | Fixed gRPC listen address        |
 | `restlisten`                        | `0.0.0.0:8080`          | Fixed REST listen address        |
 | `listen`                            | `0.0.0.0:9735`          | Fixed peer listen address        |
@@ -159,10 +158,10 @@ This means LND can advertise via domain names (not just raw IPs) when the node h
 ### General Settings
 
 - **Name:** General Settings
-- **Purpose:** Configure alias, color, keysend, AMP, tor-only mode
+- **Purpose:** Configure alias, color, keysend, AMP, Tor outbound, tor-only mode
 - **Visibility:** Enabled
 - **Availability:** Any status
-- **Inputs:** Alias (text, max 32 chars), color (hex), accept-keysend (tri-state, default: true), accept-amp (tri-state, default: null), use-tor-only (tri-state, default: false)
+- **Inputs:** Alias (text, max 32 chars), color (hex), accept-keysend (tri-state, default: true), accept-amp (tri-state, default: null), tor-active (toggle, default: true), use-tor-only (tri-state, default: false)
 - **Outputs:** None
 
 ### Routing Fees
@@ -216,7 +215,7 @@ This means LND can advertise via domain names (not just raw IPs) when the node h
 - **Purpose:** Enable/configure the watchtower server and select the external address to advertise
 - **Visibility:** Enabled
 - **Availability:** Any status
-- **Inputs:** External IP selection (from available peer interface public addresses, or "none" to disable)
+- **Inputs:** External IP selection (from available watchtower interface public addresses, or "none" to disable)
 - **Outputs:** None
 
 ### Watchtower Client Settings
@@ -292,7 +291,7 @@ LND can alternatively use **Neutrino** (built-in light client) with no Bitcoin C
 2. **No `lncli create` or `lncli unlock`** — wallet lifecycle is fully automated by StartOS
 3. **Configuration via actions only** — `lnd.conf` is managed by StartOS; manual edits will be overwritten by action defaults on mismatch
 4. **Bitcoin Core cookie auth only** — `rpcuser`/`rpcpass` are explicitly removed; authentication uses the mounted `.cookie` file
-5. **Tor is always active** — `tor.active=true` is hardcoded; clearnet-only operation is not supported
+5. **Asymmetric Tor disable** — the General Settings "Route outbound through Tor" toggle controls only LND's outbound peer dialing. Inbound peer connections still arrive over the StartOS-managed Tor hidden service (the host Tor daemon owns that mapping). Disabling outbound Tor is appropriate for serving as a watchtower server or for clearnet-first deployments, but a general routing node will still receive Tor traffic — symmetric clearnet-only operation is not supported.
 6. **Restored nodes should not be reused** — after backup restore, sweep funds and reinstall
 
 ## What Is Unchanged from Upstream
