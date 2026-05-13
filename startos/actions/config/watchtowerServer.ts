@@ -59,11 +59,11 @@ export const watchtowerServerConfig = sdk.Action.withInput(
 
 export function getExternalAddresses() {
   return sdk.Value.dynamicSelect(async ({ effects }) => {
-    const peerInterface = await sdk.serviceInterface
-      .getOwn(effects, 'peer')
+    const watchtowerInterface = await sdk.serviceInterface
+      .getOwn(effects, 'watchtower')
       .const()
 
-    const urls = peerInterface?.addressInfo?.public.format() || []
+    const urls = watchtowerInterface?.addressInfo?.public.format() || []
 
     if (urls.length === 0) {
       return {

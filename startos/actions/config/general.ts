@@ -27,6 +27,7 @@ export const general = sdk.Action.withInput(
     color: true,
     'accept-keysend': true,
     'accept-amp': true,
+    'tor-active': true,
     'use-tor-only': true,
   }),
 

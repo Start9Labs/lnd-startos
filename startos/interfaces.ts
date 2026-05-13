@@ -1,6 +1,5 @@
 import { FileHelper } from '@start9labs/start-sdk'
 import { readFile } from 'fs/promises'
-import { lndConfFile } from './fileModels/lnd.conf'
 import { i18n } from './i18n'
 import { sdk } from './sdk'
 
@@ -122,31 +121,29 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
   })
   receipts.push(await peerMultiOrigin.export([peer]))
 
-  if ((await lndConfFile.read().once())?.['watchtower.active']) {
-    // watchtower
-    const watchtowerMulti = sdk.MultiHost.of(effects, 'watchtower')
-    const watchtowerMultiOrigin = await watchtowerMulti.bindPort(
-      watchtowerPort,
-      {
-        protocol: null,
-        addSsl: null,
-        preferredExternalPort: watchtowerPort,
-        secure: null,
-      },
-    )
-    const watchtower = sdk.createInterface(effects, {
-      name: i18n('Watchtower'),
-      id: 'watchtower',
-      description: i18n('Allows peers to use your watchtower server'),
-      type: 'p2p',
-      masked: true,
-      schemeOverride: null,
-      username: null,
-      path: '',
-      query: {},
-    })
-    receipts.push(await watchtowerMultiOrigin.export([watchtower]))
-  }
+  // watchtower — always exported; LND only listens when watchtower.active=true
+  const watchtowerMulti = sdk.MultiHost.of(effects, 'watchtower')
+  const watchtowerMultiOrigin = await watchtowerMulti.bindPort(
+    watchtowerPort,
+    {
+      protocol: null,
+      addSsl: null,
+      preferredExternalPort: watchtowerPort,
+      secure: null,
+    },
+  )
+  const watchtower = sdk.createInterface(effects, {
+    name: i18n('Watchtower'),
+    id: 'watchtower',
+    description: i18n('Allows peers to use your watchtower server'),
+    type: 'p2p',
+    masked: true,
+    schemeOverride: null,
+    username: null,
+    path: '',
+    query: {},
+  })
+  receipts.push(await watchtowerMultiOrigin.export([watchtower]))
 
   return receipts
 })
