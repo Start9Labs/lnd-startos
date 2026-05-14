@@ -17,10 +17,6 @@ export const manifest = setupManifest({
   upstreamRepo: 'https://github.com/lightningnetwork/lnd',
   marketingUrl: 'https://lightning.engineering/',
   donationUrl: null,
-  docsUrls: [
-    'https://docs.start9.com/bitcoin-guides/lightning-wallets',
-    'https://docs.lightning.engineering/lightning-network-tools/lnd',
-  ],
   description: { short, long },
   volumes: ['main'],
   images: {

@@ -45,6 +45,7 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
         preferredExternalPort: restPort,
         addSsl: {
           alpn: null,
+          auth: null,
           preferredExternalPort: restPort,
           addXForwardedHeaders: false,
         },
@@ -72,6 +73,7 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
         preferredExternalPort: gRPCPort,
         addSsl: {
           alpn: null,
+          auth: null,
           preferredExternalPort: gRPCPort,
           addXForwardedHeaders: false,
         },

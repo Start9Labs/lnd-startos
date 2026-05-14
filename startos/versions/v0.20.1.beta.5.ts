@@ -13,14 +13,14 @@ type OldConfig = {
   }
 }
 
-export const v_0_20_1_beta_4 = VersionInfo.of({
-  version: '0.20.1-beta:4',
+export const v_0_20_1_beta_5 = VersionInfo.of({
+  version: '0.20.1-beta:5',
   releaseNotes: {
-    en_US: 'Internal updates (start-sdk 1.3.3)',
-    es_ES: 'Actualizaciones internas (start-sdk 1.3.3)',
-    de_DE: 'Interne Aktualisierungen (start-sdk 1.3.3)',
-    pl_PL: 'Aktualizacje wewnętrzne (start-sdk 1.3.3)',
-    fr_FR: 'Mises à jour internes (start-sdk 1.3.3)',
+    en_US: '- Updated to start-sdk 1.5.0.',
+    es_ES: '- Actualizado a start-sdk 1.5.0.',
+    de_DE: '- Aktualisierung auf start-sdk 1.5.0.',
+    pl_PL: '- Zaktualizowano do start-sdk 1.5.0.',
+    fr_FR: '- Mise à jour vers start-sdk 1.5.0.',
   },
   migrations: {
     up: async ({ effects }) => {

@@ -274,6 +274,8 @@ This means LND can advertise via domain names (not just raw IPs) when the node h
 
 The LND Server check calls the REST `/v1/state` endpoint and returns `success` once the server replies with any valid state JSON. It is a stronger readiness signal than a bare port-listening check — the port binds before LND is actually ready to serve RPCs — so dependent services (like Mempool) that gate on this health check will wait until LND can answer API calls.
 
+When LND first reaches `synced_to_chain && synced_to_graph` after install, a **Sync Complete** notification is posted to the StartOS notifications panel. The notification fires only once per install — subsequent restarts that re-sync the chain or graph do not re-notify.
+
 ## Dependencies
 
 | Dependency   | Required | Mounted Volume                          | Health Checks Required         | Purpose                                                        |
