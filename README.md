@@ -51,6 +51,7 @@ StartOS-specific files on the `main` volume:
 | File                   | Purpose                                                                      |
 | ---------------------- | ---------------------------------------------------------------------------- |
 | `store.json`           | Persistent StartOS state (wallet password, restore flag, watchtower clients) |
+| `sync-notified.json`   | One-bit flag: has the **Sync Complete** notification fired on this install   |
 | `tls.cert` / `tls.key` | StartOS-managed TLS certificates                                            |
 | `lnd.conf`             | LND configuration (managed by StartOS actions)                               |
 
@@ -336,6 +337,7 @@ startos_managed_env_vars: []
 startos_managed_files:
   - lnd.conf
   - store.json
+  - sync-notified.json
   - tls.cert
   - tls.key
 actions:
