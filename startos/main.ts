@@ -5,6 +5,7 @@ import { request } from 'node:https'
 import { base64 } from 'rfc4648'
 import { lndConfFile } from './fileModels/lnd.conf'
 import { storeJson } from './fileModels/store.json'
+import { syncNotifiedFile } from './fileModels/syncNotified.json'
 import { i18n } from './i18n'
 import { restPort } from './interfaces'
 import { sdk } from './sdk'
@@ -58,6 +59,8 @@ export const main = sdk.setupMain(async ({ effects }) => {
   if (!store) {
     throw new Error('No store.json')
   }
+
+  const syncNotified = await syncNotifiedFile.read().once()
 
   const conf = await lndConfFile.read().const(effects)
   if (!conf) {
@@ -276,17 +279,13 @@ export const main = sdk.setupMain(async ({ effects }) => {
       subcontainer: null,
       exec: {
         fn: async () => {
-          if (!store.syncNotified) {
+          if (!syncNotified?.notified) {
             await sdk.notification.create(effects, {
               level: 'success',
               title: i18n('Sync Complete'),
               message: i18n('LND is synced to chain and graph.'),
             })
-            await storeJson.merge(
-              effects,
-              { syncNotified: true },
-              { allowWriteAfterConst: true },
-            )
+            await syncNotifiedFile.write(effects, { notified: true })
           }
           return null
         },
