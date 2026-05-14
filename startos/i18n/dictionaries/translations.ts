@@ -3,6 +3,8 @@ import { LangDict } from './default'
 export default {
   es_ES: {
     0: '¡Iniciando LND!',
+    1: 'Sincronización completa',
+    2: 'LND está sincronizado con la cadena y el grafo.',
     4: 'Progreso de sincronización de red y grafo',
     5: 'Sincronizado con la cadena y el grafo',
     6: 'Sincronizando con la cadena',
@@ -247,6 +249,8 @@ export default {
   },
   de_DE: {
     0: 'Starte LND!',
+    1: 'Synchronisierung abgeschlossen',
+    2: 'LND ist mit Chain und Graph synchronisiert.',
     4: 'Netzwerk- und Graph-Synchronisierungsfortschritt',
     5: 'Mit Kette und Graph synchronisiert',
     6: 'Synchronisierung mit der Kette',
@@ -491,6 +495,8 @@ export default {
   },
   pl_PL: {
     0: 'Uruchamianie LND!',
+    1: 'Synchronizacja zakończona',
+    2: 'LND jest zsynchronizowany z łańcuchem i grafem.',
     4: 'Postęp synchronizacji sieci i grafu',
     5: 'Zsynchronizowano z łańcuchem i grafem',
     6: 'Synchronizacja z łańcuchem',
@@ -735,6 +741,8 @@ export default {
   },
   fr_FR: {
     0: 'Démarrage de LND !',
+    1: 'Synchronisation terminée',
+    2: 'LND est synchronisé avec la chaîne et le graphe.',
     4: 'Progression de la synchronisation du réseau et du graphe',
     5: 'Synchronisé avec la chaîne et le graphe',
     6: 'Synchronisation avec la chaîne',

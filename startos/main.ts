@@ -272,6 +272,27 @@ export const main = sdk.setupMain(async ({ effects }) => {
       },
       requires: ['lnd', 'unlock-wallet'],
     })
+    .addOneshot('synced-true', {
+      subcontainer: null,
+      exec: {
+        fn: async () => {
+          if (!store.syncNotified) {
+            await sdk.notification.create(effects, {
+              level: 'success',
+              title: i18n('Sync Complete'),
+              message: i18n('LND is synced to chain and graph.'),
+            })
+            await storeJson.merge(
+              effects,
+              { syncNotified: true },
+              { allowWriteAfterConst: true },
+            )
+          }
+          return null
+        },
+      },
+      requires: ['sync-progress'],
+    })
     .addOneshot('restore', () =>
       restore
         ? {

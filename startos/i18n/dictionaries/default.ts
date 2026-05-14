@@ -3,6 +3,8 @@ export const DEFAULT_LANG = 'en_US'
 const dict = {
   // main.ts
   'Starting LND!': 0,
+  'Sync Complete': 1,
+  'LND is synced to chain and graph.': 2,
   'Network and Graph Sync Progress': 4,
   'Synced to chain and graph': 5,
   'Syncing to chain': 6,
