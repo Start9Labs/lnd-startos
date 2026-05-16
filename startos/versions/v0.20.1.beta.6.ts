@@ -13,14 +13,14 @@ type OldConfig = {
   }
 }
 
-export const v_0_20_1_beta_5 = VersionInfo.of({
-  version: '0.20.1-beta:5',
+export const v_0_20_1_beta_6 = VersionInfo.of({
+  version: '0.20.1-beta:6',
   releaseNotes: {
-    en_US: '- Updated to start-sdk 1.5.0.',
-    es_ES: '- Actualizado a start-sdk 1.5.0.',
-    de_DE: '- Aktualisierung auf start-sdk 1.5.0.',
-    pl_PL: '- Zaktualizowano do start-sdk 1.5.0.',
-    fr_FR: '- Mise à jour vers start-sdk 1.5.0.',
+    en_US: 'Fixes repeated "Sync Complete" notifications when LND briefly flickered out of and back into the synced state.',
+    es_ES: 'Corrige notificaciones repetidas de "Sincronización completa" cuando LND salía y volvía brevemente al estado sincronizado.',
+    de_DE: 'Behebt wiederholte „Sync Complete"-Benachrichtigungen, wenn LND kurzzeitig aus dem synchronisierten Zustand fiel und wieder hineinkam.',
+    pl_PL: 'Naprawia powtarzające się powiadomienia „Sync Complete", gdy LND chwilowo wypadał ze stanu zsynchronizowanego i do niego wracał.',
+    fr_FR: 'Corrige les notifications « Sync Complete » répétées lorsque LND sortait brièvement de l\'état synchronisé puis y revenait.',
   },
   migrations: {
     up: async ({ effects }) => {
