@@ -60,7 +60,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
     throw new Error('No store.json')
   }
 
-  const syncNotified = await syncNotifiedFile.read().once()
+  let notified = (await syncNotifiedFile.read().once())?.notified ?? false
 
   const conf = await lndConfFile.read().const(effects)
   if (!conf) {
@@ -279,13 +279,18 @@ export const main = sdk.setupMain(async ({ effects }) => {
       subcontainer: null,
       exec: {
         fn: async () => {
-          if (!syncNotified?.notified) {
+          // The SDK re-fires this oneshot every time sync-progress dips out
+          // of success and recovers (graph re-sync, transient lncli errors).
+          // The closure flag is the source of truth within a main lifecycle;
+          // the on-disk flag re-seeds it on next startup.
+          if (!notified) {
             await sdk.notification.create(effects, {
               level: 'success',
               title: i18n('Sync Complete'),
               message: i18n('LND is synced to chain and graph.'),
             })
             await syncNotifiedFile.write(effects, { notified: true })
+            notified = true
           }
           return null
         },
