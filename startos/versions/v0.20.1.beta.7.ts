@@ -13,14 +13,44 @@ type OldConfig = {
   }
 }
 
-export const v_0_20_1_beta_6 = VersionInfo.of({
-  version: '0.20.1-beta:6',
+export const v_0_20_1_beta_7 = VersionInfo.of({
+  version: '0.20.1-beta:7',
   releaseNotes: {
-    en_US: 'Fixes repeated "Sync Complete" notifications when LND briefly flickered out of and back into the synced state.',
-    es_ES: 'Corrige notificaciones repetidas de "Sincronización completa" cuando LND salía y volvía brevemente al estado sincronizado.',
-    de_DE: 'Behebt wiederholte „Sync Complete"-Benachrichtigungen, wenn LND kurzzeitig aus dem synchronisierten Zustand fiel und wieder hineinkam.',
-    pl_PL: 'Naprawia powtarzające się powiadomienia „Sync Complete", gdy LND chwilowo wypadał ze stanu zsynchronizowanego i do niego wracał.',
-    fr_FR: 'Corrige les notifications « Sync Complete » répétées lorsque LND sortait brièvement de l\'état synchronisé puis y revenait.',
+    en_US: `**Fixes**
+
+- Watchtower interface now advertises clearnet addresses, not only Tor onions.
+
+**Internal**
+
+- start-sdk → 1.5.2`,
+    es_ES: `**Correcciones**
+
+- La interfaz Watchtower ahora anuncia direcciones de red abierta, no solo onions de Tor.
+
+**Interno**
+
+- start-sdk → 1.5.2`,
+    de_DE: `**Korrekturen**
+
+- Die Watchtower-Schnittstelle bietet jetzt Klarnetz-Adressen an, nicht nur Tor-Onions.
+
+**Intern**
+
+- start-sdk → 1.5.2`,
+    pl_PL: `**Poprawki**
+
+- Interfejs Watchtower udostępnia teraz adresy w sieci jawnej, a nie tylko adresy Tor onion.
+
+**Wewnętrzne**
+
+- start-sdk → 1.5.2`,
+    fr_FR: `**Corrections**
+
+- L'interface Watchtower expose désormais des adresses en clair, pas uniquement des onions Tor.
+
+**Interne**
+
+- start-sdk → 1.5.2`,
   },
   migrations: {
     up: async ({ effects }) => {
