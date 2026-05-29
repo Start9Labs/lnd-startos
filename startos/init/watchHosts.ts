@@ -1,4 +1,5 @@
 import { lndConfFile } from '../fileModels/lnd.conf'
+import { storeJson } from '../fileModels/store.json'
 import { peerInterfaceId } from '../interfaces'
 import { sdk } from '../sdk'
 
@@ -15,8 +16,15 @@ export const watchHosts = sdk.setupOnInit(async (effects, _) => {
     throw new Error('No public info')
   }
 
+  // User-added hosts (e.g. a Tunnelsats/VPN endpoint) are always advertised,
+  // independent of the Tor clearnet gate. Seeding externalhosts with them also
+  // means a present custom host suppresses the public-IPv4 fallback below — if
+  // the user added a tunnel, we don't also leak their raw public IP.
+  const customExternalHosts =
+    (await storeJson.read((s) => s.customExternalHosts).const(effects)) ?? []
+
   const externalip: string[] = []
-  const externalhosts: string[] = []
+  const externalhosts: string[] = [...customExternalHosts]
 
   // Add first onion address (if present)
   const onions = publicInfo
@@ -50,7 +58,10 @@ export const watchHosts = sdk.setupOnInit(async (effects, _) => {
 
   await lndConfFile.merge(
     effects,
-    { externalip, externalhosts },
+    {
+      externalip: [...new Set(externalip)],
+      externalhosts: [...new Set(externalhosts)],
+    },
     { allowWriteAfterConst: true },
   )
 })

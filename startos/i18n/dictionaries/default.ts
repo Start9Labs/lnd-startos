@@ -73,7 +73,7 @@ const dict = {
   'Choose how to initialize your LND wallet. Start Fresh creates a new wallet. Migrate from Umbrel or StartOS imports an existing wallet.': 207,
   'Start Fresh': 208,
   'Migrate from Umbrel': 209,
-  'IMPORTANT: Write down these 24 words and store them in a safe place. This is the ONLY time they will be displayed. This seed can restore on-chain funds ONLY — it has no knowledge of channel state. This is NOT a BIP-39 seed and cannot be used with wallets other than LND.': 210,
+  "IMPORTANT: Write down these 24 words and store them in a safe place — this is the ONLY time they will be displayed. The seed alone is NOT enough to recover your node: it restores ON-CHAIN funds only and has no knowledge of your channels. To recover funds locked in Lightning channels, you must ALSO keep StartOS backups, which include LND's Static Channel Backup. This is NOT a BIP-39 seed and cannot be used with wallets other than LND.": 210,
   'Successfully Imported Umbrel Data. WARNING!!! With the Migration of LND complete, be sure to NEVER re-start your Umbrel using the same LND seed! You should never run two different lnd nodes with the same seed! This will lead to strange/unpredictable behavior or even loss of funds.': 78,
   'Umbrel Address': 83,
   'The IP address or hostname of your Umbrel (e.g. 192.168.1.9 or umbrel.local).': 84,
@@ -308,6 +308,13 @@ const dict = {
   // Channel Settings — Taproot Overlay (Taproot Assets)
   'Experimental Taproot Overlay Channels': 258,
   'Enable support for taproot overlay channels — taproot channels carrying custom Taproot Assets data alongside Bitcoin payments. Used by the Taproot Assets daemon (tapd). Requires Experimental Taproot Channels to also be enabled.': 259,
+
+  // Reachability — Custom External Host
+  'Custom External Host': 262,
+  'Advertise an additional public address (e.g. a Tunnelsats or VPN endpoint) alongside your Tor and StartOS-managed addresses': 263,
+  'An additional public domain at which your node can be reached, advertised to the network alongside any Tor or StartOS-managed addresses. Use this for an external tunnel or VPN endpoint, such as Tunnelsats. Enter a domain, optionally followed by a port (e.g. example.com:22222); the port defaults to 9735. A static IP does not belong here — StartOS advertises detected public IPs automatically.': 264,
+  'Must be a domain name, optionally followed by :port (e.g. example.com:9735).': 265,
+  'LND re-resolves this address periodically, so it also works for dynamic-DNS tunnels.': 266,
 } as const
 
 /**

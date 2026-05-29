@@ -16,19 +16,19 @@ type OldConfig = {
   }
 }
 
-export const v_0_20_1_beta_9 = VersionInfo.of({
-  version: '0.20.1-beta:9',
+export const current = VersionInfo.of({
+  version: '0.20.1-beta:10',
   releaseNotes: {
-    en_US: `- Tor configuration moved to its own **Tor Settings** action. Enable Tor (on by default) with an optional sub-setting to skip the Tor proxy for clearnet-reachable peers (on by default for new installs).
-- Tor is now a required running dependency whenever Tor is enabled.`,
-    es_ES: `- La configuración de Tor se trasladó a su propia acción **Configuración de Tor**. Habilitar Tor (activado de forma predeterminada) con una subopción para omitir el proxy Tor en los pares accesibles por clearnet (activada de forma predeterminada en instalaciones nuevas).
-- Tor ahora es una dependencia de ejecución requerida siempre que Tor esté habilitado.`,
-    de_DE: `- Die Tor-Konfiguration wurde in eine eigene Aktion **Tor-Einstellungen** verschoben. Tor aktivieren (standardmäßig an) mit einer optionalen Unteroption, um den Tor-Proxy für über Clearnet erreichbare Peers zu überspringen (bei Neuinstallationen standardmäßig an).
-- Tor ist jetzt eine erforderliche laufende Abhängigkeit, wenn Tor aktiviert ist.`,
-    pl_PL: `- Konfiguracja Tora została przeniesiona do osobnej akcji **Ustawienia Tor**. Włącz Tor (domyślnie włączone) z opcjonalnym podustawieniem, aby pomijać proxy Tor dla peerów osiągalnych w clearnecie (w nowych instalacjach domyślnie włączone).
-- Tor jest teraz wymaganą uruchomioną zależnością, gdy Tor jest włączony.`,
-    fr_FR: `- La configuration de Tor a été déplacée dans sa propre action **Paramètres Tor**. Activer Tor (activé par défaut) avec un sous-paramètre optionnel pour contourner le proxy Tor pour les pairs accessibles sur clearnet (activé par défaut pour les nouvelles installations).
-- Tor est désormais une dépendance d'exécution requise dès que Tor est activé.`,
+    en_US:
+      'Adds a **Custom External Host** action to advertise an additional public address — such as a Tunnelsats or VPN tunnel endpoint — alongside your Tor and StartOS-managed addresses.',
+    es_ES:
+      'Añade una acción **Host externo personalizado** para anunciar una dirección pública adicional —como un endpoint de túnel Tunnelsats o VPN— junto con tus direcciones Tor y las gestionadas por StartOS.',
+    de_DE:
+      'Fügt eine Aktion **Benutzerdefinierter externer Host** hinzu, um eine zusätzliche öffentliche Adresse — etwa einen Tunnelsats- oder VPN-Tunnel-Endpunkt — zusammen mit Ihren Tor- und von StartOS verwalteten Adressen bekannt zu geben.',
+    pl_PL:
+      'Dodaje akcję **Niestandardowy host zewnętrzny**, aby rozgłaszać dodatkowy adres publiczny — taki jak punkt końcowy tunelu Tunnelsats lub VPN — obok adresów Tor i zarządzanych przez StartOS.',
+    fr_FR:
+      "Ajoute une action **Hôte externe personnalisé** pour annoncer une adresse publique supplémentaire — telle qu'un point de terminaison de tunnel Tunnelsats ou VPN — en plus de vos adresses Tor et gérées par StartOS.",
   },
   migrations: {
     up: async ({ effects }) => {

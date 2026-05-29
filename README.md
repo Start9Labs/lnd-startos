@@ -4,8 +4,6 @@
 
 # LND on StartOS
 
-> **Upstream docs:** <https://docs.lightning.engineering/>
->
 > Everything not listed in this document should behave the same as upstream
 > LND. If a feature, setting, or behavior is not mentioned
 > here, the upstream documentation is accurate and fully applicable.
@@ -34,11 +32,11 @@ A complete implementation of a Lightning Network node by [Lightning Labs](https:
 
 ## Image and Container Runtime
 
-| Property      | Value                                    |
-| ------------- | ---------------------------------------- |
+| Property      | Value                                      |
+| ------------- | ------------------------------------------ |
 | Image         | `lightninglabs/lnd` (upstream, unmodified) |
-| Architectures | x86_64, aarch64                          |
-| Entrypoint    | `lnd` (default upstream)                 |
+| Architectures | x86_64, aarch64                            |
+| Entrypoint    | `lnd` (default upstream)                   |
 
 ## Volume and Data Layout
 
@@ -48,12 +46,12 @@ A complete implementation of a Lightning Network node by [Lightning Labs](https:
 
 StartOS-specific files on the `main` volume:
 
-| File                   | Purpose                                                                      |
-| ---------------------- | ---------------------------------------------------------------------------- |
-| `store.json`           | Persistent StartOS state (wallet password, restore flag, watchtower clients) |
-| `sync-notified.json`   | One-bit flag: has the **Sync Complete** notification fired on this install   |
-| `tls.cert` / `tls.key` | StartOS-managed TLS certificates                                            |
-| `lnd.conf`             | LND configuration (managed by StartOS actions)                               |
+| File                   | Purpose                                                                                                                       |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `store.json`           | Persistent StartOS state: wallet password, Aezeed cipher seed, restore/reset flags, watchtower clients, custom external hosts |
+| `sync-notified.json`   | One-bit flag: has the **Sync Complete** notification fired on this install                                                    |
+| `tls.cert` / `tls.key` | StartOS-managed TLS certificates                                                                                              |
+| `lnd.conf`             | LND configuration (managed by StartOS actions)                                                                                |
 
 If using the `bitcoind` backend, the Bitcoin Core `main` volume is mounted read-only at `/mnt/bitcoin` for cookie authentication.
 
@@ -63,7 +61,7 @@ If using the `bitcoind` backend, the Bitcoin Core `main` volume is mounted read-
    - **Select a Bitcoin backend** (local Bitcoin Core or Neutrino)
    - **Initialize wallet** (start fresh, or migrate from Umbrel 1.x or another StartOS server)
 2. TLS certificates are generated using StartOS's certificate system
-3. The **Initialize Wallet** action generates a new wallet via the LND `/v1/genseed` and `/v1/initwallet` API. The 24-word Aezeed mnemonic is displayed **once** in the action result — it is **not stored**. The wallet password is saved to `store.json`
+3. The **Initialize Wallet** action generates a new wallet via the LND `/v1/genseed` and `/v1/initwallet` API. The 24-word Aezeed mnemonic is displayed **once** in the action result (the only time it is shown in the UI — write it down). Both the wallet password and the cipher seed are persisted to `store.json` (`walletPassword`, `aezeedCipherSeed`). The seed recovers on-chain funds only; recovering channel funds requires LND's Static Channel Backup, captured in StartOS backups
 4. The wallet is **automatically unlocked** on every start via the `/v1/unlockwallet` API
 5. If a Bitcoin Core backend is selected, StartOS creates a task on Bitcoin Core to **enable ZMQ**
 
@@ -71,21 +69,22 @@ Users never interact with `lncli create` or `lncli unlock` — StartOS handles b
 
 ## Configuration Management
 
-LND is configured entirely through **StartOS actions** (see [Actions](#actions-startos-ui) below). Each configuration category has a dedicated action that writes to the `lnd.conf` file on the `main` volume.
+LND is configured through **StartOS actions** (see [Actions](#actions-startos-ui) below); each configuration category has a dedicated action. Most actions write to `lnd.conf` on the `main` volume; the **Custom External Host** and **Watchtower Client** actions instead save their input to `store.json` and apply it at startup. You can also edit `lnd.conf` by hand — see [Editing `lnd.conf` directly](#editing-lndconf-directly) for what persists.
 
-| StartOS-Managed (via Actions) | Details                                                                |
-| ----------------------------- | ---------------------------------------------------------------------- |
-| Bitcoin backend selection     | `bitcoind` or `neutrino`                                               |
-| General settings              | Alias, color, keysend, AMP                                             |
-| Tor settings                  | Enable Tor (outbound proxy), optionally skip the proxy for clearnet peers |
-| Routing fees                  | Base fee, fee rate, timelock delta                                     |
+| StartOS-Managed (via Actions) | Details                                                                                      |
+| ----------------------------- | -------------------------------------------------------------------------------------------- |
+| Bitcoin backend selection     | `bitcoind` or `neutrino`                                                                     |
+| General settings              | Alias, color, keysend, AMP                                                                   |
+| Tor settings                  | Enable Tor (outbound proxy), optionally skip the proxy for clearnet peers                    |
+| Custom external host          | Additional advertised public address — a tunnel/VPN endpoint such as Tunnelsats              |
+| Routing fees                  | Base fee, fee rate, timelock delta                                                           |
 | Channel settings              | Min/max size, wumbo, zero-conf, SCID alias, taproot/overlay, pending, circular route, closes |
-| Autopilot                     | Enable/disable, max channels, allocation, channel size limits          |
-| Performance                   | DB auto-compact, invoice cleanup, reconnect stagger, graph pruning     |
-| Watchtower server             | Enable/disable, listen address                                         |
-| Watchtower client             | Enable/disable, tower URIs                                             |
+| Autopilot                     | Enable/disable, max channels, allocation, channel size limits                                |
+| Performance                   | DB auto-compact, invoice cleanup, reconnect stagger, graph pruning                           |
+| Watchtower server             | Enable/disable, listen address                                                               |
+| Watchtower client             | Enable/disable, tower URIs                                                                   |
 
-Settings **not** managed by StartOS (hardcoded):
+Settings **fixed** by StartOS (reset to these values, not user-configurable):
 
 | Setting                             | Value                   | Reason                           |
 | ----------------------------------- | ----------------------- | -------------------------------- |
@@ -102,10 +101,10 @@ Settings **not** managed by StartOS (hardcoded):
 
 Only settings that **diverge from upstream LND defaults** are written to `lnd.conf` on install. All other settings are left unset, allowing LND to use its built-in defaults. This keeps `lnd.conf` minimal and avoids drift when upstream defaults change between versions.
 
-| Setting                               | Upstream Default   | Our Default             | Reason                                                                                   |
-| ------------------------------------- | ------------------ | ----------------------- | ---------------------------------------------------------------------------------------- |
-| `accept-keysend`                      | Disabled           | Enabled                 | Keysend is widely expected by wallets and apps that interact with LND nodes              |
-| `tor.active`                          | `false`            | `true` (enabled)        | Privacy-preserving default; "Enable Tor" defaults on, making Tor a required running dependency |
+| Setting                               | Upstream Default   | Our Default              | Reason                                                                                                                      |
+| ------------------------------------- | ------------------ | ------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| `accept-keysend`                      | Disabled           | Enabled                  | Keysend is widely expected by wallets and apps that interact with LND nodes                                                 |
+| `tor.active`                          | `false`            | `true` (enabled)         | Privacy-preserving default; "Enable Tor" defaults on, making Tor a required running dependency                              |
 | `tor.skip-proxy-for-clearnet-targets` | `false` (tor-only) | `true` (clearnet direct) | New installs only; dials clearnet-reachable peers directly for performance. Turn off "Skip for clearnet peers" for tor-only |
 
 ### Form Defaults and Footnotes
@@ -116,6 +115,16 @@ Configuration actions use a consistent pattern across number, text, and boolean 
 - **`footnote: "Default: <value>"`** — shows the upstream LND default persistently beneath the field, so the user knows what value applies when the field is left unset
 - **`default: <value>`** — used only when we intentionally override the upstream default (e.g. `accept-keysend: true`); "reset defaults" restores our override, not the upstream value
 - Optional booleans use `Value.triState` (true / false / null) rather than `Value.toggle` so the "null" middle state maps cleanly to "use the upstream default"
+
+### Editing `lnd.conf` directly
+
+You don't have to use the actions — you can edit `lnd.conf` by hand, and your changes are **preserved across restarts**. On each start StartOS merges your existing values rather than discarding them, so any setting it doesn't actively manage stays put. The exceptions, re-derived on every start, are:
+
+- `externalip` / `externalhosts` — rebuilt by `watchHosts` from the Peer interface's addresses plus the **Custom External Host** action
+- `tor.socks` — set by `watchTorSocks` to the Tor service's proxy address, or removed when Tor isn't installed
+- the Bitcoin backend keys (`bitcoin.node`, `bitcoind.rpchost`, `bitcoind.rpccookie`, `bitcoind.zmqpubrawblock`, `bitcoind.zmqpubrawtx`, `fee.url`) — re-applied by `main` from the selected backend
+
+The fixed keys in the table above are likewise reset to their pinned values, `rpcuser`/`rpcpass` are stripped (cookie auth only), and **comments are not retained** — the file is rewritten from its parsed settings.
 
 ## Network Access and Interfaces
 
@@ -130,13 +139,14 @@ The REST and gRPC interfaces export `lndconnect://` URIs with embedded macaroon 
 
 ### External Address Advertisement
 
-StartOS automatically manages how LND advertises itself to the Lightning Network. Addresses are resolved in the following priority order:
+On every start, the `watchHosts` init rebuilds `externalip`/`externalhosts` for the Peer interface from these sources:
 
-1. **Tor onion addresses** — always added to `externalip`
-2. **Public domains** — if not using tor-only mode, added to `externalhosts`
-3. **IPv4 addresses** — used as a fallback in `externalip` only when no public domains are available
+1. **Custom external host** — the domain set via the **Custom External Host** action; always added to `externalhosts`, independent of Tor mode
+2. **Tor onion addresses** — every onion service on the Peer interface, added to `externalip`. This requires the **Tor** marketplace service (Tor is not built in) and an onion service added to the interface — there are none by default
+3. **Public domains** — domains on the Peer interface, added to `externalhosts`, but only when "Skip for clearnet peers" is enabled (otherwise the node advertises onion-only)
+4. **Public IPv4** — added to `externalip` as a fallback only when there is no custom host or public domain
 
-This means LND can advertise via domain names (not just raw IPs) when the node has a public domain configured in StartOS.
+`watchHosts` is the **sole writer** of `externalip`/`externalhosts`, so manual edits to *those two keys* are re-derived on the next start — use the Custom External Host action instead. (Every other `lnd.conf` setting you edit by hand is preserved; see [Configuration Management](#configuration-management).)
 
 ## Actions (StartOS UI)
 
@@ -173,8 +183,18 @@ This means LND can advertise via domain names (not just raw IPs) when the node h
 - **Purpose:** Enable/configure outbound Tor routing
 - **Visibility:** Enabled
 - **Availability:** Any status
-- **Inputs:** Enable Tor union (default: enabled); when enabled: skip for clearnet peers (toggle, seeded on for new installs)
+- **Inputs:** Enable Tor union (default: enabled); when enabled: skip for clearnet peers (toggle, default on — matches the install seed)
 - **Outputs:** None
+
+### Custom External Host
+
+- **Name:** Custom External Host
+- **Purpose:** Advertise an additional public address (e.g. a Tunnelsats or VPN tunnel endpoint) alongside Tor and StartOS-managed addresses
+- **Visibility:** Enabled
+- **Availability:** Any status
+- **Inputs:** Custom external host (text — a domain, optionally `domain:port`; optional). A literal IP is rejected; static IPs are advertised automatically via `externalip`
+- **Outputs:** None
+- **Notes:** Stored in `store.json` (`customExternalHosts`), not written to `lnd.conf` by the action — `watchHosts` merges it into `externalhosts`. Restart LND to advertise a newly added host.
 
 ### Routing Fees
 
@@ -246,7 +266,7 @@ This means LND can advertise via domain names (not just raw IPs) when the node h
 - **Visibility:** Hidden (triggered as critical task on install)
 - **Availability:** Stopped only
 - **Inputs:** Select variant: "Start Fresh" (no inputs), "Migrate from Umbrel" (host + password), or "Migrate from StartOS" (host + master password)
-- **Outputs:** For fresh: 24-word Aezeed mnemonic (masked, copyable — shown once, not stored). For migration: success/failure message
+- **Outputs:** For fresh: 24-word Aezeed mnemonic (masked, copyable — shown once in the UI; the seed is persisted in `store.json` as `aezeedCipherSeed`). For migration: success/failure message
 
 ### Reset Wallet Transactions
 
@@ -277,12 +297,12 @@ This means LND can advertise via domain names (not just raw IPs) when the node h
 
 ## Health Checks
 
-| Check                      | Method                                                               | Grace Period | Messages                                                  |
-| -------------------------- | -------------------------------------------------------------------- | ------------ | --------------------------------------------------------- |
-| **LND Server**             | HTTPS `GET /v1/state` on port 8080 using the self-signed `tls.cert`  | Default      | Success: "LND is ready" / Starting: (no message, waiting) |
-| **Network and Graph Sync** | `lncli getinfo` (synced_to_chain + synced_to_graph)                  | Default      | Synced / Syncing to chain / Syncing to graph / Starting   |
-| **Node Reachability**      | Config check (conditional)                                           | N/A          | Disabled message if no external IP or hostname configured |
-| **Backup Restoration**     | Conditional (after restore)                                          | N/A          | Warning to sweep funds and reinstall                      |
+| Check                      | Method                                                              | Grace Period | Messages                                                  |
+| -------------------------- | ------------------------------------------------------------------- | ------------ | --------------------------------------------------------- |
+| **LND Server**             | HTTPS `GET /v1/state` on port 8080 using the self-signed `tls.cert` | Default      | Success: "LND is ready" / Starting: (no message, waiting) |
+| **Network and Graph Sync** | `lncli getinfo` (synced_to_chain + synced_to_graph)                 | Default      | Synced / Syncing to chain / Syncing to graph / Starting   |
+| **Node Reachability**      | Config check (conditional)                                          | N/A          | Disabled message if no external IP or hostname configured |
+| **Backup Restoration**     | Conditional (after restore)                                         | N/A          | Warning to sweep funds and reinstall                      |
 
 The LND Server check calls the REST `/v1/state` endpoint and returns `success` once the server replies with any valid state JSON. It is a stronger readiness signal than a bare port-listening check — the port binds before LND is actually ready to serve RPCs — so dependent services (like Mempool) that gate on this health check will wait until LND can answer API calls.
 
@@ -290,22 +310,24 @@ When LND first reaches `synced_to_chain && synced_to_graph` after install, a **S
 
 ## Dependencies
 
-| Dependency   | Required | Mounted Volume                          | Health Checks Required         | Purpose                                                        |
-| ------------ | -------- | --------------------------------------- | ------------------------------ | -------------------------------------------------------------- |
-| Bitcoin Core | Optional | `main` → `/mnt/bitcoin` (read-only)    | `sync-progress`, `bitcoind`    | Block data, transaction broadcasting via ZMQ + RPC cookie auth |
-| Tor          | Optional | None                                    | `tor`                          | Required (running) when "Enable Tor" is on (Tor Settings) |
+| Dependency   | Required | Mounted Volume                      | Health Checks Required      | Purpose                                                        |
+| ------------ | -------- | ----------------------------------- | --------------------------- | -------------------------------------------------------------- |
+| Bitcoin Core | Optional | `main` → `/mnt/bitcoin` (read-only) | `sync-progress`, `bitcoind` | Block data, transaction broadcasting via ZMQ + RPC cookie auth |
+| Tor          | Optional | None                                | `tor`                       | Required (running) when "Enable Tor" is on (Tor Settings)      |
 
 When using Bitcoin Core as backend, LND requires the listed health checks to pass on Bitcoin Core before starting. LND uses cookie authentication via the mounted `.cookie` file.
 
 LND can alternatively use **Neutrino** (built-in light client) with no Bitcoin Core dependency.
 
+Tor is likewise a marketplace service, not built into StartOS. It provides LND's outbound SOCKS proxy and the onion services used for inbound reachability, and becomes a required *running* dependency whenever **Enable Tor** is on.
+
 ## Limitations and Differences
 
 1. **Mainnet only** — testnet/regtest/signet are not available
 2. **No `lncli create` or `lncli unlock`** — wallet lifecycle is fully automated by StartOS
-3. **Configuration via actions only** — `lnd.conf` is managed by StartOS; manual edits will be overwritten by action defaults on mismatch
+3. **A few `lnd.conf` keys are StartOS-managed** — `externalip`/`externalhosts`, `tor.socks`, and the Bitcoin backend connection keys are re-derived on every start, so hand-edits to *those* keys don't stick (use the corresponding action). Every other setting you put in `lnd.conf` is preserved across restarts — see [Editing `lnd.conf` directly](#editing-lndconf-directly)
 4. **Bitcoin Core cookie auth only** — `rpcuser`/`rpcpass` are explicitly removed; authentication uses the mounted `.cookie` file
-5. **Asymmetric Tor disable** — the Tor Settings "Enable Tor" control governs only LND's outbound peer dialing. Inbound peer connections still arrive over the StartOS-managed Tor hidden service (the host Tor daemon owns that mapping). Disabling outbound Tor is appropriate for serving as a watchtower server or for clearnet-first deployments, but a general routing node will still receive Tor traffic — symmetric clearnet-only operation is not supported.
+5. **"Enable Tor" affects outbound only** — Tor is not built into StartOS; it is a marketplace service. The Tor Settings toggle controls whether LND's *outbound* peer dials use the Tor proxy. It does not create inbound reachability: that comes from adding an onion service to the Peer interface (via the Tor service), and once added it works independently of this toggle. Without the Tor service installed, neither outbound nor inbound Tor is available.
 6. **Restored nodes should not be reused** — after backup restore, sweep funds and reinstall
 
 ## What Is Unchanged from Upstream
@@ -356,6 +378,8 @@ actions:
   - routing-fees-config
   - channels-config
   - autopilot-config
+  - tor-config
+  - custom-external-host-config
   - backend-config
   - performance-config
   - watchtower-server-config
@@ -368,7 +392,8 @@ actions:
 health_checks:
   - lnd_state: https GET /v1/state on 8080 (self-signed cert from tls.cert)
   - lncli_getinfo: synced_to_chain, synced_to_graph
-  - reachability: conditional
+  - reachability: conditional (no external address advertised)
+  - restored: conditional (set after backup restore)
 backup_volumes:
   - main (excluding data/graph, channel.db, sphinxreplay.db, neutrino.db, block_headers.bin, reg_filter_headers.bin, logs)
 ```

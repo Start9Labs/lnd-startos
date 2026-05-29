@@ -97,9 +97,7 @@ export const initializeWallet = sdk.Action.withInput(
   // metadata
   async ({ effects }) => ({
     name: i18n('Initialize Wallet'),
-    description: i18n(
-      'Create a new LND wallet or migrate from another device',
-    ),
+    description: i18n('Create a new LND wallet or migrate from another device'),
     warning: null,
     allowedStatuses: 'only-stopped',
     group: null,
@@ -202,7 +200,9 @@ async function initFresh(
         `https://lnd.startos:${restPort}/v1/initwallet`,
         '-d',
         JSON.stringify({
-          wallet_password: base64.stringify(Buffer.from(walletPassword, 'latin1')),
+          wallet_password: base64.stringify(
+            Buffer.from(walletPassword, 'latin1'),
+          ),
           cipher_seed_mnemonic: cipherSeed,
         }),
       ])
@@ -227,7 +227,7 @@ async function initFresh(
     version: '1' as const,
     title: i18n('Aezeed Cipher Seed'),
     message: i18n(
-      'IMPORTANT: Write down these 24 words and store them in a safe place. This is the ONLY time they will be displayed. This seed can restore on-chain funds ONLY — it has no knowledge of channel state. This is NOT a BIP-39 seed and cannot be used with wallets other than LND.',
+      "IMPORTANT: Write down these 24 words and store them in a safe place — this is the ONLY time they will be displayed. The seed alone is NOT enough to recover your node: it restores ON-CHAIN funds only and has no knowledge of your channels. To recover funds locked in Lightning channels, you must ALSO keep StartOS backups, which include LND's Static Channel Backup. This is NOT a BIP-39 seed and cannot be used with wallets other than LND.",
     ),
     result: {
       type: 'single' as const,
@@ -330,15 +330,12 @@ async function importFromStartOS(
     'import-startos',
     async (subc) => {
       // Run the import script: stops LND on origin, copies data + store.json
-      const scriptRes = await subc.exec(
-        ['sh', '/scripts/import-startos.sh'],
-        {
-          env: {
-            STARTOS_HOST: input['startos-host'],
-            STARTOS_PASS: input['startos-password'],
-          },
+      const scriptRes = await subc.exec(['sh', '/scripts/import-startos.sh'], {
+        env: {
+          STARTOS_HOST: input['startos-host'],
+          STARTOS_PASS: input['startos-password'],
         },
-      )
+      })
       if (scriptRes.exitCode !== 0) return scriptRes
 
       // Extract wallet password from the old store.json

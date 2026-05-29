@@ -188,7 +188,7 @@ export const fullConfigSpec = InputSpec.of({
         spec: InputSpec.of({
           'skip-clearnet': Value.toggle({
             name: i18n('Skip for clearnet peers'),
-            default: false,
+            default: true,
             description: i18n(
               "Dial peers that are reachable on clearnet directly, skipping the Tor proxy. When off, all outbound peer connections — including clearnet-reachable ones — are routed through Tor, hiding your node's public IP address at the cost of performance.",
             ),
@@ -196,6 +196,27 @@ export const fullConfigSpec = InputSpec.of({
         }),
       },
     }),
+  }),
+  // ── Reachability ──
+  'custom-external-host': Value.text({
+    name: i18n('Custom External Host'),
+    default: null,
+    required: false,
+    description: i18n(
+      'An additional public domain at which your node can be reached, advertised to the network alongside any Tor or StartOS-managed addresses. Use this for an external tunnel or VPN endpoint, such as Tunnelsats. Enter a domain, optionally followed by a port (e.g. example.com:22222); the port defaults to 9735. A static IP does not belong here — StartOS advertises detected public IPs automatically.',
+    ),
+    placeholder: 'example.tunnelsatsv2.com:22222',
+    patterns: [
+      {
+        regex: '^([a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,}(:[0-9]{1,5})?$',
+        description: i18n(
+          'Must be a domain name, optionally followed by :port (e.g. example.com:9735).',
+        ),
+      },
+    ],
+    footnote: i18n(
+      'LND re-resolves this address periodically, so it also works for dynamic-DNS tunnels.',
+    ),
   }),
   // ── Routing Fees ──
   'base-fee': Value.number({

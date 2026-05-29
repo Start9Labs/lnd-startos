@@ -7,6 +7,7 @@ export const shape = z.object({
   restore: z.boolean().catch(false),
   resetWalletTransactions: z.boolean().catch(false),
   watchtowerClients: z.array(z.string()).catch([]),
+  customExternalHosts: z.array(z.string()).catch([]),
 })
 
 export const storeJson = FileHelper.json(
