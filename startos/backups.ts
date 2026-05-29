@@ -1,4 +1,4 @@
-import { storeJson } from './fileModels/store.json'
+import { startupFlagsJson } from './fileModels/startupFlags.json'
 import { sdk } from './sdk'
 
 export const { createBackup, restoreInit } = sdk.setupBackups(
@@ -16,7 +16,6 @@ export const { createBackup, restoreInit } = sdk.setupBackups(
         ],
       })
       .setPostRestore(async (effects) => {
-        await storeJson.merge(effects, { restore: true })
+        await startupFlagsJson.merge(effects, { restore: true })
       }),
 )
-

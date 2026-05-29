@@ -4,8 +4,6 @@ import { sdk } from '../sdk'
 export const shape = z.object({
   walletPassword: z.string(),
   aezeedCipherSeed: z.array(z.string()).nullable().catch(null),
-  restore: z.boolean().catch(false),
-  resetWalletTransactions: z.boolean().catch(false),
   watchtowerClients: z.array(z.string()).catch([]),
   customExternalHosts: z.array(z.string()).catch([]),
 })

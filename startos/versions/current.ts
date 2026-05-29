@@ -17,18 +17,10 @@ type OldConfig = {
 }
 
 export const current = VersionInfo.of({
-  version: '0.20.1-beta:10',
+  version: '0.20.1-beta:11',
   releaseNotes: {
     en_US:
-      'Adds a **Custom External Host** action to advertise an additional public address — such as a Tunnelsats or VPN tunnel endpoint — alongside your Tor and StartOS-managed addresses.',
-    es_ES:
-      'Añade una acción **Host externo personalizado** para anunciar una dirección pública adicional —como un endpoint de túnel Tunnelsats o VPN— junto con tus direcciones Tor y las gestionadas por StartOS.',
-    de_DE:
-      'Fügt eine Aktion **Benutzerdefinierter externer Host** hinzu, um eine zusätzliche öffentliche Adresse — etwa einen Tunnelsats- oder VPN-Tunnel-Endpunkt — zusammen mit Ihren Tor- und von StartOS verwalteten Adressen bekannt zu geben.',
-    pl_PL:
-      'Dodaje akcję **Niestandardowy host zewnętrzny**, aby rozgłaszać dodatkowy adres publiczny — taki jak punkt końcowy tunelu Tunnelsats lub VPN — obok adresów Tor i zarządzanych przez StartOS.',
-    fr_FR:
-      "Ajoute une action **Hôte externe personnalisé** pour annoncer une adresse publique supplémentaire — telle qu'un point de terminaison de tunnel Tunnelsats ou VPN — en plus de vos adresses Tor et gérées par StartOS.",
+      'Fixes the **Reset Wallet Transactions** action so the reset is applied only once instead of re-running on every restart, and likewise fixes nodes restored from backup re-running channel backup restoration on every restart.',
   },
   migrations: {
     up: async ({ effects }) => {

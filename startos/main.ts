@@ -4,8 +4,8 @@ import { readFile } from 'node:fs/promises'
 import { request } from 'node:https'
 import { base64 } from 'rfc4648'
 import { lndConfFile } from './fileModels/lnd.conf'
+import { startupFlagsJson } from './fileModels/startupFlags.json'
 import { storeJson } from './fileModels/store.json'
-import { syncNotifiedFile } from './fileModels/syncNotified.json'
 import { i18n } from './i18n'
 import { restPort } from './interfaces'
 import { sdk } from './sdk'
@@ -48,7 +48,6 @@ async function getLndState(): Promise<string | null> {
   })
 }
 
-
 export const main = sdk.setupMain(async ({ effects }) => {
   /**
    * ======================== Setup (optional) ========================
@@ -60,7 +59,16 @@ export const main = sdk.setupMain(async ({ effects }) => {
     throw new Error('No store.json')
   }
 
-  let notified = (await syncNotifiedFile.read().once())?.notified ?? false
+  // One-time startup flags live outside store.json — read with `.once`, not the
+  // `.const` watch above — so flipping them back after startup doesn't restart
+  // main. The action that sets resetWalletTransactions restarts LND itself via
+  // sdk.restart; here we only consume and then clear.
+  const startupFlags = await startupFlagsJson.read().once()
+  if (!startupFlags) {
+    throw new Error('No startup-flags.json')
+  }
+  const { resetWalletTransactions, restore } = startupFlags
+  let notified = startupFlags.notified
 
   const conf = await lndConfFile.read().const(effects)
   if (!conf) {
@@ -76,12 +84,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
     { allowWriteAfterConst: true },
   )
 
-  const {
-    resetWalletTransactions,
-    restore,
-    walletPassword,
-    watchtowerClients,
-  } = store
+  const { walletPassword, watchtowerClients } = store
 
   let mounts = mainMounts
 
@@ -211,6 +214,28 @@ export const main = sdk.setupMain(async ({ effects }) => {
       subcontainer: lndSub,
       requires: ['lnd'],
     })
+    .addOneshot('clear-reset-flag', () =>
+      // `--reset-wallet-transactions` is consumed once, when LND opens the
+      // wallet at unlock. Now that unlock-wallet has completed the reset has
+      // been applied, so clear the flag — otherwise it stays true and re-adds
+      // the flag on every subsequent restart. The flag lives outside store.json
+      // (read with `.once`), so this write does NOT trip a const watch and
+      // restart main.
+      resetWalletTransactions
+        ? {
+            subcontainer: null,
+            exec: {
+              fn: async () => {
+                await startupFlagsJson.merge(effects, {
+                  resetWalletTransactions: false,
+                })
+                return null
+              },
+            },
+            requires: ['unlock-wallet'],
+          }
+        : null,
+    )
     .addHealthCheck('sync-progress', {
       ready: {
         display: i18n('Network and Graph Sync Progress'),
@@ -289,7 +314,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
               title: i18n('Sync Complete'),
               message: i18n('LND is synced to chain and graph.'),
             })
-            await syncNotifiedFile.write(effects, { notified: true })
+            await startupFlagsJson.merge(effects, { notified: true })
             notified = true
           }
           return null
@@ -323,6 +348,26 @@ export const main = sdk.setupMain(async ({ effects }) => {
               },
             },
             requires: ['lnd', 'unlock-wallet'],
+          }
+        : null,
+    )
+    .addOneshot('clear-restore-flag', () =>
+      // Clear the restore flag once restorechanbackup has run, so it isn't
+      // re-run on every restart. `requires: ['restore']` gates this on that
+      // oneshot completing successfully — if restorechanbackup fails the flag
+      // stays set and the restore is retried on the next startup. The flag
+      // lives outside store.json (read with `.once`), so clearing it doesn't
+      // trip a const watch and restart main.
+      restore
+        ? {
+            subcontainer: null,
+            exec: {
+              fn: async () => {
+                await startupFlagsJson.merge(effects, { restore: false })
+                return null
+              },
+            },
+            requires: ['restore'],
           }
         : null,
     )

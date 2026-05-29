@@ -1,5 +1,5 @@
+import { startupFlagsJson } from '../fileModels/startupFlags.json'
 import { i18n } from '../i18n'
-import { storeJson } from '../fileModels/store.json'
 import { sdk } from '../sdk'
 
 export const resetWalletTransactions = sdk.Action.withoutInput(
@@ -20,7 +20,8 @@ export const resetWalletTransactions = sdk.Action.withoutInput(
 
   // execution function
   async ({ effects }) => {
-    await storeJson.merge(effects, { resetWalletTransactions: true })
+    await startupFlagsJson.merge(effects, { resetWalletTransactions: true })
+    await sdk.restart(effects)
     return {
       version: '1',
       title: i18n('Success'),

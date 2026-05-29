@@ -1,9 +1,13 @@
 import { utils } from '@start9labs/start-sdk'
 import { lndConfFile } from '../fileModels/lnd.conf'
+import { startupFlagsJson } from '../fileModels/startupFlags.json'
 import { storeJson } from '../fileModels/store.json'
 import { sdk } from '../sdk'
 
 export const seedFiles = sdk.setupOnInit(async (effects, kind) => {
+  // Seed the one-time startup flags to their false defaults.
+  await startupFlagsJson.merge(effects, {})
+
   if (kind === 'install') {
     // Seed every non-upstream default so a fresh install matches the form
     // defaults in fullConfigSpec (and "reset defaults"). Any field whose form
