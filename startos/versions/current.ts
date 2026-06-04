@@ -17,18 +17,18 @@ type OldConfig = {
 }
 
 export const current = VersionInfo.of({
-  version: '0.20.1-beta:12',
+  version: '0.20.1-beta:13',
   releaseNotes: {
     en_US:
-      'Adds a hidden **Auto-Configure** action that lets a dependent service request specific lnd.conf settings through a one-click task. The first use is enabling onion messages for BOLT12 offers (e.g. BOLT12 Pay / LNDK).',
+      'Fixes the **Network and Graph Sync Progress** health check spuriously reporting a failure and flooding the logs while LND is still starting up — most visibly right after an upgrade, when Bitcoin Core is still loading. The check now reports **Starting** until LND is ready to answer.',
     es_ES:
-      'Añade una acción oculta **Configuración automática** que permite a un servicio dependiente solicitar ajustes específicos de lnd.conf mediante una tarea de un solo clic. Su primer uso es habilitar los mensajes onion para las ofertas BOLT12 (por ejemplo, BOLT12 Pay / LNDK).',
+      'Corrige el chequeo de estado **Progreso de sincronización de red y grafo** que reportaba erróneamente un fallo e inundaba los registros mientras LND aún se estaba iniciando — más visible justo después de una actualización, cuando Bitcoin Core todavía se está cargando. Ahora el chequeo indica **Iniciando** hasta que LND está listo para responder.',
     de_DE:
-      'Fügt eine versteckte Aktion **Automatisch konfigurieren** hinzu, mit der ein abhängiger Dienst bestimmte lnd.conf-Einstellungen über eine Ein-Klick-Aufgabe anfordern kann. Der erste Anwendungsfall ist das Aktivieren von Onion-Nachrichten für BOLT12-Angebote (z. B. BOLT12 Pay / LNDK).',
+      'Behebt einen Fehler, bei dem die Zustandsprüfung **Netzwerk- und Graph-Synchronisierungsfortschritt** fälschlicherweise einen Fehler meldete und die Protokolle überflutete, während LND noch startete — am deutlichsten direkt nach einer Aktualisierung, wenn Bitcoin Core noch lädt. Die Prüfung meldet jetzt **Startet**, bis LND antwortbereit ist.',
     pl_PL:
-      'Dodaje ukrytą akcję **Automatyczna konfiguracja**, która pozwala usłudze zależnej zażądać określonych ustawień lnd.conf za pomocą zadania jednym kliknięciem. Pierwszym zastosowaniem jest włączenie wiadomości onion dla ofert BOLT12 (np. BOLT12 Pay / LNDK).',
+      'Naprawia kontrolę stanu **Postęp synchronizacji sieci i grafu**, która błędnie zgłaszała awarię i zalewała logi, gdy LND wciąż się uruchamiał — najbardziej widoczne tuż po aktualizacji, gdy Bitcoin Core nadal się ładuje. Kontrola zgłasza teraz **Uruchamianie**, dopóki LND nie jest gotowy do odpowiedzi.',
     fr_FR:
-      "Ajoute une action masquée **Configuration automatique** qui permet à un service dépendant de demander des paramètres lnd.conf spécifiques via une tâche en un clic. Le premier usage est l'activation des messages onion pour les offres BOLT12 (par exemple BOLT12 Pay / LNDK).",
+      "Corrige le contrôle de santé **Progression de la synchronisation du réseau et du graphe** qui signalait à tort un échec et inondait les journaux pendant que LND démarrait encore — surtout juste après une mise à jour, lorsque Bitcoin Core est encore en cours de chargement. Le contrôle indique désormais **Démarrage** jusqu'à ce que LND soit prêt à répondre.",
   },
   migrations: {
     up: async ({ effects }) => {
