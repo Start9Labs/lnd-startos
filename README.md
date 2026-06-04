@@ -287,6 +287,15 @@ On every start, the `watchHosts` init rebuilds `externalip`/`externalhosts` for 
 - **Outputs:** None
 - **Warning:** May require restarting dependent services
 
+### Auto-Configure
+
+- **Name:** Auto-Configure
+- **Purpose:** Let a dependent service request specific `lnd.conf` settings through a one-click task, instead of asking the user to SSH in and edit the file by hand
+- **Visibility:** Hidden — never listed in the actions menu; only surfaced as a task posted by a dependent service
+- **Availability:** Any status
+- **Inputs:** The requesting service supplies a partial set of config fields; the user sees only those fields, pre-filled and locked, and approves. Currently the form can expose **Enable Onion Messages (BOLT12)**, which writes `protocol.custom-message=513`, `protocol.custom-nodeann=39`, and `protocol.custom-init=39` to `lnd.conf` to enable onion-message support for BOLT12 offers (requested by services such as BOLT12 Pay / LNDK)
+- **Outputs:** None
+
 ## Backups and Restore
 
 **Backed up:** The entire `main` volume, **excluding** files that are rebuilt automatically: `data/graph`, `data/chain/bitcoin/mainnet/channel.db`, `data/chain/bitcoin/mainnet/sphinxreplay.db`, `data/chain/bitcoin/mainnet/neutrino.db`, `data/chain/bitcoin/mainnet/block_headers.bin`, `data/chain/bitcoin/mainnet/reg_filter_headers.bin`, and `logs`.
@@ -389,6 +398,7 @@ actions:
   - initialize-wallet
   - reset-wallet-transactions
   - recreate-macaroons
+  - autoconfig (hidden; dependent-driven, e.g. onion messages for BOLT12)
 health_checks:
   - lnd_state: https GET /v1/state on 8080 (self-signed cert from tls.cert)
   - lncli_getinfo: synced_to_chain, synced_to_graph

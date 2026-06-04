@@ -78,6 +78,11 @@ export const shape = z.object({
   rejectpush: iniBoolean,
   'coop-close-target-confs': iniNumber,
 
+  // ──── Onion Messages (BOLT12) ────
+  'protocol.custom-message': iniNumber,
+  'protocol.custom-nodeann': iniNumber,
+  'protocol.custom-init': iniNumber,
+
   // ──── Bitcoin ────
   'bitcoin.node': z.enum(['bitcoind', 'neutrino']).optional().catch(undefined),
   'bitcoin.defaultchanconfs': iniNumber,
@@ -375,6 +380,14 @@ export const fullConfigSpec = InputSpec.of({
     units: 'blocks',
     footnote: `${i18n('Default')}: 6 blocks`,
   }),
+  // ── Onion Messages (BOLT12) ──
+  'onion-messages': Value.toggle({
+    name: i18n('Enable Onion Messages (BOLT12)'),
+    default: false,
+    description: i18n(
+      'Enable onion message support so this node can send and receive BOLT12 offers. Writes the custom protocol entries (custom-message 513, custom-nodeann 39, custom-init 39) to lnd.conf. Required by services such as BOLT12 Pay (LNDK).',
+    ),
+  }),
   // ── Performance ──
   'auto-compact': Value.triState({
     name: i18n('Auto-Compact Database'),
@@ -604,6 +617,11 @@ export function fileToForm(conf: LndConf): PartialFormType {
     'allow-circular-route': conf['allow-circular-route'],
     'reject-push': conf.rejectpush,
     'coop-close-target': conf['coop-close-target-confs'],
+    // Onion Messages (BOLT12)
+    'onion-messages':
+      conf['protocol.custom-message'] === 513 &&
+      conf['protocol.custom-nodeann'] === 39 &&
+      conf['protocol.custom-init'] === 39,
     // Performance
     'auto-compact': conf['db.bolt.auto-compact'],
     'gc-canceled-invoices-startup': conf['gc-canceled-invoices-on-startup'],
@@ -706,6 +724,14 @@ export function formToFile(
     result.rejectpush = input['reject-push'] ?? undefined
   if ('coop-close-target' in input)
     result['coop-close-target-confs'] = input['coop-close-target'] ?? undefined
+
+  // Onion Messages (BOLT12)
+  if ('onion-messages' in input) {
+    const v = input['onion-messages']
+    result['protocol.custom-message'] = v ? 513 : undefined
+    result['protocol.custom-nodeann'] = v ? 39 : undefined
+    result['protocol.custom-init'] = v ? 39 : undefined
+  }
 
   // Performance
   if ('auto-compact' in input)
