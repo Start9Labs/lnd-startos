@@ -17,10 +17,18 @@ type OldConfig = {
 }
 
 export const current = VersionInfo.of({
-  version: '0.20.1-beta:11',
+  version: '0.20.1-beta:12',
   releaseNotes: {
     en_US:
-      'Fixes the **Reset Wallet Transactions** action so the reset is applied only once instead of re-running on every restart, and likewise fixes nodes restored from backup re-running channel backup restoration on every restart.',
+      'Adds a hidden **Auto-Configure** action that lets a dependent service request specific lnd.conf settings through a one-click task. The first use is enabling onion messages for BOLT12 offers (e.g. BOLT12 Pay / LNDK).',
+    es_ES:
+      'Añade una acción oculta **Configuración automática** que permite a un servicio dependiente solicitar ajustes específicos de lnd.conf mediante una tarea de un solo clic. Su primer uso es habilitar los mensajes onion para las ofertas BOLT12 (por ejemplo, BOLT12 Pay / LNDK).',
+    de_DE:
+      'Fügt eine versteckte Aktion **Automatisch konfigurieren** hinzu, mit der ein abhängiger Dienst bestimmte lnd.conf-Einstellungen über eine Ein-Klick-Aufgabe anfordern kann. Der erste Anwendungsfall ist das Aktivieren von Onion-Nachrichten für BOLT12-Angebote (z. B. BOLT12 Pay / LNDK).',
+    pl_PL:
+      'Dodaje ukrytą akcję **Automatyczna konfiguracja**, która pozwala usłudze zależnej zażądać określonych ustawień lnd.conf za pomocą zadania jednym kliknięciem. Pierwszym zastosowaniem jest włączenie wiadomości onion dla ofert BOLT12 (np. BOLT12 Pay / LNDK).',
+    fr_FR:
+      "Ajoute une action masquée **Configuration automatique** qui permet à un service dépendant de demander des paramètres lnd.conf spécifiques via une tâche en un clic. Le premier usage est l'activation des messages onion pour les offres BOLT12 (par exemple BOLT12 Pay / LNDK).",
   },
   migrations: {
     up: async ({ effects }) => {
