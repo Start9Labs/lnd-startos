@@ -240,11 +240,24 @@ export const main = sdk.setupMain(async ({ effects }) => {
       ready: {
         display: i18n('Network and Graph Sync Progress'),
         fn: async () => {
-          const res = await lndSub.exec(
-            ['lncli', '--rpcserver=lnd.startos', 'getinfo'],
-            {},
-            30_000,
-          )
+          let res
+          try {
+            res = await lndSub.exec(
+              ['lncli', '--rpcserver=lnd.startos', 'getinfo'],
+              {},
+              30_000,
+            )
+          } catch {
+            // The LND subcontainer can be momentarily absent while main is
+            // re-running (e.g. Bitcoin Core's .cookie rotates on its restart,
+            // which tears down lnd-sub to rebuild it). With no PID 1 in the
+            // subcontainer, exec can't join its namespaces and throws a
+            // filesystem I/O error (".../proc/1/ns/pid: No such file or
+            // directory") instead of returning a result. Treat that as "still
+            // coming up" — the lnd daemon's own `ready` check reflects a
+            // genuine crash separately.
+            return { message: i18n('LND is starting…'), result: 'starting' }
+          }
           if (
             res.exitCode === 0 &&
             res.stdout !== '' &&
@@ -275,26 +288,19 @@ export const main = sdk.setupMain(async ({ effects }) => {
             }
           }
 
-          if (
-            res.stderr.includes(
-              'rpc error: code = Unknown desc = waiting to start',
-            )
-          ) {
-            return {
-              message: i18n('LND is starting…'),
-              result: 'starting',
-            }
-          }
-
-          if (res.exitCode === null) {
-            return {
-              message: i18n('Syncing to graph'),
-              result: 'loading',
-            }
-          }
+          // `lncli getinfo` only succeeds once LND's RPC server is fully
+          // active, so any non-zero (or null) exit here means LND is still
+          // coming up — e.g. the wallet isn't unlocked yet, or the RPC server
+          // reports "waiting to start" / "the RPC server is in the process of
+          // starting up". That exact wording varies by LND version, so rather
+          // than match a fixed string (the old check pinned "waiting to start"
+          // and missed 0.20's phrasing, surfacing hundreds of spurious
+          // failures per boot) we treat every non-success as a transient
+          // startup state. A genuine crash/outage is owned by the lnd daemon's
+          // `ready` check and the LND Server (/v1/state) health check.
           return {
-            message: `Error: ${res.stderr as string}`,
-            result: 'failure',
+            message: i18n('LND is starting…'),
+            result: 'starting',
           }
         },
       },
