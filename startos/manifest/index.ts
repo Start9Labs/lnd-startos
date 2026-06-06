@@ -22,7 +22,7 @@ export const manifest = setupManifest({
   images: {
     lnd: {
       source: {
-        dockerTag: 'lightninglabs/lnd:v0.20.1-beta',
+        dockerTag: 'lightninglabs/lnd:v0.21.0-beta',
       },
       arch: ['aarch64', 'x86_64'],
     },

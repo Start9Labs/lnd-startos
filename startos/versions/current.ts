@@ -17,18 +17,13 @@ type OldConfig = {
 }
 
 export const current = VersionInfo.of({
-  version: '0.20.1-beta:13',
+  version: '0.21.0-beta:0',
   releaseNotes: {
-    en_US:
-      'Fixes the **Network and Graph Sync Progress** health check spuriously reporting a failure and flooding the logs while LND is still starting up — most visibly right after an upgrade, when Bitcoin Core is still loading. The check now reports **Starting** until LND is ready to answer.',
-    es_ES:
-      'Corrige el chequeo de estado **Progreso de sincronización de red y grafo** que reportaba erróneamente un fallo e inundaba los registros mientras LND aún se estaba iniciando — más visible justo después de una actualización, cuando Bitcoin Core todavía se está cargando. Ahora el chequeo indica **Iniciando** hasta que LND está listo para responder.',
-    de_DE:
-      'Behebt einen Fehler, bei dem die Zustandsprüfung **Netzwerk- und Graph-Synchronisierungsfortschritt** fälschlicherweise einen Fehler meldete und die Protokolle überflutete, während LND noch startete — am deutlichsten direkt nach einer Aktualisierung, wenn Bitcoin Core noch lädt. Die Prüfung meldet jetzt **Startet**, bis LND antwortbereit ist.',
-    pl_PL:
-      'Naprawia kontrolę stanu **Postęp synchronizacji sieci i grafu**, która błędnie zgłaszała awarię i zalewała logi, gdy LND wciąż się uruchamiał — najbardziej widoczne tuż po aktualizacji, gdy Bitcoin Core nadal się ładuje. Kontrola zgłasza teraz **Uruchamianie**, dopóki LND nie jest gotowy do odpowiedzi.',
-    fr_FR:
-      "Corrige le contrôle de santé **Progression de la synchronisation du réseau et du graphe** qui signalait à tort un échec et inondait les journaux pendant que LND démarrait encore — surtout juste après une mise à jour, lorsque Bitcoin Core est encore en cours de chargement. Le contrôle indique désormais **Démarrage** jusqu'à ce que LND soit prêt à répondre.",
+    en_US: 'Updates LND to 0.21.0-beta.',
+    es_ES: 'Actualiza LND a 0.21.0-beta.',
+    de_DE: 'Aktualisiert LND auf 0.21.0-beta.',
+    pl_PL: 'Aktualizuje LND do 0.21.0-beta.',
+    fr_FR: 'Met à jour LND vers 0.21.0-beta.',
   },
   migrations: {
     up: async ({ effects }) => {
