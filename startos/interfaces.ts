@@ -39,16 +39,18 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
         buf.toString('base64url'),
       )
 
+      // LND serves REST (and gRPC below) over its own TLS using a
+      // StartOS-issued cert (SANs: lnd.startos + container IP) that clients
+      // pin via the `cert` in the lndconnect URL. Pass the port through
+      // untouched: protocol/addSsl null + secure.ssl makes the OS forward raw
+      // TCP / SNI-passthrough so LND's cert reaches the client. Terminating at
+      // the edge (addSsl) would present the device cert and break the pin.
       const restMulti = sdk.MultiHost.of(effects, 'control')
       const restMultiOrigin = await restMulti.bindPort(restPort, {
-        protocol: 'https',
+        protocol: null,
+        addSsl: null,
         preferredExternalPort: restPort,
-        addSsl: {
-          alpn: null,
-          auth: null,
-          preferredExternalPort: restPort,
-          addXForwardedHeaders: false,
-        },
+        secure: { ssl: true },
       })
 
       const lndConnect = sdk.createInterface(effects, {
@@ -61,6 +63,7 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
         username: null,
         path: '',
         query: {
+          cert,
           macaroon,
         },
       })
@@ -68,15 +71,13 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
       receipts.push(restReceipt)
 
       const gRPCMulti = sdk.MultiHost.of(effects, 'grpc')
+
+      // gRPC: same TLS passthrough as REST above — LND terminates its own TLS.
       const gRPCMultiOrigin = await gRPCMulti.bindPort(gRPCPort, {
-        protocol: 'https',
+        protocol: null,
+        addSsl: null,
         preferredExternalPort: gRPCPort,
-        addSsl: {
-          alpn: null,
-          auth: null,
-          preferredExternalPort: gRPCPort,
-          addXForwardedHeaders: false,
-        },
+        secure: { ssl: true },
       })
 
       const lndgRpcConnect = sdk.createInterface(effects, {
@@ -125,15 +126,12 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
 
   // watchtower — always exported; LND only listens when watchtower.active=true
   const watchtowerMulti = sdk.MultiHost.of(effects, 'watchtower')
-  const watchtowerMultiOrigin = await watchtowerMulti.bindPort(
-    watchtowerPort,
-    {
-      protocol: null,
-      addSsl: null,
-      preferredExternalPort: watchtowerPort,
-      secure: { ssl: false },
-    },
-  )
+  const watchtowerMultiOrigin = await watchtowerMulti.bindPort(watchtowerPort, {
+    protocol: null,
+    addSsl: null,
+    preferredExternalPort: watchtowerPort,
+    secure: { ssl: false },
+  })
   const watchtower = sdk.createInterface(effects, {
     name: i18n('Watchtower'),
     id: 'watchtower',
