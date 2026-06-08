@@ -19,11 +19,16 @@ type OldConfig = {
 export const current = VersionInfo.of({
   version: '0.21.0-beta:0',
   releaseNotes: {
-    en_US: 'Updates LND to 0.21.0-beta.',
-    es_ES: 'Actualiza LND a 0.21.0-beta.',
-    de_DE: 'Aktualisiert LND auf 0.21.0-beta.',
-    pl_PL: 'Aktualizuje LND do 0.21.0-beta.',
-    fr_FR: 'Met à jour LND vers 0.21.0-beta.',
+    en_US:
+      'Updates LND to 0.21.0-beta and moves the database off the legacy bolt backend to SQLite, removing the slow startup compaction step. The one-time conversion runs automatically the first time LND starts after updating and cannot be undone — back up your node before updating. If it fails, LND will not start, so you can retry. That first start may take a while, as LND also converts to native SQL.',
+    es_ES:
+      'Actualiza LND a 0.21.0-beta y cambia la base de datos del antiguo backend bolt a SQLite, eliminando el lento paso de compactación al iniciar. La conversión única se ejecuta automáticamente la primera vez que LND arranca tras la actualización y no se puede deshacer: haz una copia de seguridad de tu nodo antes de actualizar. Si falla, LND no arrancará, así que podrás reintentarlo. Ese primer arranque puede tardar, ya que LND también convierte a SQL nativo.',
+    de_DE:
+      'Aktualisiert LND auf 0.21.0-beta und stellt die Datenbank vom alten bolt-Backend auf SQLite um, wodurch der langsame Komprimierungsschritt beim Start entfällt. Die einmalige Konvertierung läuft beim ersten Start von LND nach der Aktualisierung automatisch und kann nicht rückgängig gemacht werden – sichern Sie Ihren Knoten vor der Aktualisierung. Schlägt sie fehl, startet LND nicht, sodass Sie es erneut versuchen können. Dieser erste Start kann eine Weile dauern, da LND auch auf natives SQL umstellt.',
+    pl_PL:
+      'Aktualizuje LND do 0.21.0-beta i przenosi bazę danych ze starego backendu bolt do SQLite, eliminując powolny etap kompaktowania przy starcie. Jednorazowa konwersja uruchamia się automatycznie przy pierwszym starcie LND po aktualizacji i nie można jej cofnąć — przed aktualizacją wykonaj kopię zapasową węzła. Jeśli się nie powiedzie, LND się nie uruchomi, więc będzie można spróbować ponownie. Ten pierwszy start może chwilę potrwać, ponieważ LND konwertuje też do natywnego SQL.',
+    fr_FR:
+      "Met à jour LND vers 0.21.0-beta et fait passer la base de données de l'ancien backend bolt à SQLite, supprimant la lente étape de compactage au démarrage. La conversion unique s'exécute automatiquement au premier démarrage de LND après la mise à jour et est irréversible — sauvegardez votre nœud avant de mettre à jour. En cas d'échec, LND ne démarrera pas, ce qui vous permet de réessayer. Ce premier démarrage peut prendre un certain temps, car LND convertit aussi vers le SQL natif.",
   },
   migrations: {
     up: async ({ effects }) => {

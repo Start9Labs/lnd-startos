@@ -32,11 +32,13 @@ A complete implementation of a Lightning Network node by [Lightning Labs](https:
 
 ## Image and Container Runtime
 
-| Property      | Value                                      |
-| ------------- | ------------------------------------------ |
-| Image         | `lightninglabs/lnd` (upstream, unmodified) |
-| Architectures | x86_64, aarch64                            |
-| Entrypoint    | `lnd` (default upstream)                   |
+| Property      | Value                                                                  |
+| ------------- | ---------------------------------------------------------------------- |
+| Image         | Built from `./Dockerfile`: `lightninglabs/lnd` + the `lndinit` binary  |
+| Architectures | x86_64, aarch64                                                        |
+| Entrypoint    | `lnd` (default upstream)                                               |
+
+`lndinit` is added solely for the offline bolt → SQLite database conversion (see [Database backend](#database-backend)); the `lnd` binary and runtime are otherwise the upstream image.
 
 ## Volume and Data Layout
 
@@ -49,7 +51,7 @@ StartOS-specific files on the `main` volume:
 | File                   | Purpose                                                                                                                       |
 | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | `store.json`           | Persistent StartOS state: wallet password, Aezeed cipher seed, restore/reset flags, watchtower clients, custom external hosts |
-| `sync-notified.json`   | One-bit flag: has the **Sync Complete** notification fired on this install                                                    |
+| `startup-flags.json`   | Per-run flags read with `.once` (so writes don't restart the service): reset-wallet-transactions, restore, the **Sync Complete** notified flag, and bolt→SQLite migration progress (`dbSchemaFinalized`, `dbMigrationComplete`) |
 | `tls.cert` / `tls.key` | StartOS-managed TLS certificates                                                                                              |
 | `lnd.conf`             | LND configuration (managed by StartOS actions)                                                                                |
 
@@ -80,7 +82,7 @@ LND is configured through **StartOS actions** (see [Actions](#actions-startos-ui
 | Routing fees                  | Base fee, fee rate, timelock delta                                                           |
 | Channel settings              | Min/max size, wumbo, zero-conf, SCID alias, taproot/overlay, pending, circular route, closes |
 | Autopilot                     | Enable/disable, max channels, allocation, channel size limits                                |
-| Performance                   | DB auto-compact, invoice cleanup, reconnect stagger, graph pruning                           |
+| Performance                   | invoice cleanup, reconnect stagger, graph pruning                                            |
 | Watchtower server             | Enable/disable, listen address                                                               |
 | Watchtower client             | Enable/disable, tower URIs                                                                   |
 
@@ -96,6 +98,8 @@ Settings **fixed** by StartOS (reset to these values, not user-configurable):
 | `bitcoind.rpchost`                  | `bitcoind.startos:8332` | StartOS service networking       |
 | `bitcoind.rpccookie`                | `/mnt/bitcoin/.cookie`  | Cookie auth via mounted volume   |
 | `healthcheck.chainbackend.attempts` | `0`                     | Managed by StartOS health checks |
+| `db.backend`                        | `sqlite`                | SQLite backend (replaces legacy bolt) |
+| `db.use-native-sql`                 | `true`                  | Native SQL storage (invoices/graph/payments) |
 
 ### Default Overrides
 
@@ -105,7 +109,19 @@ Only settings that **diverge from upstream LND defaults** are written to `lnd.co
 | ------------------------------------- | ------------------ | ------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
 | `accept-keysend`                      | Disabled           | Enabled                  | Keysend is widely expected by wallets and apps that interact with LND nodes                                                 |
 | `tor.active`                          | `false`            | `true` (enabled)         | Privacy-preserving default; "Enable Tor" defaults on, making Tor a required running dependency                              |
-| `tor.skip-proxy-for-clearnet-targets` | `false` (tor-only) | `true` (clearnet direct) | New installs only; dials clearnet-reachable peers directly for performance. Turn off "Skip for clearnet peers" for tor-only |
+| `tor.skip-proxy-for-clearnet-targets` | `false` (tor-only) | `true` (clearnet direct) | Dials clearnet-reachable peers directly for performance (model default; existing nodes keep any explicit value). Turn off "Skip for clearnet peers" for tor-only |
+
+### Database backend
+
+LND runs on the **SQLite** backend with **native SQL** enabled. `db.backend=sqlite` and `db.use-native-sql=true` are **enforced** in `lnd.conf` (see the fixed-settings table above) — SQLite is Lightning Labs' recommended backend and removes the slow startup compaction the legacy `bolt` backend requires.
+
+- **Fresh installs** are born on SQLite — the enforced keys are seeded on install, so **Initialize Wallet** creates the wallet directly in SQLite.
+- **Existing `bolt` nodes** (upgrading from a pre-0.21 release) and **imports from Umbrel or a pre-0.21 StartOS** arrive as `bolt` data and are **converted on the first start**.
+- **Imports from an already-migrated StartOS node** arrive as SQLite data (the tombstoned `bolt` files ride along) and are used as-is, detected by the presence of `channel.sqlite`.
+
+**How the conversion runs.** `migrate-sqlite` is a oneshot in `main` that runs before the `lnd` daemon (which `requires` it, so LND won't start until it finishes). It runs LND once on bolt to bring the kv schema current (`lndinit migrate-db` only transfers buckets — it refuses a stale schema, and 0.21 adds a mandatory channeldb migration), then runs `lndinit migrate-db` to copy every bucket into SQLite. The brief finalize run overrides the enforced backend on the CLI (`--db.backend=bolt --db.use-native-sql=false`) so it operates on the still-bolt data. Progress is shown by the **Database Migration** health check (_"Migrating the database to SQLite…"_ → _"SQLite migration complete"_); both the oneshot and the health check exist **only** on a run that actually converts, and are absent on every later start.
+
+**Safety.** The conversion is **one-way and irreversible — back up before updating.** It writes only `startup-flags.json` (never `store.json` or `lnd.conf`), so completing it does not restart the service. It is resumable, and throws on failure so LND will not start until a retry succeeds.
 
 ### Form Defaults and Footnotes
 
@@ -146,7 +162,7 @@ On every start, the `watchHosts` init rebuilds `externalip`/`externalhosts` for 
 3. **Public domains** — domains on the Peer interface, added to `externalhosts`, but only when "Skip for clearnet peers" is enabled (otherwise the node advertises onion-only)
 4. **Public IPv4** — added to `externalip` as a fallback only when there is no custom host or public domain
 
-`watchHosts` is the **sole writer** of `externalip`/`externalhosts`, so manual edits to *those two keys* are re-derived on the next start — use the Custom External Host action instead. (Every other `lnd.conf` setting you edit by hand is preserved; see [Configuration Management](#configuration-management).)
+`watchHosts` is the **sole writer** of `externalip`/`externalhosts`, so manual edits to _those two keys_ are re-derived on the next start — use the Custom External Host action instead. (Every other `lnd.conf` setting you edit by hand is preserved; see [Configuration Management](#configuration-management).)
 
 ## Actions (StartOS UI)
 
@@ -235,10 +251,10 @@ On every start, the `watchHosts` init rebuilds `externalip`/`externalhosts` for 
 ### Performance
 
 - **Name:** Performance
-- **Purpose:** Database compaction, invoice cleanup, and network efficiency settings
+- **Purpose:** Invoice cleanup and network efficiency settings
 - **Visibility:** Enabled
 - **Availability:** Any status
-- **Inputs:** Auto-compact (tri-state), GC canceled invoices on startup (tri-state), GC canceled invoices live (tri-state), stagger initial reconnect (tri-state), ignore historical gossip (tri-state), strict graph pruning (tri-state)
+- **Inputs:** GC canceled invoices on startup (tri-state), GC canceled invoices live (tri-state), stagger initial reconnect (tri-state), ignore historical gossip (tri-state), strict graph pruning (tri-state)
 - **Outputs:** None
 
 ### Watchtower Server
@@ -308,6 +324,7 @@ On every start, the `watchHosts` init rebuilds `externalip`/`externalhosts` for 
 
 | Check                      | Method                                                              | Grace Period | Messages                                                  |
 | -------------------------- | ------------------------------------------------------------------- | ------------ | --------------------------------------------------------- |
+| **Database Migration**     | Reads `startup-flags.json` (`dbMigrationComplete`); polls every 2s while migrating, 10 min after | N/A | "Migrating the database to SQLite…" → "SQLite migration complete" — present **only** on a first start that converts a bolt node |
 | **LND Server**             | HTTPS `GET /v1/state` on port 8080 using the self-signed `tls.cert` | Default      | Success: "LND is ready" / Starting: (no message, waiting) |
 | **Network and Graph Sync** | `lncli getinfo` (synced_to_chain + synced_to_graph)                 | Default      | Synced / Syncing to chain / Syncing to graph / Starting   |
 | **Node Reachability**      | Config check (conditional)                                          | N/A          | Disabled message if no external IP or hostname configured |
@@ -328,15 +345,15 @@ When using Bitcoin Core as backend, LND requires the listed health checks to pas
 
 LND can alternatively use **Neutrino** (built-in light client) with no Bitcoin Core dependency.
 
-Tor is likewise a marketplace service, not built into StartOS. It provides LND's outbound SOCKS proxy and the onion services used for inbound reachability, and becomes a required *running* dependency whenever **Enable Tor** is on.
+Tor is likewise a marketplace service, not built into StartOS. It provides LND's outbound SOCKS proxy and the onion services used for inbound reachability, and becomes a required _running_ dependency whenever **Enable Tor** is on.
 
 ## Limitations and Differences
 
 1. **Mainnet only** — testnet/regtest/signet are not available
 2. **No `lncli create` or `lncli unlock`** — wallet lifecycle is fully automated by StartOS
-3. **A few `lnd.conf` keys are StartOS-managed** — `externalip`/`externalhosts`, `tor.socks`, and the Bitcoin backend connection keys are re-derived on every start, so hand-edits to *those* keys don't stick (use the corresponding action). Every other setting you put in `lnd.conf` is preserved across restarts — see [Editing `lnd.conf` directly](#editing-lndconf-directly)
+3. **A few `lnd.conf` keys are StartOS-managed** — `externalip`/`externalhosts`, `tor.socks`, and the Bitcoin backend connection keys are re-derived on every start, so hand-edits to _those_ keys don't stick (use the corresponding action). Every other setting you put in `lnd.conf` is preserved across restarts — see [Editing `lnd.conf` directly](#editing-lndconf-directly)
 4. **Bitcoin Core cookie auth only** — `rpcuser`/`rpcpass` are explicitly removed; authentication uses the mounted `.cookie` file
-5. **"Enable Tor" affects outbound only** — Tor is not built into StartOS; it is a marketplace service. The Tor Settings toggle controls whether LND's *outbound* peer dials use the Tor proxy. It does not create inbound reachability: that comes from adding an onion service to the Peer interface (via the Tor service), and once added it works independently of this toggle. Without the Tor service installed, neither outbound nor inbound Tor is available.
+5. **"Enable Tor" affects outbound only** — Tor is not built into StartOS; it is a marketplace service. The Tor Settings toggle controls whether LND's _outbound_ peer dials use the Tor proxy. It does not create inbound reachability: that comes from adding an onion service to the Peer interface (via the Tor service), and once added it works independently of this toggle. Without the Tor service installed, neither outbound nor inbound Tor is available.
 6. **Restored nodes should not be reused** — after backup restore, sweep funds and reinstall
 
 ## What Is Unchanged from Upstream
@@ -363,7 +380,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for build instructions and development wo
 ```yaml
 package_id: lnd
 upstream_version: see manifest dockerTag
-image: lightninglabs/lnd
+image: built from ./Dockerfile (lightninglabs/lnd + lndinit binary)
 architectures: [x86_64, aarch64]
 volumes:
   main: /root/.lnd
@@ -379,7 +396,7 @@ startos_managed_env_vars: []
 startos_managed_files:
   - lnd.conf
   - store.json
-  - sync-notified.json
+  - startup-flags.json
   - tls.cert
   - tls.key
 actions:
@@ -404,6 +421,7 @@ health_checks:
   - lncli_getinfo: synced_to_chain, synced_to_graph
   - reachability: conditional (no external address advertised)
   - restored: conditional (set after backup restore)
+  - db_migration: conditional (only on a first start that converts bolt → sqlite)
 backup_volumes:
   - main (excluding data/graph, channel.db, sphinxreplay.db, neutrino.db, block_headers.bin, reg_filter_headers.bin, logs)
 ```

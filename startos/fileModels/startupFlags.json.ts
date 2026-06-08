@@ -18,5 +18,14 @@ export const startupFlagsJson = FileHelper.json(
     resetWalletTransactions: z.boolean().catch(false),
     restore: z.boolean().catch(false),
     notified: z.boolean().catch(false),
+    // bolt → SQLite migration progress (persistent, like `notified`).
+    //   dbSchemaFinalized — LND has been run on bolt to apply pending schema
+    //     migrations, so a resumed conversion skips that step.
+    //   dbMigrationComplete — the full conversion finished; once set, main no
+    //     longer adds the migrate-sqlite oneshot or its health check.
+    // Kept here (read with `.once`) so writing them never trips main's
+    // store/lnd.conf `.const` watches — the conversion completes with no restart.
+    dbSchemaFinalized: z.boolean().catch(false),
+    dbMigrationComplete: z.boolean().catch(false),
   }),
 )

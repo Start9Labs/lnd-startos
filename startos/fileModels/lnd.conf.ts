@@ -90,8 +90,18 @@ export const shape = z.object({
   'bitcoin.feerate': iniNumber,
   'bitcoin.timelockdelta': iniNumber,
 
+  // ──── Database backend (enforced by StartOS) ────
+  // Always SQLite with native SQL. New installs are born here; existing bolt
+  // nodes are converted by the migrate-sqlite oneshot in main before the lnd
+  // daemon starts. Enforced (not optional) so the migration never has to *write*
+  // these — a write would trip main's lnd.conf `.const` watch and restart the
+  // service mid/post-migration. The conversion's brief schema-finalize run
+  // overrides them back to bolt on the CLI (`--db.backend=bolt
+  // --db.use-native-sql=false`) to operate on the still-bolt data.
+  'db.backend': z.literal('sqlite').catch('sqlite'),
+  'db.use-native-sql': z.literal(true).catch(true),
+
   // ──── Performance ────
-  'db.bolt.auto-compact': iniBoolean,
   'gc-canceled-invoices-on-startup': iniBoolean,
   'gc-canceled-invoices-on-the-fly': iniBoolean,
   'stagger-initial-reconnect': iniBoolean,
@@ -111,9 +121,7 @@ export const shape = z.object({
   // ──── Tor ────
   'tor.active': z.boolean().catch(true),
   'tor.socks': iniString,
-  'tor.skip-proxy-for-clearnet-targets': iniBoolean.transform(
-    (v) => v ?? false,
-  ),
+  'tor.skip-proxy-for-clearnet-targets': iniBoolean.transform((v) => v ?? true),
 
   // ──── Watchtower ────
   'watchtower.active': iniBoolean,
@@ -389,14 +397,6 @@ export const fullConfigSpec = InputSpec.of({
     ),
   }),
   // ── Performance ──
-  'auto-compact': Value.triState({
-    name: i18n('Auto-Compact Database'),
-    default: null,
-    description: i18n(
-      'Automatically compact the bolt database on startup. Compaction reclaims wasted disk space and can improve performance over time. Recommended for most nodes',
-    ),
-    footnote: `${i18n('Default')}: false`,
-  }),
   'gc-canceled-invoices-startup': Value.triState({
     name: i18n('Delete Canceled Invoices on Startup'),
     default: null,
@@ -623,7 +623,6 @@ export function fileToForm(conf: LndConf): PartialFormType {
       conf['protocol.custom-nodeann'] === 39 &&
       conf['protocol.custom-init'] === 39,
     // Performance
-    'auto-compact': conf['db.bolt.auto-compact'],
     'gc-canceled-invoices-startup': conf['gc-canceled-invoices-on-startup'],
     'gc-canceled-invoices-live': conf['gc-canceled-invoices-on-the-fly'],
     'stagger-initial-reconnect': conf['stagger-initial-reconnect'],
@@ -734,8 +733,6 @@ export function formToFile(
   }
 
   // Performance
-  if ('auto-compact' in input)
-    result['db.bolt.auto-compact'] = input['auto-compact'] ?? undefined
   if ('gc-canceled-invoices-startup' in input)
     result['gc-canceled-invoices-on-startup'] =
       input['gc-canceled-invoices-startup'] ?? undefined

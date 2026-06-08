@@ -10,6 +10,11 @@ import { i18n } from './i18n'
 import { restPort } from './interfaces'
 import { sdk } from './sdk'
 import {
+  needsSqliteMigration,
+  runSqliteMigration,
+  sqliteMigrationComplete,
+} from './sqliteBackend'
+import {
   bitcoindBundle,
   bitcoindMnt,
   GetInfo,
@@ -123,7 +128,62 @@ export const main = sdk.setupMain(async ({ effects }) => {
   /**
    * ======================== Daemons ========================
    */
+  // Decided up front so the migrate-sqlite oneshot and its health check exist
+  // ONLY on a run that actually migrates — on every later start they are absent
+  // entirely (function form returns null below).
+  const needMigration = await needsSqliteMigration()
+
   return sdk.Daemons.of(effects)
+    .addOneshot('migrate-sqlite', () =>
+      needMigration
+        ? {
+            // Convert the database to SQLite before LND starts. Runs in the
+            // shared lndSub (spawns lnd + lndinit there). Writes only
+            // startup-flags, so completing it never restarts main. Throws on
+            // failure, so the lnd daemon (which requires it) won't start until a
+            // retry succeeds; the work is resumable.
+            subcontainer: lndSub,
+            exec: {
+              fn: async (sub, abort) => {
+                await runSqliteMigration(effects, sub, abort)
+                return null
+              },
+            },
+            requires: [],
+          }
+        : null,
+    )
+    .addHealthCheck('db-migration', () =>
+      needMigration
+        ? {
+            ready: {
+              display: i18n('Database Migration'),
+              // Poll every 2s while migrating so the display flips to "complete"
+              // within ~2s of the oneshot finishing; once complete there's
+              // nothing left to detect, so back off to 10 min (the default —
+              // this check only ever returns loading or success). The lnd daemon
+              // gates on the oneshot itself, not this check, so this only affects
+              // how promptly the status updates.
+              trigger: sdk.trigger.statusTrigger(600_000, { loading: 2_000 }),
+              fn: async () => {
+                if (await sqliteMigrationComplete()) {
+                  return {
+                    result: 'success',
+                    message: i18n('SQLite migration complete'),
+                  }
+                }
+                return {
+                  result: 'loading',
+                  message: i18n(
+                    'Migrating the database to SQLite. This can take several minutes — do not interrupt LND.',
+                  ),
+                }
+              },
+            },
+            requires: [],
+          }
+        : null,
+    )
     .addDaemon('lnd', {
       exec: { command: ['lnd', ...lndArgs] },
       subcontainer: lndSub,
@@ -141,7 +201,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
           return { result: 'success', message: i18n('LND is ready') }
         },
       },
-      requires: [],
+      requires: needMigration ? ['migrate-sqlite'] : [],
     })
     .addOneshot('unlock-wallet', {
       exec: {
