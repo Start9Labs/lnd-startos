@@ -7,7 +7,7 @@ import { startupFlagsJson } from './fileModels/startupFlags.json'
 import { storeJson } from './fileModels/store.json'
 import { restPort } from './interfaces'
 import { manifest } from './manifest'
-import { lndDataDir, sleep } from './utils'
+import { lndDataDir, neutrinoBundle, sleep } from './utils'
 
 // The subcontainer the migrate-sqlite oneshot runs in — main's shared lndSub.
 type Sub = SubContainer<typeof manifest>
@@ -77,9 +77,9 @@ export async function sqliteMigrationComplete(): Promise<boolean> {
  *   1. Run LND once on bolt so it applies pending DB *schema* migrations —
  *      lndinit refuses a stale schema and only transfers buckets, it doesn't
  *      migrate them (0.21 adds mandatory channeldb migration 35; a 0.20 node is
- *      behind). Skipped on resume via dbSchemaFinalized. db.backend /
- *      db.use-native-sql are enforced to sqlite in lnd.conf, so this run
- *      overrides them back to bolt on the CLI.
+ *      behind). Skipped on resume via dbSchemaFinalized. db.backend is enforced
+ *      to sqlite in lnd.conf (native SQL is on the daemon CLI, not the conf), so
+ *      this run overrides the backend back to bolt on the CLI.
  *   2. `lndinit migrate-db` transfers every bucket to SQLite, tombstoning the
  *      source. Resumable.
  *   3. Record completion. The backend is already sqlite in lnd.conf (enforced),
@@ -113,11 +113,9 @@ export async function runSqliteMigration(
 /**
  * Start LND on the existing (bolt) data just long enough to apply pending DB
  * schema migrations, then shut it down cleanly. Uses neutrino so it doesn't
- * depend on an external chain backend being up, and overrides the enforced
- * sqlite backend back to bolt so it operates on the still-bolt data.
- *
- * TODO(verify): confirm an existing bitcoind-backed node starts cleanly under
- * the --bitcoin.node=neutrino flag override.
+ * depend on an external chain backend being up (bitcoind-backed nodes start
+ * fine under the override too, given the --fee.url below), and overrides the
+ * enforced sqlite backend back to bolt so it operates on the still-bolt data.
  */
 async function finalizeBoltSchema(
   sub: Sub,
@@ -129,9 +127,15 @@ async function finalizeBoltSchema(
     '--bitcoin.active',
     '--bitcoin.mainnet',
     '--bitcoin.node=neutrino',
-    // Override the enforced sqlite backend — the data is still bolt here.
+    // Neutrino on mainnet refuses to start without an external fee source, and a
+    // bitcoind node's conf has no fee.url (bitcoindBundle clears it). Supply
+    // neutrino's so the chain-control init this run does after unlock succeeds —
+    // we kill LND at UNLOCKED, so it never actually syncs.
+    `--fee.url=${neutrinoBundle['fee.url']}`,
+    // Override the enforced sqlite backend — the data is still bolt here. Native
+    // SQL is not in the conf (main strips it), so bolt loads cleanly; passing
+    // --db.use-native-sql=false would fail (LND bools reject `=value`).
     '--db.backend=bolt',
-    '--db.use-native-sql=false',
   ])
 
   try {
@@ -185,8 +189,9 @@ async function finalizeBoltSchema(
 
 /**
  * Run `lndinit migrate-db` to transfer all buckets from bolt to SQLite.
- * Resumable; treats an already-completed (tombstoned) source as success so a
- * retry that lost the completion flag can still finish.
+ * Idempotent: lndinit tombstones each migrated DB and exits 0 on a re-run
+ * (skipping already-migrated parts), so a retry that lost the completion flag
+ * re-checks and finishes cleanly.
  */
 async function runLndinit(
   sub: Sub,
@@ -225,14 +230,13 @@ async function runLndinit(
     abort: abort.reason,
     signal: abort,
   })
+  // lndinit is idempotent: re-run against an already-migrated source it checks
+  // each DB's tombstone (source) + migrated (dest) markers, skips those already
+  // done, and still exits 0 ("Migration of all mandatory db parts completed
+  // successfully"). So exit 0 covers both a fresh transfer and a resume; a
+  // non-zero exit is a real failure.
   if (res.exitCode === 0) return
-
-  // TODO(verify): confirm the exact message/exit code lndinit emits when the
-  // source is already tombstoned / the migration already completed, and match
-  // on that here rather than this best-effort substring.
   const out = `${res.stdout?.toString() ?? ''}${res.stderr?.toString() ?? ''}`
-  if (/tombstone|already migrated|already been migrated/i.test(out)) return
-
   throw new Error(`lndinit migrate-db failed (exit ${res.exitCode}): ${out}`)
 }
 

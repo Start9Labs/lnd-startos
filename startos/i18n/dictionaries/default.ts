@@ -315,9 +315,7 @@ const dict = {
   'Must be a domain name, optionally followed by :port (e.g. example.com:9735).': 265,
   'LND re-resolves this address periodically, so it also works for dynamic-DNS tunnels.': 266,
 
-  // Onion Messages (BOLT12) + Auto-Configure action
-  'Enable Onion Messages (BOLT12)': 267,
-  'Enable onion message support so this node can send and receive BOLT12 offers. Writes the custom protocol entries (custom-message 513, custom-nodeann 39, custom-init 39) to lnd.conf. Required by services such as BOLT12 Pay (LNDK).': 268,
+  // Auto-Configure action
   'Auto-Configure': 269,
   'Automatically configure lnd.conf for the needs of another service': 270,
   'These fields were provided by a task and cannot be edited': 271,

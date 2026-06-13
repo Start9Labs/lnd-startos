@@ -82,7 +82,11 @@ export const main = sdk.setupMain(async ({ effects }) => {
 
   const useBitcoind = conf['bitcoin.node'] === 'bitcoind'
 
-  // Enforce backend bundle — ensures rpccookie, zmq, fee.url stay in sync
+  // Enforce backend bundle — ensures rpccookie, zmq, fee.url stay in sync. This
+  // write also re-renders the conf through the file-model schema, which forces
+  // db.use-native-sql (CLI-only now) and the obsolete onion-message keys
+  // (custom-init/nodeann/message — bit 39 crashes on 0.21, see lnd.conf.ts) to
+  // undefined, stripping any an upgraded node still carries.
   await lndConfFile.merge(
     effects,
     useBitcoind ? bitcoindBundle : neutrinoBundle,
@@ -119,7 +123,8 @@ export const main = sdk.setupMain(async ({ effects }) => {
       .const(effects)
   }
 
-  const lndArgs: string[] = []
+  // Native SQL lives on the CLI, not the conf (see lnd.conf.ts).
+  const lndArgs: string[] = ['--db.use-native-sql']
 
   if (resetWalletTransactions) {
     lndArgs.push('--reset-wallet-transactions')
@@ -158,13 +163,21 @@ export const main = sdk.setupMain(async ({ effects }) => {
         ? {
             ready: {
               display: i18n('Database Migration'),
-              // Poll every 2s while migrating so the display flips to "complete"
-              // within ~2s of the oneshot finishing; once complete there's
-              // nothing left to detect, so back off to 10 min (the default —
-              // this check only ever returns loading or success). The lnd daemon
-              // gates on the oneshot itself, not this check, so this only affects
-              // how promptly the status updates.
-              trigger: sdk.trigger.statusTrigger(600_000, { loading: 2_000 }),
+              // `starting` must be short: before the first result the trigger
+              // waits `intervals.starting ?? defaultMs` and only then runs the
+              // check (statusTrigger sleeps before its first fire). Without a
+              // `starting` override the first poll is delayed by the 10-min
+              // default, so the whole migration runs while the UI shows the
+              // framework's default "starting" instead of our loading message.
+              // `loading` then keeps polling every 2s so the display flips to
+              // "complete" within ~2s of the oneshot finishing; after success it
+              // backs off to the 10-min default. The lnd daemon gates on the
+              // oneshot itself, not this check, so this only affects status
+              // latency.
+              trigger: sdk.trigger.statusTrigger(600_000, {
+                starting: 2_000,
+                loading: 2_000,
+              }),
               fn: async () => {
                 if (await sqliteMigrationComplete()) {
                   return {

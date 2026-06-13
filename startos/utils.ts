@@ -21,8 +21,7 @@ export const neutrinoBundle = {
   'bitcoind.rpccookie': undefined,
   'bitcoind.zmqpubrawblock': undefined,
   'bitcoind.zmqpubrawtx': undefined,
-  'fee.url':
-    'https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json',
+  'fee.url': 'https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json',
 } as const
 
 export const mainMounts = sdk.Mounts.of().mountVolume({
