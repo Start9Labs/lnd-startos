@@ -21,7 +21,7 @@ export const manifest = setupManifest({
   volumes: ['main'],
   images: {
     lnd: {
-      // Built from ./Dockerfile: lnd v0.21.0-beta + the lndinit binary (used by
+      // Built from ./Dockerfile: lnd v0.21.1-beta + the lndinit binary (used by
       // the bolt → SQLite migration in startos/versions/current.ts).
       source: {
         dockerBuild: {},
