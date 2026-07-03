@@ -1,5 +1,4 @@
 import { SubContainer, T } from '@start9labs/start-sdk'
-import { SIGTERM } from '@start9labs/start-sdk/base/lib/types'
 import { stat } from 'fs/promises'
 import { base64 } from 'rfc4648'
 import { lndConfFile } from './fileModels/lnd.conf'
@@ -26,7 +25,7 @@ const sqliteChannelDb = `${graphDir}/channel.sqlite`
 // lndinit's source/dest data dir — the LND data directory inside the container.
 const lndinitDataDir = `${lndDataDir}/data`
 const tlsCert = `${lndDataDir}/tls.cert`
-const lndUrl = `https://lnd.startos:${restPort}`
+const lndUrl = `https://127.0.0.1:${restPort}`
 
 type LndState =
   | 'NON_EXISTING'
@@ -177,7 +176,7 @@ async function finalizeBoltSchema(
     // wait for RPC_ACTIVE/SERVER_ACTIVE or for the node to sync.
     await waitForState(sub, isPastUnlock, 30 * 60_000, abort)
   } finally {
-    child.kill(SIGTERM)
+    child.kill(T.SIGTERM)
     await new Promise<void>((resolve) => {
       child.on('exit', () => resolve())
       // Don't hang forever if exit never fires; lndinit's tombstone check is the

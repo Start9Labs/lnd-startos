@@ -1,6 +1,6 @@
 import { lndConfFile } from '../fileModels/lnd.conf'
 import { storeJson } from '../fileModels/store.json'
-import { peerInterfaceId } from '../interfaces'
+import { peerHostId, peerInterfaceId } from '../interfaces'
 import { sdk } from '../sdk'
 
 export const watchHosts = sdk.setupOnInit(async (effects, _) => {
@@ -8,11 +8,38 @@ export const watchHosts = sdk.setupOnInit(async (effects, _) => {
     .read((c) => c['tor.skip-proxy-for-clearnet-targets'] === false)
     .const(effects)
 
-  const publicInfo = await sdk.serviceInterface
-    .getOwn(effects, peerInterfaceId, (i) => i?.addressInfo?.public)
+  // One subscription on the peer host; the map fn extracts only the three
+  // public-address groups we advertise, so this re-runs when an address
+  // changes rather than on unrelated host churn.
+  const addrs = await sdk.host
+    .getOwn(effects, peerHostId, (host) => {
+      const iface =
+        host &&
+        Object.values(host.bindings)
+          .flatMap((b) => Object.values(b.interfaces))
+          .find((i) => i.id === peerInterfaceId)
+      if (!host || !iface) return undefined
+      const publicInfo = iface.addressInfo.public
+      return {
+        onions: publicInfo
+          .filter({
+            predicate: ({ metadata }) =>
+              metadata.kind === 'plugin' && metadata.packageId === 'tor',
+          })
+          .format(),
+        domains: publicInfo
+          .filter({
+            predicate: ({ metadata }) => metadata.kind === 'public-domain',
+          })
+          .format(),
+        ipv4s: publicInfo
+          .filter({ predicate: ({ metadata }) => metadata.kind === 'ipv4' })
+          .format(),
+      }
+    })
     .const()
 
-  if (!publicInfo) {
+  if (!addrs) {
     throw new Error('No public info')
   }
 
@@ -23,36 +50,14 @@ export const watchHosts = sdk.setupOnInit(async (effects, _) => {
   const customExternalHosts =
     (await storeJson.read((s) => s.customExternalHosts).const(effects)) ?? []
 
-  const externalip: string[] = []
+  // Onion is always advertised; domains/IPv4 only when the Tor clearnet gate is off.
+  const externalip: string[] = [...addrs.onions]
   const externalhosts: string[] = [...customExternalHosts]
 
-  // Add first onion address (if present)
-  const onions = publicInfo
-    .filter({
-      predicate: ({ metadata }) =>
-        metadata.kind === 'plugin' && metadata.packageId === 'tor',
-    })
-    .format()
-
-  externalip.push(...onions)
-
   if (!useTorOnly) {
-    const domains = publicInfo
-      .filter({
-        predicate: ({ metadata }) => metadata.kind === 'public-domain',
-      })
-      .format()
-
-    externalhosts.push(...domains)
-
+    externalhosts.push(...addrs.domains)
     if (!externalhosts.length) {
-      const ipv4s = publicInfo
-        .filter({
-          predicate: ({ metadata }) => metadata.kind === 'ipv4',
-        })
-        .format()
-
-      externalip.push(...ipv4s)
+      externalip.push(...addrs.ipv4s)
     }
   }
 

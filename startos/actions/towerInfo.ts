@@ -1,7 +1,7 @@
 import { lndConfFile } from '../fileModels/lnd.conf'
 import { i18n } from '../i18n'
 import { sdk } from '../sdk'
-import { mainMounts } from '../utils'
+import { mainMounts, selfGrpcHost } from '../utils'
 
 export const towerInfo = sdk.Action.withoutInput(
   // id
@@ -23,6 +23,8 @@ export const towerInfo = sdk.Action.withoutInput(
 
   // the execution function
   async ({ effects }) => {
+    const rpcserver = await selfGrpcHost(effects)
+    if (!rpcserver) throw new Error('LND gRPC bridge address unavailable')
     const res = await sdk.SubContainer.withTemp(
       effects,
       { imageId: 'lnd' },
@@ -31,7 +33,7 @@ export const towerInfo = sdk.Action.withoutInput(
       async (subc) => {
         return subc.execFail([
           'lncli',
-          '--rpcserver=lnd.startos',
+          `--rpcserver=${rpcserver}`,
           'tower',
           'info',
         ])

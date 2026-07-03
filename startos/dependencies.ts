@@ -17,21 +17,25 @@ export const setDependencies = sdk.setupDependencies(async ({ effects }) => {
   if (conf?.torActive) {
     deps.tor = {
       kind: 'running',
-      versionRange: '>=0.4.9.5:0',
+      versionRange: '>=0.4.9.11:2',
       healthChecks: ['tor'],
     }
   }
 
   if (conf?.bitcoinNode === 'bitcoind') {
     await sdk.action.createTask(effects, 'bitcoind', autoconfig, 'critical', {
-      input: { kind: 'partial', value: { zmqEnabled: true } },
+      input: {
+        kind: 'partial',
+        accept: [{ zmqEnabled: true }],
+        set: { zmqEnabled: true },
+      },
       reason: i18n('LND requires ZMQ enabled in Bitcoin'),
       when: { condition: 'input-not-matches', once: false },
     })
 
     deps.bitcoind = {
       kind: 'running',
-      versionRange: '>=28.3:7',
+      versionRange: '>=28.4:13',
       healthChecks: ['bitcoind', 'sync-progress'],
     }
   }

@@ -1,8 +1,5 @@
 import { setupManifest } from '@start9labs/start-sdk'
 import {
-  alertInstall,
-  alertRestore,
-  alertUninstall,
   depBitcoindDescription,
   depTorDescription,
   long,
@@ -28,11 +25,6 @@ export const manifest = setupManifest({
       },
       arch: ['aarch64', 'x86_64'],
     },
-  },
-  alerts: {
-    install: alertInstall,
-    uninstall: alertUninstall,
-    restore: alertRestore,
   },
   dependencies: {
     bitcoind: {

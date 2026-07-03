@@ -2,7 +2,7 @@ import { IMPOSSIBLE, VersionInfo, YAML } from '@start9labs/start-sdk'
 import { readFile, rm } from 'fs/promises'
 import { lndConfFile } from '../fileModels/lnd.conf'
 import { storeJson } from '../fileModels/store.json'
-import { bitcoindBundle, neutrinoBundle } from '../utils'
+import { getBitcoindBundle, neutrinoBundle } from '../utils'
 
 type OldConfig = {
   bitcoind: { type: 'none' } | { type: 'internal' }
@@ -82,7 +82,7 @@ export const current = VersionInfo.of({
         await lndConfFile.merge(effects, {
           externalhosts: undefined,
           ...(configYaml.bitcoind.type === 'internal'
-            ? bitcoindBundle
+            ? await getBitcoindBundle(effects)
             : neutrinoBundle),
           'protocol.simple-taproot-chans':
             configYaml.advanced?.['protocol-simple-taproot-chans'] || undefined,

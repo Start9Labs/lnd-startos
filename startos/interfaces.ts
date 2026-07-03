@@ -8,10 +8,19 @@ export const restPort = 8080
 export const peerPort = 9735
 export const watchtowerPort = 9911
 
+// Host ids (the `sdk.MultiHost.of` groups) — distinct from the interface ids
+// exported on them. Used for `sdk.host.getOwn`/`get` lookups.
+export const controlHostId = 'control'
+export const gRPCHostId = 'grpc'
+export const peerHostId = 'peer'
+export const watchtowerHostId = 'watchtower'
+
+// Interface ids (the exported service interfaces on the hosts above).
 export const peerInterfaceId = 'peer'
 export const gRPCInterfaceId = 'grpc'
 export const controlInterfaceId = 'control'
 export const lndconnectRestId = 'lnd-connect-rest'
+export const watchtowerInterfaceId = 'watchtower'
 
 export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
   const receipts = []
@@ -45,7 +54,7 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
       // untouched: protocol/addSsl null + secure.ssl makes the OS forward raw
       // TCP / SNI-passthrough so LND's cert reaches the client. Terminating at
       // the edge (addSsl) would present the device cert and break the pin.
-      const restMulti = sdk.MultiHost.of(effects, 'control')
+      const restMulti = sdk.MultiHost.of(effects, controlHostId)
       const restMultiOrigin = await restMulti.bindPort(restPort, {
         protocol: null,
         addSsl: null,
@@ -70,7 +79,7 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
       const restReceipt = await restMultiOrigin.export([lndConnect])
       receipts.push(restReceipt)
 
-      const gRPCMulti = sdk.MultiHost.of(effects, 'grpc')
+      const gRPCMulti = sdk.MultiHost.of(effects, gRPCHostId)
 
       // gRPC: same TLS passthrough as REST above — LND terminates its own TLS.
       const gRPCMultiOrigin = await gRPCMulti.bindPort(gRPCPort, {
@@ -104,7 +113,7 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
   }
 
   // peer
-  const peerMulti = sdk.MultiHost.of(effects, 'peer')
+  const peerMulti = sdk.MultiHost.of(effects, peerHostId)
   const peerMultiOrigin = await peerMulti.bindPort(peerPort, {
     protocol: null,
     addSsl: null,
@@ -125,7 +134,7 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
   receipts.push(await peerMultiOrigin.export([peer]))
 
   // watchtower — always exported; LND only listens when watchtower.active=true
-  const watchtowerMulti = sdk.MultiHost.of(effects, 'watchtower')
+  const watchtowerMulti = sdk.MultiHost.of(effects, watchtowerHostId)
   const watchtowerMultiOrigin = await watchtowerMulti.bindPort(watchtowerPort, {
     protocol: null,
     addSsl: null,
@@ -134,7 +143,7 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
   })
   const watchtower = sdk.createInterface(effects, {
     name: i18n('Watchtower'),
-    id: 'watchtower',
+    id: watchtowerInterfaceId,
     description: i18n('Allows peers to use your watchtower server'),
     type: 'p2p',
     masked: true,

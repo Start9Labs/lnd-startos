@@ -1,7 +1,7 @@
 import { fileToForm, fullConfigSpec, lndConfFile } from '../fileModels/lnd.conf'
 import { i18n } from '../i18n'
 import { sdk } from '../sdk'
-import { bitcoindBundle, neutrinoBundle } from '../utils'
+import { getBitcoindBundle, neutrinoBundle } from '../utils'
 
 export const backendConfig = sdk.Action.withInput(
   // id
@@ -31,7 +31,9 @@ export const backendConfig = sdk.Action.withInput(
   async ({ effects, input }) => {
     const isBitcoind = input.bitcoind === 'bitcoind'
 
-    const bitcoinSettings = isBitcoind ? bitcoindBundle : neutrinoBundle
+    const bitcoinSettings = isBitcoind
+      ? await getBitcoindBundle(effects)
+      : neutrinoBundle
 
     if (!isBitcoind) {
       await sdk.action.clearTask(effects, 'enable-zmq')

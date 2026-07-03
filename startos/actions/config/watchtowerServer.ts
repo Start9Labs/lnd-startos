@@ -1,5 +1,6 @@
 import { lndConfFile } from '../../fileModels/lnd.conf'
 import { i18n } from '../../i18n'
+import { watchtowerHostId, watchtowerInterfaceId } from '../../interfaces'
 import { sdk } from '../../sdk'
 
 const { InputSpec } = sdk
@@ -59,11 +60,16 @@ export const watchtowerServerConfig = sdk.Action.withInput(
 
 export function getExternalAddresses() {
   return sdk.Value.dynamicSelect(async ({ effects }) => {
-    const watchtowerInterface = await sdk.serviceInterface
-      .getOwn(effects, 'watchtower')
+    const urls = await sdk.host
+      .getOwn(effects, watchtowerHostId, (host) => {
+        const iface =
+          host &&
+          Object.values(host.bindings)
+            .flatMap((b) => Object.values(b.interfaces))
+            .find((i) => i.id === watchtowerInterfaceId)
+        return iface ? iface.addressInfo.public.format() : []
+      })
       .const()
-
-    const urls = watchtowerInterface?.addressInfo?.public.format() || []
 
     if (urls.length === 0) {
       return {

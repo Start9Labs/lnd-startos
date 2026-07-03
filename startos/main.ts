@@ -7,7 +7,6 @@ import { lndConfFile } from './fileModels/lnd.conf'
 import { startupFlagsJson } from './fileModels/startupFlags.json'
 import { storeJson } from './fileModels/store.json'
 import { i18n } from './i18n'
-import { restPort } from './interfaces'
 import { sdk } from './sdk'
 import {
   needsSqliteMigration,
@@ -15,22 +14,24 @@ import {
   sqliteMigrationComplete,
 } from './sqliteBackend'
 import {
-  bitcoindBundle,
   bitcoindMnt,
+  getBitcoindBundle,
   GetInfo,
   lndDataDir,
   mainMounts,
   neutrinoBundle,
+  selfGrpcHost,
+  selfRestUrl,
   sleep,
 } from './utils'
 
 const certPath = '/media/startos/volumes/main/tls.cert'
-/** Hit LND's /v1/state REST endpoint using the self-signed TLS cert. */
-async function getLndState(): Promise<string | null> {
+/** Hit LND's /v1/state REST endpoint (over the bridge) using its TLS cert. */
+async function getLndState(restUrl: string): Promise<string | null> {
   const ca = await readFile(certPath).catch(() => null)
   return new Promise((resolve) => {
     const req = request(
-      `https://lnd.startos:${restPort}/v1/state`,
+      `${restUrl}/v1/state`,
       { ca: ca ?? undefined, rejectUnauthorized: !!ca, timeout: 5000 },
       (res) => {
         let data = ''
@@ -82,16 +83,27 @@ export const main = sdk.setupMain(async ({ effects }) => {
 
   const useBitcoind = conf['bitcoin.node'] === 'bitcoind'
 
-  // Enforce backend bundle — ensures rpccookie, zmq, fee.url stay in sync. This
-  // write also re-renders the conf through the file-model schema, which forces
-  // db.use-native-sql (CLI-only now) and the obsolete onion-message keys
-  // (custom-init/nodeann/message — bit 39 crashes on 0.21, see lnd.conf.ts) to
-  // undefined, stripping any an upgraded node still carries.
-  await lndConfFile.merge(
-    effects,
-    useBitcoind ? bitcoindBundle : neutrinoBundle,
-    { allowWriteAfterConst: true },
-  )
+  // LND's own REST/gRPC reached over the bridge for its self-calls (health
+  // checks, wallet unlock, lncli). Resolved once; the underlying `.const` only
+  // re-runs main if the binding itself changes.
+  const selfRest = await selfRestUrl(effects)
+  const selfGrpc = await selfGrpcHost(effects)
+  if (!selfRest || !selfGrpc) {
+    throw new Error('LND interface bridge address not yet available')
+  }
+
+  const bitcoindSettings = useBitcoind
+    ? await getBitcoindBundle(effects)
+    : neutrinoBundle
+
+  // Enforce backend bundle — ensures rpchost, rpccookie, zmq, fee.url stay in
+  // sync. This write also re-renders the conf through the file-model schema,
+  // which forces db.use-native-sql (CLI-only now) and the obsolete onion-message
+  // keys (custom-init/nodeann/message — bit 39 crashes on 0.21, see lnd.conf.ts)
+  // to undefined, stripping any an upgraded node still carries.
+  await lndConfFile.merge(effects, bitcoindSettings, {
+    allowWriteAfterConst: true,
+  })
 
   const { walletPassword, watchtowerClients } = store
 
@@ -107,7 +119,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
     })
   }
 
-  const lndSub = await sdk.SubContainer.of(
+  const lndSub = sdk.SubContainer.of(
     effects,
     { imageId: 'lnd' },
     mounts,
@@ -117,7 +129,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
   // Restart if Bitcoin .cookie changes
   if (useBitcoind) {
     await FileHelper.string(
-      `${lndSub.rootfs}${bitcoindBundle['bitcoind.rpccookie']}`,
+      `${await lndSub.rootfs}${bitcoindMnt}/.cookie`,
     )
       .read()
       .const(effects)
@@ -203,7 +215,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
       ready: {
         display: i18n('LND Server'),
         fn: async () => {
-          const lndState = await getLndState()
+          const lndState = await getLndState(selfRest)
           // WAITING_TO_START (255) is earliest in the state machine — the
           // wallet unlocker sub-server isn't up yet, so don't let the
           // unlock-wallet oneshot fire. LOCKED onward means the unlocker
@@ -230,7 +242,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
             //   NON_EXISTING=0, LOCKED=1, UNLOCKED=2, RPC_ACTIVE=3,
             //   SERVER_ACTIVE=4, WAITING_TO_START=255.
             // WAITING_TO_START means "not started yet" — keep polling.
-            const state = await getLndState()
+            const state = await getLndState(selfRest)
             if (
               state === 'UNLOCKED' ||
               state === 'RPC_ACTIVE' ||
@@ -256,7 +268,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
               'POST',
               '--cacert',
               `${lndDataDir}/tls.cert`,
-              `https://lnd.startos:${restPort}/v1/unlockwallet`,
+              `${selfRest}/v1/unlockwallet`,
               '-d',
               restore
                 ? JSON.stringify({
@@ -316,7 +328,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
           let res
           try {
             res = await lndSub.exec(
-              ['lncli', '--rpcserver=lnd.startos', 'getinfo'],
+              ['lncli', `--rpcserver=${selfGrpc}`, 'getinfo'],
               {},
               30_000,
             )
@@ -418,7 +430,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
                 return {
                   command: [
                     'lncli',
-                    '--rpcserver=lnd.startos',
+                    `--rpcserver=${selfGrpc}`,
                     'restorechanbackup',
                     '--multi_file',
                     `${lndDataDir}/data/chain/bitcoin/mainnet/channel.backup`,
@@ -479,7 +491,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
                   let res = await subcontainer.exec(
                     [
                       'lncli',
-                      '--rpcserver=lnd.startos',
+                      `--rpcserver=${selfGrpc}`,
                       'wtclient',
                       'add',
                       tower,
@@ -499,7 +511,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
                   ) {
                     console.log(`Result adding tower ${tower}: ${res.stdout}`)
                   } else {
-                    console.log(`Error adding tower ${tower}: ${res.stderr}`)
+                    console.log(`Error adding tower ${tower}: ${String(res.stderr)}`)
                   }
                 }
                 return null

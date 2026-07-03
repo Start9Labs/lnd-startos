@@ -1,16 +1,4 @@
-import { T } from '@start9labs/start-sdk'
-import {
-  InputSpec,
-  Value,
-  Variants,
-} from '@start9labs/start-sdk/base/lib/actions/input/builder'
-import { Pattern } from '@start9labs/start-sdk/base/lib/actions/input/inputSpecTypes'
-import { SIGTERM } from '@start9labs/start-sdk/base/lib/types'
-import {
-  ComposableRegex,
-  ipv4,
-  localHostname,
-} from '@start9labs/start-sdk/base/lib/util/regexes'
+import { T, utils } from '@start9labs/start-sdk'
 import { base64 } from 'rfc4648'
 import { shape, storeJson } from '../fileModels/store.json'
 import { i18n } from '../i18n'
@@ -18,9 +6,11 @@ import { restPort } from '../interfaces'
 import { sdk } from '../sdk'
 import { lndDataDir, mainMounts, sleep } from '../utils'
 
-const lanHost: Pattern = {
-  regex: new ComposableRegex(
-    `${ipv4.asExpr()}|${localHostname.asExpr()}`,
+const { InputSpec, Value, Variants } = sdk
+
+const lanHost: T.inputSpecTypes.Pattern = {
+  regex: new utils.regexes.ComposableRegex(
+    `${utils.regexes.ipv4.asExpr()}|${utils.regexes.localHostname.asExpr()}`,
   ).matches(),
   description: 'Must be a valid IPv4 address or .local hostname',
 }
@@ -171,7 +161,7 @@ async function initFresh(
           '--cacert',
           `${lndDataDir}/tls.cert`,
           '--fail-with-body',
-          `https://lnd.startos:${restPort}/v1/genseed`,
+          `https://127.0.0.1:${restPort}/v1/genseed`,
         ])
         if (
           res.exitCode === 0 &&
@@ -197,7 +187,7 @@ async function initFresh(
         '--cacert',
         `${lndDataDir}/tls.cert`,
         '--fail-with-body',
-        `https://lnd.startos:${restPort}/v1/initwallet`,
+        `https://127.0.0.1:${restPort}/v1/initwallet`,
         '-d',
         JSON.stringify({
           wallet_password: base64.stringify(
@@ -213,7 +203,7 @@ async function initFresh(
 
       await storeJson.merge(effects, { aezeedCipherSeed: cipherSeed })
 
-      child.kill(SIGTERM)
+      child.kill(T.SIGTERM)
       await new Promise<void>((resolve) => {
         child.on('exit', () => resolve())
         setTimeout(resolve, 60_000)
@@ -305,7 +295,7 @@ async function importFromUmbrel(
   return {
     version: '1' as const,
     title: i18n('Failure'),
-    message: `Failed to import LND from Umbrel: ${typeof res.stderr === 'string' ? res.stderr : res}`,
+    message: `Failed to import LND from Umbrel: ${typeof res.stderr === 'string' ? res.stderr : JSON.stringify(res)}`,
     result: null,
   }
 }
@@ -378,7 +368,7 @@ async function importFromStartOS(
   return {
     version: '1' as const,
     title: i18n('Failure'),
-    message: `Failed to import LND from StartOS: ${typeof res.stderr === 'string' ? res.stderr : res}`,
+    message: `Failed to import LND from StartOS: ${typeof res.stderr === 'string' ? res.stderr : JSON.stringify(res)}`,
     result: null,
   }
 }

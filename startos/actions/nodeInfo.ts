@@ -1,7 +1,7 @@
 import { T } from '@start9labs/start-sdk'
 import { i18n } from '../i18n'
 import { sdk } from '../sdk'
-import { GetInfo, mainMounts } from '../utils'
+import { GetInfo, mainMounts, selfGrpcHost } from '../utils'
 
 export const nodeInfo = sdk.Action.withoutInput(
   // id
@@ -19,13 +19,15 @@ export const nodeInfo = sdk.Action.withoutInput(
 
   // the execution function
   async ({ effects }): Promise<T.ActionResult & { version: '1' }> => {
+    const rpcserver = await selfGrpcHost(effects)
+    if (!rpcserver) throw new Error('LND gRPC bridge address unavailable')
     const getInfoRes = await sdk.SubContainer.withTemp(
       effects,
       { imageId: 'lnd' },
       mainMounts,
       'get-info',
       async (subc) => {
-        return await subc.exec(['lncli', '--rpcserver=lnd.startos', 'getinfo'])
+        return await subc.exec(['lncli', `--rpcserver=${rpcserver}`, 'getinfo'])
       },
     )
 
