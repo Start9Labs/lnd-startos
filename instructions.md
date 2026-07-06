@@ -14,7 +14,7 @@ A full **LND** node on Bitcoin mainnet, with **REST** and **gRPC** LND Connect i
 LND posts two critical tasks on install; you can't start it until both are done:
 
 1. **Initialize Wallet** — **Start Fresh** for a new wallet, or **Migrate from Umbrel** / **Migrate from StartOS** to import one. Start Fresh shows your 24-word seed **once** — write it down. **The seed alone is not enough:** it recovers *on-chain* funds only; funds in channels can be recovered only from the **Static Channel Backup** in your StartOS backups, so keep backups (see [Backups](#backups)).
-2. **Bitcoin Backend** — **Bitcoin Core** (recommended if you run it on this server) or **Neutrino** (built-in light client). Choosing Bitcoin Core posts a task on it to enable ZMQ.
+2. **Bitcoin Backend** — **Bitcoin** (recommended if you run it on this server) or **Neutrino** (built-in light client). Choosing Bitcoin posts a task on it to enable ZMQ.
 
 Then start LND.
 

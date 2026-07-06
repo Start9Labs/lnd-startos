@@ -55,17 +55,17 @@ StartOS-specific files on the `main` volume:
 | `tls.cert` / `tls.key` | StartOS-managed TLS certificates                                                                                              |
 | `lnd.conf`             | LND configuration (managed by StartOS actions)                                                                                |
 
-If using the `bitcoind` backend, the Bitcoin Core `main` volume is mounted read-only at `/mnt/bitcoin` for cookie authentication.
+If using the `bitcoind` backend, the Bitcoin `main` volume is mounted read-only at `/mnt/bitcoin` for cookie authentication.
 
 ## Installation and First-Run Flow
 
 1. On install, StartOS creates two **critical tasks**:
-   - **Select a Bitcoin backend** (local Bitcoin Core or Neutrino)
+   - **Select a Bitcoin backend** (local Bitcoin node or Neutrino)
    - **Initialize wallet** (start fresh, or migrate from Umbrel 1.x or another StartOS server)
 2. TLS certificates are generated using StartOS's certificate system
 3. The **Initialize Wallet** action generates a new wallet via the LND `/v1/genseed` and `/v1/initwallet` API. The 24-word Aezeed mnemonic is displayed **once** in the action result (the only time it is shown in the UI — write it down). Both the wallet password and the cipher seed are persisted to `store.json` (`walletPassword`, `aezeedCipherSeed`). The seed recovers on-chain funds only; recovering channel funds requires LND's Static Channel Backup, captured in StartOS backups
 4. The wallet is **automatically unlocked** on every start via the `/v1/unlockwallet` API
-5. If a Bitcoin Core backend is selected, StartOS creates a task on Bitcoin Core to **enable ZMQ**
+5. If a Bitcoin backend is selected, StartOS creates a task on Bitcoin to **enable ZMQ**
 
 Users never interact with `lncli create` or `lncli unlock` — StartOS handles both automatically.
 
@@ -338,12 +338,12 @@ When LND first reaches `synced_to_chain && synced_to_graph` after install, a **S
 
 | Dependency   | Required | Mounted Volume                      | Health Checks Required      | Purpose                                                        |
 | ------------ | -------- | ----------------------------------- | --------------------------- | -------------------------------------------------------------- |
-| Bitcoin Core | Optional | `main` → `/mnt/bitcoin` (read-only) | `sync-progress`, `bitcoind` | Block data, transaction broadcasting via ZMQ + RPC cookie auth |
+| Bitcoin      | Optional | `main` → `/mnt/bitcoin` (read-only) | `sync-progress`, `bitcoind` | Block data, transaction broadcasting via ZMQ + RPC cookie auth |
 | Tor          | Optional | None                                | `tor`                       | Required (running) when "Enable Tor" is on (Tor Settings)      |
 
-When using Bitcoin Core as backend, LND requires the listed health checks to pass on Bitcoin Core before starting. LND uses cookie authentication via the mounted `.cookie` file.
+When using Bitcoin as backend, LND requires the listed health checks to pass on Bitcoin before starting. LND uses cookie authentication via the mounted `.cookie` file.
 
-LND can alternatively use **Neutrino** (built-in light client) with no Bitcoin Core dependency.
+LND can alternatively use **Neutrino** (built-in light client) with no Bitcoin dependency.
 
 Tor is likewise a marketplace service, not built into StartOS. It provides LND's outbound SOCKS proxy and the onion services used for inbound reachability, and becomes a required _running_ dependency whenever **Enable Tor** is on.
 
@@ -352,7 +352,7 @@ Tor is likewise a marketplace service, not built into StartOS. It provides LND's
 1. **Mainnet only** — testnet/regtest/signet are not available
 2. **No `lncli create` or `lncli unlock`** — wallet lifecycle is fully automated by StartOS
 3. **A few `lnd.conf` keys are StartOS-managed** — `externalip`/`externalhosts`, `tor.socks`, and the Bitcoin backend connection keys are re-derived on every start, so hand-edits to _those_ keys don't stick (use the corresponding action). Every other setting you put in `lnd.conf` is preserved across restarts — see [Editing `lnd.conf` directly](#editing-lndconf-directly)
-4. **Bitcoin Core cookie auth only** — `rpcuser`/`rpcpass` are explicitly removed; authentication uses the mounted `.cookie` file
+4. **Bitcoin cookie auth only** — `rpcuser`/`rpcpass` are explicitly removed; authentication uses the mounted `.cookie` file
 5. **"Enable Tor" affects outbound only** — Tor is not built into StartOS; it is a marketplace service. The Tor Settings toggle controls whether LND's _outbound_ peer dials use the Tor proxy. It does not create inbound reachability: that comes from adding an onion service to the Peer interface (via the Tor service), and once added it works independently of this toggle. Without the Tor service installed, neither outbound nor inbound Tor is available.
 6. **Restored nodes should not be reused** — after backup restore, sweep funds and reinstall
 

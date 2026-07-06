@@ -128,9 +128,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
 
   // Restart if Bitcoin .cookie changes
   if (useBitcoind) {
-    await FileHelper.string(
-      `${await lndSub.rootfs}${bitcoindMnt}/.cookie`,
-    )
+    await FileHelper.string(`${await lndSub.rootfs}${bitcoindMnt}/.cookie`)
       .read()
       .const(effects)
   }
@@ -334,7 +332,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
             )
           } catch {
             // The LND subcontainer can be momentarily absent while main is
-            // re-running (e.g. Bitcoin Core's .cookie rotates on its restart,
+            // re-running (e.g. Bitcoin's .cookie rotates on its restart,
             // which tears down lnd-sub to rebuild it). With no PID 1 in the
             // subcontainer, exec can't join its namespaces and throws a
             // filesystem I/O error (".../proc/1/ns/pid: No such file or
@@ -511,7 +509,9 @@ export const main = sdk.setupMain(async ({ effects }) => {
                   ) {
                     console.log(`Result adding tower ${tower}: ${res.stdout}`)
                   } else {
-                    console.log(`Error adding tower ${tower}: ${String(res.stderr)}`)
+                    console.log(
+                      `Error adding tower ${tower}: ${String(res.stderr)}`,
+                    )
                   }
                 }
                 return null

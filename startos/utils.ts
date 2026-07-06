@@ -58,7 +58,8 @@ export function bridgeAddress(
         const port =
           host?.bindings[opts.internalPort]?.net.assignedPort ??
           opts.fallbackPort
-        return port != null ? `${osIp}:${port}` : null
+        if (port == null) return null
+        return `${osIp}:${port}`
       },
     )
   }
@@ -87,13 +88,11 @@ const bridgeAddr = (
       .flatMap((b) => Object.values(b.interfaces))
       .find((i) => i.id === interfaceId)
   return iface
-    ? iface.addressInfo
-        .filter({
-          kind: 'bridge',
-          predicate: (h) =>
-            h.metadata.kind === 'ipv4' && (ssl === undefined || h.ssl === ssl),
-        })
-        .hostnames[0]
+    ? iface.addressInfo.filter({
+        kind: 'bridge',
+        predicate: (h) =>
+          h.metadata.kind === 'ipv4' && (ssl === undefined || h.ssl === ssl),
+      }).hostnames[0]
     : undefined
 }
 
