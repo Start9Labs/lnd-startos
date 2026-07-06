@@ -95,7 +95,7 @@ Settings **fixed** by StartOS (reset to these values, not user-configurable):
 | `restlisten`                        | `0.0.0.0:8080`          | Fixed REST listen address        |
 | `listen`                            | `0.0.0.0:9735`          | Fixed peer listen address        |
 | `rpcmiddleware.enable`              | `true`                  | Required for StartOS integration |
-| `bitcoind.rpchost`                  | `bitcoind.startos:8332` | StartOS service networking       |
+| `bitcoind.rpchost`                  | `10.0.3.1:8332`         | bitcoind RPC over the LXC bridge |
 | `bitcoind.rpccookie`                | `/mnt/bitcoin/.cookie`  | Cookie auth via mounted volume   |
 | `healthcheck.chainbackend.attempts` | `0`                     | Managed by StartOS health checks |
 | `db.backend`                        | `sqlite`                | SQLite backend (replaces legacy bolt) |
@@ -137,7 +137,7 @@ Configuration actions use a consistent pattern across number, text, and boolean 
 You don't have to use the actions — you can edit `lnd.conf` by hand, and your changes are **preserved across restarts**. On each start StartOS merges your existing values rather than discarding them, so any setting it doesn't actively manage stays put. The exceptions, re-derived on every start, are:
 
 - `externalip` / `externalhosts` — rebuilt by `watchHosts` from the Peer interface's addresses plus the **Custom External Host** action
-- `tor.socks` — set by `watchTorSocks` to the Tor service's proxy address, or removed when Tor isn't installed
+- `tor.socks` — set by `watchTorSocks` to the Tor SOCKS proxy's LXC-bridge address (`10.0.3.1:9050`); always written (the bridge address is constant whether or not Tor is installed, so LND never restarts on Tor churn — LND only dials the proxy when Tor is enabled, and a dead address is just connection-refused)
 - the Bitcoin backend keys (`bitcoin.node`, `bitcoind.rpchost`, `bitcoind.rpccookie`, `bitcoind.zmqpubrawblock`, `bitcoind.zmqpubrawtx`, `fee.url`) — re-applied by `main` from the selected backend
 
 The fixed keys in the table above are likewise reset to their pinned values, `rpcuser`/`rpcpass` are stripped (cookie auth only), and **comments are not retained** — the file is rewritten from its parsed settings.

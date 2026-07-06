@@ -1,10 +1,10 @@
 import { T, utils } from '@start9labs/start-sdk'
 import {
   rpcHostId as btcRpcHostId,
-  rpcInterfaceId as btcRpcInterfaceId,
+  rpcPort as btcRpcPort,
   zmqHostId as btcZmqHostId,
-  zmqBlockInterfaceId as btcZmqBlockInterfaceId,
-  zmqTxInterfaceId as btcZmqTxInterfaceId,
+  zmqPortBlock as btcZmqPortBlock,
+  zmqPortTransaction as btcZmqPortTransaction,
 } from 'bitcoin-core-startos/startos/utils'
 import {
   controlHostId,
@@ -16,6 +16,57 @@ import { sdk } from './sdk'
 
 export const lndDataDir = '/root/.lnd'
 export const bitcoindMnt = '/mnt/bitcoin'
+
+/**
+ * Bridge address (`10.0.3.1:<assigned external port>`) of a dependency's
+ * binding, as a minimal reactive value. Chain `.const()` in main/init: the
+ * mapped string only changes when the address itself does, so the caller
+ * restarts exactly on dependency install/uninstall/port-change and never on
+ * dependency updates. Chain `.once()` in an action context. `fallbackPort`
+ * keeps the value non-null while the dependency is absent — sanctioned only
+ * for tor's allocator-guaranteed SOCKS 9050. Drop-in for the planned SDK
+ * `sdk.host.getBridgeAddress` helper.
+ */
+export function bridgeAddress(
+  effects: T.Effects,
+  opts: {
+    packageId: string
+    hostId: string
+    internalPort: number
+    fallbackPort: number
+  },
+): { const(): Promise<string>; once(): Promise<string> }
+export function bridgeAddress(
+  effects: T.Effects,
+  opts: { packageId: string; hostId: string; internalPort: number },
+): { const(): Promise<string | null>; once(): Promise<string | null> }
+export function bridgeAddress(
+  effects: T.Effects,
+  opts: {
+    packageId: string
+    hostId: string
+    internalPort: number
+    fallbackPort?: number
+  },
+) {
+  const watchable = async () => {
+    const osIp = await sdk.getOsIp(effects)
+    return sdk.host.get(
+      effects,
+      { packageId: opts.packageId, hostId: opts.hostId },
+      (host) => {
+        const port =
+          host?.bindings[opts.internalPort]?.net.assignedPort ??
+          opts.fallbackPort
+        return port != null ? `${osIp}:${port}` : null
+      },
+    )
+  }
+  return {
+    const: async () => (await watchable()).const(),
+    once: async () => (await watchable()).once(),
+  }
+}
 
 /**
  * The IPv4 LXC-bridge hostname/port for an interface on an already-resolved
@@ -65,35 +116,40 @@ export const selfGrpcHost = (effects: T.Effects) =>
     .const()
 
 /**
- * bitcoind connection settings for lnd.conf. Two subscriptions — bitcoind's RPC
- * host and its ZMQ host (which carries both the block and tx interfaces) — each
- * with a map fn that returns only the resolved addresses, so the caller re-runs
- * only when a value it actually uses changes. Replaces the static
- * `bitcoind.startos` host.
+ * bitcoind connection settings for lnd.conf, resolved over the bridge. Two
+ * subscriptions — one per bitcoind HOST: the RPC host via the `bridgeAddress`
+ * helper, and the ZMQ host (which carries both the block and tx bindings) via a
+ * single `sdk.host.get` whose map returns the minimal `{ block, tx }` address
+ * pair from `net.assignedPort`. Deep-equal on the mapped values keeps both
+ * `.const()` subscriptions churn-free: main re-runs only when an address it
+ * uses actually changes (bitcoind install/uninstall/port-change), not on a
+ * plain bitcoind update. Replaces the static `bitcoind.startos` host.
  */
 export const getBitcoindBundle = async (effects: T.Effects) => {
-  const rpchost = await sdk.host
-    .get(effects, { hostId: btcRpcHostId, packageId: 'bitcoind' }, (host) => {
-      const rpc = bridgeAddr(host, btcRpcInterfaceId, false)
-      return rpc && `${rpc.hostname}:${rpc.port}`
-    })
-    .const()
+  const rpchost = await bridgeAddress(effects, {
+    packageId: 'bitcoind',
+    hostId: btcRpcHostId,
+    internalPort: btcRpcPort,
+  }).const()
+
+  const osIp = await sdk.getOsIp(effects)
   const zmq = await sdk.host
     .get(effects, { hostId: btcZmqHostId, packageId: 'bitcoind' }, (host) => {
-      const block = bridgeAddr(host, btcZmqBlockInterfaceId)
-      const tx = bridgeAddr(host, btcZmqTxInterfaceId)
+      const block = host?.bindings[btcZmqPortBlock]?.net.assignedPort
+      const tx = host?.bindings[btcZmqPortTransaction]?.net.assignedPort
       return {
-        block: block && `tcp://${block.hostname}:${block.port}`,
-        tx: tx && `tcp://${tx.hostname}:${tx.port}`,
+        block: block != null ? `tcp://${osIp}:${block}` : undefined,
+        tx: tx != null ? `tcp://${osIp}:${tx}` : undefined,
       }
     })
     .const()
+
   return {
     'bitcoin.node': 'bitcoind' as const,
-    'bitcoind.rpchost': rpchost,
+    'bitcoind.rpchost': rpchost ?? undefined,
     'bitcoind.rpccookie': `${bitcoindMnt}/.cookie`,
-    'bitcoind.zmqpubrawblock': zmq?.block,
-    'bitcoind.zmqpubrawtx': zmq?.tx,
+    'bitcoind.zmqpubrawblock': zmq.block,
+    'bitcoind.zmqpubrawtx': zmq.tx,
     'fee.url': undefined,
   }
 }

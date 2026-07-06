@@ -4,10 +4,12 @@ import { gRPCHostId, gRPCInterfaceId } from '../interfaces'
 
 export const setupCerts = sdk.setupOnInit(async (effects) => {
   // `.startos` and direct container-IP addressing are deprecated; dependents now
-  // reach LND over the LXC bridge. The cert must therefore cover LND's bridge
-  // address so a dependent connecting through the bridge can still pin it.
-  // `setInterfaces` runs before this init step, so the gRPC interface is already
-  // exported and its bridge address resolves here. The legacy SANs stay until
+  // reach LND over the LXC bridge at `<osIp>:<port>`. The cert must therefore
+  // cover both LND's bridge interface address and the raw OS bridge IP so a
+  // dependent connecting through the bridge (and pinning this self-signed cert
+  // via SNI-passthrough) still verifies. `setInterfaces` runs before this init
+  // step, so the gRPC interface is already exported and its bridge address
+  // resolves here. The legacy SANs (`lnd.startos`, container IP) stay until
   // `.startos` is removed.
   const bridgeHostnames = await sdk.host
     .getOwn(effects, gRPCHostId, (host) => {
@@ -30,7 +32,11 @@ export const setupCerts = sdk.setupOnInit(async (effects) => {
     // own subcontainer (wallet init, the SQLite migration), which is reached on
     // 127.0.0.1 — so the served cert must cover it too.
     '127.0.0.1',
-    await sdk.getContainerIp(effects).const(),
+    // Legacy container IP, read once (non-reactive) — kept transitionally until
+    // `.startos`/container-IP addressing is retired.
+    await sdk.getContainerIp(effects).once(),
+    // OS bridge IP (10.0.3.1): the address dependents now dial LND on.
+    await sdk.getOsIp(effects),
     ...bridgeHostnames,
   ]
   const cert = (await sdk.getSslCertificate(effects, hostnames).const()).join(
