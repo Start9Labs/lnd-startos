@@ -9,9 +9,12 @@ import { needsSqliteMigration, runSqliteMigration } from '../sqliteBackend'
 // read) on fresh installs (born on SQLite) and on every start after the
 // conversion, so this stays out of the way on the normal path. When it does run,
 // `runSqliteMigration` drives the conversion through temporary `runUntilSuccess`
-// daemon chains (see sqliteBackend.ts) and blocks init until it succeeds. The
-// work is resumable, so an interrupted run continues on the next init.
-export const migrateSqlite = sdk.setupOnInit(async (effects) => {
-  if (!(await needsSqliteMigration())) return
-  await runSqliteMigration(effects)
-})
+// daemon chains (see sqliteBackend.ts) and blocks init until it succeeds,
+// reporting each stage to the init progress UI. The work is resumable, so an
+// interrupted run continues on the next init.
+export const migrateSqlite = sdk.setupOnInit(
+  async (effects, _kind, progress) => {
+    if (!(await needsSqliteMigration())) return
+    await runSqliteMigration(effects, progress)
+  },
+)

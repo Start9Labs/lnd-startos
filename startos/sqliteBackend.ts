@@ -4,6 +4,7 @@ import { base64 } from 'rfc4648'
 import { lndConfFile } from './fileModels/lnd.conf'
 import { startupFlagsJson } from './fileModels/startupFlags.json'
 import { storeJson } from './fileModels/store.json'
+import { i18n } from './i18n'
 import { restPort } from './interfaces'
 import { manifest } from './manifest'
 import { sdk } from './sdk'
@@ -11,6 +12,13 @@ import { lndDataDir, mainMounts, neutrinoBundle, sleep } from './utils'
 
 // The subcontainer type the migration chains run LND / lndinit in.
 type Sub = SubContainer<typeof manifest>
+
+// Minimal view of the init FullProgressTracker — just the phase controls the
+// migration reports through. The real tracker (handed to the init handler)
+// satisfies this structurally.
+type MigrationProgress = {
+  addPhase(name: string): { start(): void; complete(): void }
+}
 
 // Host-side path to the main volume (the container mounts it at lndDataDir).
 // LND keeps the channel-state db under data/graph/<network>/, separate from the
@@ -79,10 +87,14 @@ export async function needsSqliteMigration(): Promise<boolean> {
  *      tombstoning the source. Idempotent/resumable, and runs only after LND is
  *      fully down.
  *
- * The backend is already sqlite in lnd.conf (enforced — native SQL lives on the
- * daemon CLI, not the conf), so there is nothing to write there on completion.
+ * Each stage is reported to the init progress UI as a named phase. The backend
+ * is already sqlite in lnd.conf (enforced — native SQL lives on the daemon CLI,
+ * not the conf), so there is nothing to write there on completion.
  */
-export async function runSqliteMigration(effects: T.Effects): Promise<void> {
+export async function runSqliteMigration(
+  effects: T.Effects,
+  progress: MigrationProgress,
+): Promise<void> {
   const store = await storeJson.read().once()
   if (!store?.walletPassword) {
     throw new Error(
@@ -91,14 +103,22 @@ export async function runSqliteMigration(effects: T.Effects): Promise<void> {
     )
   }
 
+  const schemaPhase = progress.addPhase(i18n('Finalizing database schema'))
+  const copyPhase = progress.addPhase(i18n('Copying database to SQLite'))
+
   const flags = await startupFlagsJson.read().once()
   if (!flags?.dbSchemaFinalized) {
+    schemaPhase.start()
     await finalizeBoltSchema(effects, store.walletPassword)
     await startupFlagsJson.merge(effects, { dbSchemaFinalized: true })
   }
+  // Complete even on resume (schema was finalized on an earlier attempt).
+  schemaPhase.complete()
 
+  copyPhase.start()
   const conf = await lndConfFile.read().once()
   await migrateBoltToSqlite(effects, conf?.['watchtower.active'] === true)
+  copyPhase.complete()
 
   await startupFlagsJson.merge(effects, { dbMigrationComplete: true })
 }

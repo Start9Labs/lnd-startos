@@ -257,6 +257,8 @@ export default {
     269: 'Configuración automática',
     270: 'Configura automáticamente lnd.conf para las necesidades de otro servicio',
     271: 'Estos campos fueron proporcionados por una tarea y no se pueden editar',
+    272: 'Finalizando el esquema de la base de datos',
+    273: 'Copiando la base de datos a SQLite',
   },
   de_DE: {
     0: 'Starte LND!',
@@ -514,6 +516,8 @@ export default {
     269: 'Automatisch konfigurieren',
     270: 'Konfiguriert lnd.conf automatisch für die Anforderungen eines anderen Dienstes',
     271: 'Diese Felder wurden von einer Aufgabe bereitgestellt und können nicht bearbeitet werden',
+    272: 'Datenbankschema wird finalisiert',
+    273: 'Datenbank wird nach SQLite kopiert',
   },
   pl_PL: {
     0: 'Uruchamianie LND!',
@@ -771,6 +775,8 @@ export default {
     269: 'Automatyczna konfiguracja',
     270: 'Automatycznie konfiguruje lnd.conf na potrzeby innej usługi',
     271: 'Te pola zostały dostarczone przez zadanie i nie można ich edytować',
+    272: 'Finalizowanie schematu bazy danych',
+    273: 'Kopiowanie bazy danych do SQLite',
   },
   fr_FR: {
     0: 'Démarrage de LND !',
@@ -1028,5 +1034,7 @@ export default {
     269: 'Configuration automatique',
     270: "Configure automatiquement lnd.conf selon les besoins d'un autre service",
     271: 'Ces champs ont été fournis par une tâche et ne peuvent pas être modifiés',
+    272: 'Finalisation du schéma de la base de données',
+    273: 'Copie de la base de données vers SQLite',
   },
 } satisfies Record<string, LangDict>
