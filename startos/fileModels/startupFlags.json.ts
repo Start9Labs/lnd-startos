@@ -21,8 +21,8 @@ export const startupFlagsJson = FileHelper.json(
     // bolt → SQLite migration progress (persistent, like `notified`).
     //   dbSchemaFinalized — LND has been run on bolt to apply pending schema
     //     migrations, so a resumed conversion skips that step.
-    //   dbMigrationComplete — the full conversion finished; once set, main no
-    //     longer adds the migrate-sqlite oneshot or its health check.
+    //   dbMigrationComplete — the full conversion finished; once set, the
+    //     migrate init step no longer runs a conversion.
     // Kept here (read with `.once`) so writing them never trips main's
     // store/lnd.conf `.const` watches — the conversion completes with no restart.
     dbSchemaFinalized: z.boolean().catch(false),

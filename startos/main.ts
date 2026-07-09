@@ -9,11 +9,6 @@ import { storeJson } from './fileModels/store.json'
 import { i18n } from './i18n'
 import { sdk } from './sdk'
 import {
-  needsSqliteMigration,
-  runSqliteMigration,
-  sqliteMigrationComplete,
-} from './sqliteBackend'
-import {
   bitcoindMnt,
   getBitcoindBundle,
   GetInfo,
@@ -143,70 +138,11 @@ export const main = sdk.setupMain(async ({ effects }) => {
   /**
    * ======================== Daemons ========================
    */
-  // Decided up front so the migrate-sqlite oneshot and its health check exist
-  // ONLY on a run that actually migrates — on every later start they are absent
-  // entirely (function form returns null below).
-  const needMigration = await needsSqliteMigration()
+  // The bolt → SQLite conversion runs as a blocking init step (see
+  // init/migrateSqlite.ts), so by the time main starts the node is already on
+  // SQLite and there is nothing migration-specific to do here.
 
   return sdk.Daemons.of(effects)
-    .addOneshot('migrate-sqlite', () =>
-      needMigration
-        ? {
-            // Convert the database to SQLite before LND starts. Runs in the
-            // shared lndSub (spawns lnd + lndinit there). Writes only
-            // startup-flags, so completing it never restarts main. Throws on
-            // failure, so the lnd daemon (which requires it) won't start until a
-            // retry succeeds; the work is resumable.
-            subcontainer: lndSub,
-            exec: {
-              fn: async (sub, abort) => {
-                await runSqliteMigration(effects, sub, abort)
-                return null
-              },
-            },
-            requires: [],
-          }
-        : null,
-    )
-    .addHealthCheck('db-migration', () =>
-      needMigration
-        ? {
-            ready: {
-              display: i18n('Database Migration'),
-              // `starting` must be short: before the first result the trigger
-              // waits `intervals.starting ?? defaultMs` and only then runs the
-              // check (statusTrigger sleeps before its first fire). Without a
-              // `starting` override the first poll is delayed by the 10-min
-              // default, so the whole migration runs while the UI shows the
-              // framework's default "starting" instead of our loading message.
-              // `loading` then keeps polling every 2s so the display flips to
-              // "complete" within ~2s of the oneshot finishing; after success it
-              // backs off to the 10-min default. The lnd daemon gates on the
-              // oneshot itself, not this check, so this only affects status
-              // latency.
-              trigger: sdk.trigger.statusTrigger(600_000, {
-                starting: 2_000,
-                loading: 2_000,
-              }),
-              fn: async () => {
-                if (await sqliteMigrationComplete()) {
-                  return {
-                    result: 'success',
-                    message: i18n('SQLite migration complete'),
-                  }
-                }
-                return {
-                  result: 'loading',
-                  message: i18n(
-                    'Migrating the database to SQLite. This can take several minutes — do not interrupt LND.',
-                  ),
-                }
-              },
-            },
-            requires: [],
-          }
-        : null,
-    )
     .addDaemon('lnd', {
       exec: { command: ['lnd', ...lndArgs] },
       subcontainer: lndSub,
@@ -224,7 +160,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
           return { result: 'success', message: i18n('LND is ready') }
         },
       },
-      requires: needMigration ? ['migrate-sqlite'] : [],
+      requires: [],
     })
     .addOneshot('unlock-wallet', {
       exec: {

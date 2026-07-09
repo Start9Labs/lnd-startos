@@ -319,11 +319,6 @@ const dict = {
   'Auto-Configure': 269,
   'Automatically configure lnd.conf for the needs of another service': 270,
   'These fields were provided by a task and cannot be edited': 271,
-
-  // sqliteBackend.ts — DB backend migration health check
-  'Database Migration': 272,
-  'Migrating the database to SQLite. This can take several minutes — do not interrupt LND.': 273,
-  'SQLite migration complete': 274,
 } as const
 
 /**

@@ -257,9 +257,6 @@ export default {
     269: 'Configuración automática',
     270: 'Configura automáticamente lnd.conf para las necesidades de otro servicio',
     271: 'Estos campos fueron proporcionados por una tarea y no se pueden editar',
-    272: 'Migración de base de datos',
-    273: 'Migrando la base de datos a SQLite. Esto puede tardar varios minutos — no interrumpas LND.',
-    274: 'Migración a SQLite completada',
   },
   de_DE: {
     0: 'Starte LND!',
@@ -517,9 +514,6 @@ export default {
     269: 'Automatisch konfigurieren',
     270: 'Konfiguriert lnd.conf automatisch für die Anforderungen eines anderen Dienstes',
     271: 'Diese Felder wurden von einer Aufgabe bereitgestellt und können nicht bearbeitet werden',
-    272: 'Datenbank-Migration',
-    273: 'Die Datenbank wird zu SQLite migriert. Dies kann einige Minuten dauern — unterbrechen Sie LND nicht.',
-    274: 'SQLite-Migration abgeschlossen',
   },
   pl_PL: {
     0: 'Uruchamianie LND!',
@@ -777,9 +771,6 @@ export default {
     269: 'Automatyczna konfiguracja',
     270: 'Automatycznie konfiguruje lnd.conf na potrzeby innej usługi',
     271: 'Te pola zostały dostarczone przez zadanie i nie można ich edytować',
-    272: 'Migracja bazy danych',
-    273: 'Migracja bazy danych do SQLite. Może to potrwać kilka minut — nie przerywaj LND.',
-    274: 'Migracja do SQLite zakończona',
   },
   fr_FR: {
     0: 'Démarrage de LND !',
@@ -1037,8 +1028,5 @@ export default {
     269: 'Configuration automatique',
     270: "Configure automatiquement lnd.conf selon les besoins d'un autre service",
     271: 'Ces champs ont été fournis par une tâche et ne peuvent pas être modifiés',
-    272: 'Migration de la base de données',
-    273: "Migration de la base de données vers SQLite. Cela peut prendre plusieurs minutes — n'interrompez pas LND.",
-    274: 'Migration vers SQLite terminée',
   },
 } satisfies Record<string, LangDict>

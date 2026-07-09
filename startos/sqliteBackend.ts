@@ -6,9 +6,10 @@ import { startupFlagsJson } from './fileModels/startupFlags.json'
 import { storeJson } from './fileModels/store.json'
 import { restPort } from './interfaces'
 import { manifest } from './manifest'
-import { lndDataDir, neutrinoBundle, sleep } from './utils'
+import { sdk } from './sdk'
+import { lndDataDir, mainMounts, neutrinoBundle, sleep } from './utils'
 
-// The subcontainer the migrate-sqlite oneshot runs in — main's shared lndSub.
+// The subcontainer type the migration chains run LND / lndinit in.
 type Sub = SubContainer<typeof manifest>
 
 // Host-side path to the main volume (the container mounts it at lndDataDir).
@@ -27,6 +28,12 @@ const lndinitDataDir = `${lndDataDir}/data`
 const tlsCert = `${lndDataDir}/tls.cert`
 const lndUrl = `https://127.0.0.1:${restPort}`
 
+// LND reaches the wallet-unlocker (LOCKED) quickly, but applying the channeldb
+// schema migrations during unlock can take several minutes on a large node.
+const SCHEMA_TIMEOUT_MS = 30 * 60_000
+// Copying every bucket to SQLite is bounded by db size — generous backstop.
+const MIGRATE_TIMEOUT_MS = 30 * 60_000
+
 type LndState =
   | 'NON_EXISTING'
   | 'LOCKED'
@@ -36,9 +43,9 @@ type LndState =
   | 'WAITING_TO_START'
 
 /**
- * Whether the bolt → SQLite conversion still needs to run. Decided in `main`
- * before the daemon chain is built; when false, main omits the migrate-sqlite
- * oneshot and its health check entirely (they never appear in the UI).
+ * Whether the bolt → SQLite conversion still needs to run. Checked by the
+ * migrate init step (init/migrateSqlite.ts); when false, no conversion runs and
+ * the service starts normally.
  *
  * Decided from startup-flags (read `.once`) and on-disk files only — never from
  * lnd.conf's db.backend, which is enforced to 'sqlite' (see lnd.conf.ts) and so
@@ -59,36 +66,23 @@ export async function needsSqliteMigration(): Promise<boolean> {
   return fileExists(boltChannelDb)
 }
 
-/** Has the running conversion finished? Drives the db-migration health check. */
-export async function sqliteMigrationComplete(): Promise<boolean> {
-  return (await startupFlagsJson.read().once())?.dbMigrationComplete === true
-}
-
 /**
- * Convert bolt → SQLite. Run as the migrate-sqlite oneshot (in lndSub, ahead of
- * the lnd daemon, which requires it). Writes only startup-flags (read `.once`) —
- * never store.json or lnd.conf — so it changes nothing main watches with
- * `.const`, and the service does not restart when it completes. Resumable;
- * throws on failure so the oneshot fails and `lnd` never starts until a retry
- * succeeds.
+ * Convert bolt → SQLite, run from the migrate init step before the service
+ * starts. Two temporary daemon chains (runUntilSuccess); writes only startup-
+ * flags. Resumable, and throws on failure so init retries until a run succeeds.
  *
- * The official two-stage flow, automated:
- *   1. Run LND once on bolt so it applies pending DB *schema* migrations —
- *      lndinit refuses a stale schema and only transfers buckets, it doesn't
- *      migrate them (0.21 adds mandatory channeldb migration 35; a 0.20 node is
- *      behind). Skipped on resume via dbSchemaFinalized. db.backend is enforced
- *      to sqlite in lnd.conf (native SQL is on the daemon CLI, not the conf), so
- *      this run overrides the backend back to bolt on the CLI.
- *   2. `lndinit migrate-db` transfers every bucket to SQLite, tombstoning the
- *      source. Resumable.
- *   3. Record completion. The backend is already sqlite in lnd.conf (enforced),
- *      so there is nothing to write there.
+ *   1. finalizeBoltSchema — run LND once on bolt so it applies pending channeldb
+ *      *schema* migrations. lndinit only transfers buckets and refuses a stale
+ *      schema (0.21 adds a mandatory channeldb migration; a 0.20 node is
+ *      behind). Skipped on resume via dbSchemaFinalized.
+ *   2. migrateBoltToSqlite — `lndinit migrate-db` copies every bucket to SQLite,
+ *      tombstoning the source. Idempotent/resumable, and runs only after LND is
+ *      fully down.
+ *
+ * The backend is already sqlite in lnd.conf (enforced — native SQL lives on the
+ * daemon CLI, not the conf), so there is nothing to write there on completion.
  */
-export async function runSqliteMigration(
-  effects: T.Effects,
-  sub: Sub,
-  abort: AbortSignal,
-): Promise<void> {
+export async function runSqliteMigration(effects: T.Effects): Promise<void> {
   const store = await storeJson.read().once()
   if (!store?.walletPassword) {
     throw new Error(
@@ -96,108 +90,117 @@ export async function runSqliteMigration(
         'Restore from a backup and retry.',
     )
   }
-  const flags = await startupFlagsJson.read().once()
 
+  const flags = await startupFlagsJson.read().once()
   if (!flags?.dbSchemaFinalized) {
-    await finalizeBoltSchema(sub, store.walletPassword, abort)
+    await finalizeBoltSchema(effects, store.walletPassword)
     await startupFlagsJson.merge(effects, { dbSchemaFinalized: true })
   }
 
   const conf = await lndConfFile.read().once()
-  await runLndinit(sub, conf?.['watchtower.active'] === true, abort)
+  await migrateBoltToSqlite(effects, conf?.['watchtower.active'] === true)
 
   await startupFlagsJson.merge(effects, { dbMigrationComplete: true })
 }
 
 /**
- * Start LND on the existing (bolt) data just long enough to apply pending DB
- * schema migrations, then shut it down cleanly. Uses neutrino so it doesn't
- * depend on an external chain backend being up (bitcoind-backed nodes start
- * fine under the override too, given the --fee.url below), and overrides the
- * enforced sqlite backend back to bolt so it operates on the still-bolt data.
+ * Finalize the bolt channeldb schema by running LND on it once, as a temporary
+ * runUntilSuccess daemon chain. LND runs on neutrino so it needs no external
+ * chain backend (a bitcoind node's conf has no fee.url, so supply neutrino's —
+ * the run never actually syncs), with the enforced sqlite backend overridden
+ * back to bolt on the CLI so it opens the still-bolt data. A dependent oneshot
+ * unlocks the wallet and waits for UNLOCKED; the SDK then tears LND down, fully
+ * — the chain owns its own subcontainer — so lndinit later opens a closed db.
  */
 async function finalizeBoltSchema(
-  sub: Sub,
+  effects: T.Effects,
   walletPassword: string,
-  abort: AbortSignal,
 ): Promise<void> {
-  const child = await sub.spawn([
-    'lnd',
-    '--bitcoin.active',
-    '--bitcoin.mainnet',
-    '--bitcoin.node=neutrino',
-    // Neutrino on mainnet refuses to start without an external fee source, and a
-    // bitcoind node's conf has no fee.url (bitcoindBundle clears it). Supply
-    // neutrino's so the chain-control init this run does after unlock succeeds —
-    // we kill LND at UNLOCKED, so it never actually syncs.
-    `--fee.url=${neutrinoBundle['fee.url']}`,
-    // Override the enforced sqlite backend — the data is still bolt here. Native
-    // SQL is not in the conf (main strips it), so bolt loads cleanly; passing
-    // --db.use-native-sql=false would fail (LND bools reject `=value`).
-    '--db.backend=bolt',
-  ])
+  const schemaSub = sdk.SubContainer.of(
+    effects,
+    { imageId: 'lnd' },
+    mainMounts,
+    'lnd-schema',
+  )
 
-  try {
-    // Wait for the wallet unlocker to come up, then unlock.
-    await waitForState(
-      sub,
-      (s) => s === 'LOCKED' || isPastUnlock(s),
-      10 * 60_000,
-      abort,
-    )
-    if (!isPastUnlock(await getState(sub))) {
-      const res = await sub.exec([
-        'curl',
-        '--no-progress-meter',
-        '-X',
-        'POST',
-        '--cacert',
-        tlsCert,
-        `${lndUrl}/v1/unlockwallet`,
-        '-d',
-        JSON.stringify({
-          wallet_password: base64.stringify(
-            Buffer.from(walletPassword, 'latin1'),
-          ),
-        }),
-      ])
-      const stdout = res.stdout.toString().trim()
-      if (stdout !== '{}' && !stdout.includes('wallet already unlocked')) {
-        throw new Error(
-          `Failed to unlock wallet for schema migration: ${stdout}`,
-        )
-      }
-    }
-
-    // lnd applies the channel.db schema migrations in BuildDatabase, which runs
-    // *before* the wallet is unlocked (SetWalletUnlocked) — and well before the
-    // RPC server is active or any chain sync. So once we observe UNLOCKED, the
-    // migrations lndinit checks for are guaranteed applied; we don't need to
-    // wait for RPC_ACTIVE/SERVER_ACTIVE or for the node to sync.
-    await waitForState(sub, isPastUnlock, 30 * 60_000, abort)
-  } finally {
-    child.kill(T.SIGTERM)
-    await new Promise<void>((resolve) => {
-      child.on('exit', () => resolve())
-      // Don't hang forever if exit never fires; lndinit's tombstone check is the
-      // backstop against migrating a half-open DB.
-      setTimeout(resolve, 2 * 60_000)
+  await sdk.Daemons.of(effects)
+    .addDaemon('lnd-schema', {
+      subcontainer: schemaSub,
+      exec: {
+        command: [
+          'lnd',
+          '--bitcoin.active',
+          '--bitcoin.mainnet',
+          '--bitcoin.node=neutrino',
+          `--fee.url=${neutrinoBundle['fee.url']}`,
+          // Native SQL is not in the conf (main strips it), so bolt loads
+          // cleanly; passing --db.use-native-sql=false would fail (LND bools
+          // reject `=value`).
+          '--db.backend=bolt',
+        ],
+      },
+      ready: {
+        display: null,
+        // Ready once the wallet unlocker is serving (LOCKED) or the wallet is
+        // already unlocked — the gate for the finalize oneshot to run.
+        fn: async () => {
+          const state = await getState(schemaSub)
+          return state === 'LOCKED' || isPastUnlock(state)
+            ? { result: 'success', message: null }
+            : { result: 'starting', message: null }
+        },
+      },
+      requires: [],
     })
-  }
+    .addOneshot('finalize-schema', {
+      subcontainer: schemaSub,
+      exec: {
+        fn: async (sub, abort) => {
+          if (!isPastUnlock(await getState(sub))) {
+            await unlockWallet(sub, walletPassword)
+          }
+          // Schema migrations run in BuildDatabase, before SetWalletUnlocked, so
+          // observing UNLOCKED guarantees they are applied — no need to wait for
+          // RPC_ACTIVE/SERVER_ACTIVE or for the node to sync.
+          await waitForState(sub, isPastUnlock, abort)
+          return null
+        },
+      },
+      requires: ['lnd-schema'],
+    })
+    .runUntilSuccess(SCHEMA_TIMEOUT_MS)
 }
 
 /**
- * Run `lndinit migrate-db` to transfer all buckets from bolt to SQLite.
- * Idempotent: lndinit tombstones each migrated DB and exits 0 on a re-run
- * (skipping already-migrated parts), so a retry that lost the completion flag
- * re-checks and finishes cleanly.
+ * Copy every bucket from bolt to SQLite with `lndinit migrate-db`, as a
+ * runUntilSuccess oneshot. LND is fully stopped by now, so lndinit opens a
+ * closed db. Idempotent: lndinit tombstones each migrated db and exits 0 on a
+ * re-run (skipping already-migrated parts), so a retry — or a resume that lost
+ * the completion flag — re-checks and finishes cleanly; a non-zero exit is a
+ * real failure and the oneshot retries.
  */
-async function runLndinit(
-  sub: Sub,
+async function migrateBoltToSqlite(
+  effects: T.Effects,
   watchtowerActive: boolean,
-  abort: AbortSignal,
 ): Promise<void> {
-  const args = [
+  const migrateSub = sdk.SubContainer.of(
+    effects,
+    { imageId: 'lnd' },
+    mainMounts,
+    'lnd-lndinit',
+  )
+
+  await sdk.Daemons.of(effects)
+    .addOneshot('lndinit-migrate', {
+      subcontainer: migrateSub,
+      exec: { command: lndinitArgs(watchtowerActive) },
+      requires: [],
+    })
+    .runUntilSuccess(MIGRATE_TIMEOUT_MS)
+}
+
+function lndinitArgs(watchtowerActive: boolean): [string, ...string[]] {
+  const args: [string, ...string[]] = [
     'lndinit',
     '--debuglevel',
     'info',
@@ -214,7 +217,7 @@ async function runLndinit(
     'mainnet',
   ]
   // The watchtower *server* keeps a separate db; the wtclient db lives in the
-  // chain namespace and is covered by the main transfer above.
+  // chain namespace and rides along with the main transfer above.
   if (watchtowerActive) {
     const towerDir = `${lndinitDataDir}/watchtower`
     args.push(
@@ -224,19 +227,27 @@ async function runLndinit(
       towerDir,
     )
   }
+  return args
+}
 
-  const res = await sub.exec(args, undefined, undefined, {
-    abort: abort.reason,
-    signal: abort,
-  })
-  // lndinit is idempotent: re-run against an already-migrated source it checks
-  // each DB's tombstone (source) + migrated (dest) markers, skips those already
-  // done, and still exits 0 ("Migration of all mandatory db parts completed
-  // successfully"). So exit 0 covers both a fresh transfer and a resume; a
-  // non-zero exit is a real failure.
-  if (res.exitCode === 0) return
-  const out = `${res.stdout?.toString() ?? ''}${res.stderr?.toString() ?? ''}`
-  throw new Error(`lndinit migrate-db failed (exit ${res.exitCode}): ${out}`)
+async function unlockWallet(sub: Sub, walletPassword: string): Promise<void> {
+  const res = await sub.exec([
+    'curl',
+    '--no-progress-meter',
+    '-X',
+    'POST',
+    '--cacert',
+    tlsCert,
+    `${lndUrl}/v1/unlockwallet`,
+    '-d',
+    JSON.stringify({
+      wallet_password: base64.stringify(Buffer.from(walletPassword, 'latin1')),
+    }),
+  ])
+  const stdout = res.stdout.toString().trim()
+  if (stdout !== '{}' && !stdout.includes('wallet already unlocked')) {
+    throw new Error(`Failed to unlock wallet for schema migration: ${stdout}`)
+  }
 }
 
 function isPastUnlock(s: LndState | null): boolean {
@@ -263,16 +274,13 @@ async function getState(sub: Sub): Promise<LndState | null> {
 async function waitForState(
   sub: Sub,
   predicate: (s: LndState | null) => boolean,
-  timeoutMs: number,
   abort: AbortSignal,
 ): Promise<void> {
-  const deadline = Date.now() + timeoutMs
-  while (Date.now() < deadline) {
-    if (abort.aborted) throw new Error('Migration aborted before LND was ready')
+  while (!abort.aborted) {
     if (predicate(await getState(sub))) return
     await sleep(2_000)
   }
-  throw new Error('Timed out waiting for LND to reach the expected state')
+  throw new Error('Migration aborted before LND reached the expected state')
 }
 
 async function fileExists(path: string): Promise<boolean> {
