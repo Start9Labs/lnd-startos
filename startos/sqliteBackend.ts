@@ -30,6 +30,9 @@ const mainVolumeHost = '/media/startos/volumes/main'
 const graphDir = `${mainVolumeHost}/data/graph/mainnet`
 const boltChannelDb = `${graphDir}/channel.db`
 const sqliteChannelDb = `${graphDir}/channel.sqlite`
+// lndinit refuses to convert a wtclient.db that isn't at the latest schema; a
+// pre-0.14 LND left an empty version-0 one on nodes that never used the client.
+const boltWtclientDb = `${graphDir}/wtclient.db`
 
 // lndinit's source/dest data dir — the LND data directory inside the container.
 const lndinitDataDir = `${lndDataDir}/data`
@@ -131,6 +134,11 @@ export async function runSqliteMigration(
  * back to bolt on the CLI so it opens the still-bolt data. A dependent oneshot
  * unlocks the wallet and waits for UNLOCKED; the SDK then tears LND down, fully
  * — the chain owns its own subcontainer — so lndinit later opens a closed db.
+ *
+ * When a stale wtclient.db is present, the watchtower client is also activated
+ * so LND migrates it to the latest schema in this same run (it runs in
+ * BuildDatabase, before unlock, so the UNLOCKED gate already covers it) —
+ * otherwise lndinit's migrate-db refuses an out-of-date wtclient.db.
  */
 async function finalizeBoltSchema(
   effects: T.Effects,
@@ -143,22 +151,24 @@ async function finalizeBoltSchema(
     'lnd-schema',
   )
 
+  const command: [string, ...string[]] = [
+    'lnd',
+    '--bitcoin.active',
+    '--bitcoin.mainnet',
+    '--bitcoin.node=neutrino',
+    `--fee.url=${neutrinoBundle['fee.url']}`,
+    // Native SQL is not in the conf (main strips it), so bolt loads cleanly;
+    // passing --db.use-native-sql=false would fail (LND bools reject `=value`).
+    '--db.backend=bolt',
+    // Migrate a stale wtclient.db up losslessly: an empty (v0) db is just
+    // initialized; one from prior use keeps its session data.
+    ...((await fileExists(boltWtclientDb)) ? ['--wtclient.active'] : []),
+  ]
+
   await sdk.Daemons.of(effects)
     .addDaemon('lnd-schema', {
       subcontainer: schemaSub,
-      exec: {
-        command: [
-          'lnd',
-          '--bitcoin.active',
-          '--bitcoin.mainnet',
-          '--bitcoin.node=neutrino',
-          `--fee.url=${neutrinoBundle['fee.url']}`,
-          // Native SQL is not in the conf (main strips it), so bolt loads
-          // cleanly; passing --db.use-native-sql=false would fail (LND bools
-          // reject `=value`).
-          '--db.backend=bolt',
-        ],
-      },
+      exec: { command },
       ready: {
         display: null,
         // Ready once the wallet unlocker is serving (LOCKED) or the wallet is
