@@ -1,94 +1,13 @@
-import { IMPOSSIBLE, VersionInfo, YAML } from '@start9labs/start-sdk'
-import { readFile, rm } from 'fs/promises'
-import { lndConfFile } from '../fileModels/lnd.conf'
-import { storeJson } from '../fileModels/store.json'
-import { getBitcoindBundle, neutrinoBundle } from '../utils'
-
-type OldConfig = {
-  bitcoind: { type: 'none' } | { type: 'internal' }
-  watchtowers: {
-    'wt-client':
-      | { enabled: 'disabled' }
-      | { enabled: 'enabled'; 'add-watchtowers': string[] }
-  }
-  advanced?: {
-    'protocol-simple-taproot-chans'?: boolean
-  }
-}
+import { VersionInfo } from '@start9labs/start-sdk'
 
 export const current = VersionInfo.of({
-  version: '0.21.1-beta:0',
+  version: '0.21.1-beta:1',
   releaseNotes: {
-    en_US:
-      "Updates LND to 0.21.1-beta and moves the database off the legacy bolt backend to SQLite, removing the slow startup compaction step. The one-time conversion runs automatically the first time LND starts after updating and cannot be undone — back up your node before updating. If it fails, LND will not start, so you can retry. That first start may take a while, as LND also converts to native SQL. It also fixes REST and gRPC connections from external wallets: these ports are now passed straight through so LND's own TLS certificate is used end-to-end, and the REST connection URL now includes that certificate — so wallets such as Zeus connect reliably over Tor and your local network. Onion messages (BOLT12) are now supported natively by LND, so the separate enable-toggle has been removed and any old custom protocol entries are cleaned up automatically on update — services like BOLT12 Pay (LNDK) work without extra configuration. The 0.21.1-beta point release adds upstream bug fixes: fresh Tor nodes now create v3 onion services correctly, a DNS-fallback crash is fixed, and on-chain forward-interceptor settlement resolves after a force close — plus stricter final-hop HTLC CLTV-expiry validation. Full notes: https://github.com/lightningnetwork/lnd/releases/tag/v0.21.1-beta",
-    es_ES:
-      'Actualiza LND a 0.21.1-beta y cambia la base de datos del antiguo backend bolt a SQLite, eliminando el lento paso de compactación al iniciar. La conversión única se ejecuta automáticamente la primera vez que LND arranca tras la actualización y no se puede deshacer: haz una copia de seguridad de tu nodo antes de actualizar. Si falla, LND no arrancará, así que podrás reintentarlo. Ese primer arranque puede tardar, ya que LND también convierte a SQL nativo. También corrige las conexiones REST y gRPC desde monederos externos: ahora estos puertos se redirigen directamente para que se use el propio certificado TLS de LND de extremo a extremo, y la URL de conexión REST ahora incluye ese certificado, de modo que monederos como Zeus se conectan de forma fiable a través de Tor y de la red local. Los mensajes onion (BOLT12) ahora son compatibles de forma nativa con LND, por lo que se ha eliminado el interruptor para habilitarlos y las antiguas entradas de protocolo personalizadas se limpian automáticamente al actualizar; servicios como BOLT12 Pay (LNDK) funcionan sin configuración adicional. La versión 0.21.1-beta añade correcciones de errores de upstream: los nodos Tor nuevos ahora crean servicios onion v3 correctamente, se corrige un fallo en el respaldo DNS y la liquidación del interceptor de reenvío on-chain se resuelve tras un cierre forzado, además de una validación más estricta del CLTV del último salto. Notas completas: https://github.com/lightningnetwork/lnd/releases/tag/v0.21.1-beta',
-    de_DE:
-      'Aktualisiert LND auf 0.21.1-beta und stellt die Datenbank vom alten bolt-Backend auf SQLite um, wodurch der langsame Komprimierungsschritt beim Start entfällt. Die einmalige Konvertierung läuft beim ersten Start von LND nach der Aktualisierung automatisch und kann nicht rückgängig gemacht werden – sichern Sie Ihren Knoten vor der Aktualisierung. Schlägt sie fehl, startet LND nicht, sodass Sie es erneut versuchen können. Dieser erste Start kann eine Weile dauern, da LND auch auf natives SQL umstellt. Außerdem werden REST- und gRPC-Verbindungen von externen Wallets korrigiert: Diese Ports werden jetzt direkt durchgereicht, sodass LNDs eigenes TLS-Zertifikat durchgängig verwendet wird, und die REST-Verbindungs-URL enthält nun dieses Zertifikat – so verbinden sich Wallets wie Zeus zuverlässig über Tor und das lokale Netzwerk. Onion-Nachrichten (BOLT12) werden jetzt nativ von LND unterstützt, daher wurde der separate Aktivierungsschalter entfernt und alte benutzerdefinierte Protokolleinträge werden beim Update automatisch bereinigt – Dienste wie BOLT12 Pay (LNDK) funktionieren ohne zusätzliche Konfiguration. Das Point-Release 0.21.1-beta bringt Fehlerbehebungen von upstream: Neue Tor-Knoten erstellen jetzt korrekt v3-Onion-Dienste, ein Absturz beim DNS-Fallback wurde behoben und die On-Chain-Forward-Interceptor-Abwicklung wird nach einem Force-Close aufgelöst – zudem eine strengere CLTV-Prüfung am letzten Hop. Vollständige Hinweise: https://github.com/lightningnetwork/lnd/releases/tag/v0.21.1-beta',
-    pl_PL:
-      'Aktualizuje LND do 0.21.1-beta i przenosi bazę danych ze starego backendu bolt do SQLite, eliminując powolny etap kompaktowania przy starcie. Jednorazowa konwersja uruchamia się automatycznie przy pierwszym starcie LND po aktualizacji i nie można jej cofnąć — przed aktualizacją wykonaj kopię zapasową węzła. Jeśli się nie powiedzie, LND się nie uruchomi, więc będzie można spróbować ponownie. Ten pierwszy start może chwilę potrwać, ponieważ LND konwertuje też do natywnego SQL. Naprawia też połączenia REST i gRPC z zewnętrznych portfeli: te porty są teraz przekazywane bezpośrednio, dzięki czemu używany jest własny certyfikat TLS LND od końca do końca, a adres URL połączenia REST zawiera teraz ten certyfikat — dzięki czemu portfele takie jak Zeus łączą się niezawodnie przez Tor i sieć lokalną. Wiadomości onion (BOLT12) są teraz natywnie obsługiwane przez LND, więc osobny przełącznik włączający został usunięty, a stare niestandardowe wpisy protokołu są automatycznie czyszczone podczas aktualizacji — usługi takie jak BOLT12 Pay (LNDK) działają bez dodatkowej konfiguracji. Wydanie 0.21.1-beta dodaje poprawki błędów z upstream: nowe węzły Tor poprawnie tworzą usługi onion v3, naprawiono awarię w mechanizmie awaryjnym DNS, a rozliczenie przechwytywacza przekazań on-chain jest realizowane po zamknięciu wymuszonym — oraz ściślejszą walidację CLTV na ostatnim przeskoku. Pełne informacje: https://github.com/lightningnetwork/lnd/releases/tag/v0.21.1-beta',
-    fr_FR:
-      "Met à jour LND vers 0.21.1-beta et fait passer la base de données de l'ancien backend bolt à SQLite, supprimant la lente étape de compactage au démarrage. La conversion unique s'exécute automatiquement au premier démarrage de LND après la mise à jour et est irréversible — sauvegardez votre nœud avant de mettre à jour. En cas d'échec, LND ne démarrera pas, ce qui vous permet de réessayer. Ce premier démarrage peut prendre un certain temps, car LND convertit aussi vers le SQL natif. Cette mise à jour corrige aussi les connexions REST et gRPC depuis des portefeuilles externes : ces ports sont désormais transmis directement afin que le propre certificat TLS de LND soit utilisé de bout en bout, et l'URL de connexion REST inclut maintenant ce certificat — ainsi des portefeuilles comme Zeus se connectent de manière fiable via Tor et le réseau local. Les messages onion (BOLT12) sont désormais pris en charge nativement par LND ; le commutateur d'activation distinct a donc été supprimé et les anciennes entrées de protocole personnalisées sont nettoyées automatiquement lors de la mise à jour — des services comme BOLT12 Pay (LNDK) fonctionnent sans configuration supplémentaire. La version corrective 0.21.1-beta ajoute des correctifs d'upstream : les nouveaux nœuds Tor créent désormais correctement les services onion v3, un plantage du repli DNS est corrigé et le règlement de l'intercepteur de transfert on-chain se résout après une fermeture forcée — ainsi qu'une validation plus stricte du CLTV au dernier saut. Notes complètes : https://github.com/lightningnetwork/lnd/releases/tag/v0.21.1-beta",
+    en_US: 'Internal updates',
+    es_ES: 'Actualizaciones internas',
+    de_DE: 'Interne Aktualisierungen',
+    pl_PL: 'Aktualizacje wewnętrzne',
+    fr_FR: 'Mises à jour internes',
   },
-  migrations: {
-    up: async ({ effects }) => {
-      // Try to read the old 0.3.5.x config. If it exists, we're migrating
-      // from 0.3.5.x and need to carry over settings to the new store format.
-      const configYaml: OldConfig | undefined = await readFile(
-        '/media/startos/volumes/main/start9/config.yaml',
-        'utf-8',
-      ).then(YAML.parse, () => undefined)
-
-      const prev = await storeJson
-        .read()
-        .once()
-        .catch(() => null)
-      if (configYaml) {
-        const wtClient = configYaml.watchtowers?.['wt-client']
-
-        await storeJson.merge(effects, {
-          // The seed file uses "N word" format, one per line. Not all
-          // installations have one, so fall back to null.
-          aezeedCipherSeed:
-            prev?.aezeedCipherSeed ||
-            (await readFile(
-              '/media/startos/volumes/main/start9/cipherSeedMnemonic.txt',
-              'utf8',
-            ).then(
-              (contents) => {
-                const words = contents
-                  .trimEnd()
-                  .split('\n')
-                  .map((line) => line.split(' ')[1])
-                return words.length === 24 ? words : null
-              },
-              () => null,
-            )),
-          walletPassword:
-            prev?.walletPassword ||
-            (await readFile('/media/startos/volumes/main/pwd.dat').then((buf) =>
-              buf.toString('latin1'),
-            )),
-          watchtowerClients:
-            wtClient?.enabled === 'enabled' ? wtClient['add-watchtowers'] : [],
-        })
-
-        await rm('/media/startos/volumes/main/start9', {
-          recursive: true,
-        }).catch(console.error)
-
-        // Enforce backend bundle based on old config; carry over any
-        // experimental-taproot-channels setting from the 0.3.5.x GUI.
-        await lndConfFile.merge(effects, {
-          externalhosts: undefined,
-          ...(configYaml.bitcoind.type === 'internal'
-            ? await getBitcoindBundle(effects)
-            : neutrinoBundle),
-          'protocol.simple-taproot-chans':
-            configYaml.advanced?.['protocol-simple-taproot-chans'] || undefined,
-        })
-      }
-    },
-    down: IMPOSSIBLE,
-  },
+  migrations: {},
 })
