@@ -32,11 +32,13 @@ A complete implementation of a Lightning Network node by [Lightning Labs](https:
 
 ## Image and Container Runtime
 
-| Property      | Value                                      |
-| ------------- | ------------------------------------------ |
-| Image         | `lightninglabs/lnd` (upstream, unmodified) |
-| Architectures | x86_64, aarch64                            |
-| Entrypoint    | `lnd` (default upstream)                   |
+| Property      | Value                                                                  |
+| ------------- | ---------------------------------------------------------------------- |
+| Image         | Built from `./Dockerfile`: `lightninglabs/lnd` + the `lndinit` binary  |
+| Architectures | x86_64, aarch64                                                        |
+| Entrypoint    | `lnd` (default upstream)                                               |
+
+`lndinit` is added solely for the offline bolt → SQLite database conversion (see [Database backend](#database-backend)); the `lnd` binary and runtime are otherwise the upstream image.
 
 ## Volume and Data Layout
 
@@ -49,21 +51,21 @@ StartOS-specific files on the `main` volume:
 | File                   | Purpose                                                                                                                       |
 | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | `store.json`           | Persistent StartOS state: wallet password, Aezeed cipher seed, restore/reset flags, watchtower clients, custom external hosts |
-| `sync-notified.json`   | One-bit flag: has the **Sync Complete** notification fired on this install                                                    |
+| `startup-flags.json`   | Per-run flags read with `.once` (so writes don't restart the service): reset-wallet-transactions, restore, the **Sync Complete** notified flag, and bolt→SQLite migration progress (`dbSchemaFinalized`, `dbMigrationComplete`) |
 | `tls.cert` / `tls.key` | StartOS-managed TLS certificates                                                                                              |
 | `lnd.conf`             | LND configuration (managed by StartOS actions)                                                                                |
 
-If using the `bitcoind` backend, the Bitcoin Core `main` volume is mounted read-only at `/mnt/bitcoin` for cookie authentication.
+If using the `bitcoind` backend, the Bitcoin `main` volume is mounted read-only at `/mnt/bitcoin` for cookie authentication.
 
 ## Installation and First-Run Flow
 
 1. On install, StartOS creates two **critical tasks**:
-   - **Select a Bitcoin backend** (local Bitcoin Core or Neutrino)
+   - **Select a Bitcoin backend** (local Bitcoin node or Neutrino)
    - **Initialize wallet** (start fresh, or migrate from Umbrel 1.x or another StartOS server)
 2. TLS certificates are generated using StartOS's certificate system
 3. The **Initialize Wallet** action generates a new wallet via the LND `/v1/genseed` and `/v1/initwallet` API. The 24-word Aezeed mnemonic is displayed **once** in the action result (the only time it is shown in the UI — write it down). Both the wallet password and the cipher seed are persisted to `store.json` (`walletPassword`, `aezeedCipherSeed`). The seed recovers on-chain funds only; recovering channel funds requires LND's Static Channel Backup, captured in StartOS backups
 4. The wallet is **automatically unlocked** on every start via the `/v1/unlockwallet` API
-5. If a Bitcoin Core backend is selected, StartOS creates a task on Bitcoin Core to **enable ZMQ**
+5. If a Bitcoin backend is selected, StartOS creates a task on Bitcoin to **enable ZMQ**
 
 Users never interact with `lncli create` or `lncli unlock` — StartOS handles both automatically.
 
@@ -80,7 +82,7 @@ LND is configured through **StartOS actions** (see [Actions](#actions-startos-ui
 | Routing fees                  | Base fee, fee rate, timelock delta                                                           |
 | Channel settings              | Min/max size, wumbo, zero-conf, SCID alias, taproot/overlay, pending, circular route, closes |
 | Autopilot                     | Enable/disable, max channels, allocation, channel size limits                                |
-| Performance                   | DB auto-compact, invoice cleanup, reconnect stagger, graph pruning                           |
+| Performance                   | invoice cleanup, reconnect stagger, graph pruning                                            |
 | Watchtower server             | Enable/disable, listen address                                                               |
 | Watchtower client             | Enable/disable, tower URIs                                                                   |
 
@@ -93,9 +95,11 @@ Settings **fixed** by StartOS (reset to these values, not user-configurable):
 | `restlisten`                        | `0.0.0.0:8080`          | Fixed REST listen address        |
 | `listen`                            | `0.0.0.0:9735`          | Fixed peer listen address        |
 | `rpcmiddleware.enable`              | `true`                  | Required for StartOS integration |
-| `bitcoind.rpchost`                  | `bitcoind.startos:8332` | StartOS service networking       |
+| `bitcoind.rpchost`                  | `10.0.3.1:8332`         | bitcoind RPC over the LXC bridge |
 | `bitcoind.rpccookie`                | `/mnt/bitcoin/.cookie`  | Cookie auth via mounted volume   |
 | `healthcheck.chainbackend.attempts` | `0`                     | Managed by StartOS health checks |
+| `db.backend`                        | `sqlite`                | SQLite backend (replaces legacy bolt) |
+| `db.use-native-sql`                 | `true`                  | Native SQL storage (invoices/graph/payments) |
 
 ### Default Overrides
 
@@ -105,7 +109,19 @@ Only settings that **diverge from upstream LND defaults** are written to `lnd.co
 | ------------------------------------- | ------------------ | ------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
 | `accept-keysend`                      | Disabled           | Enabled                  | Keysend is widely expected by wallets and apps that interact with LND nodes                                                 |
 | `tor.active`                          | `false`            | `true` (enabled)         | Privacy-preserving default; "Enable Tor" defaults on, making Tor a required running dependency                              |
-| `tor.skip-proxy-for-clearnet-targets` | `false` (tor-only) | `true` (clearnet direct) | New installs only; dials clearnet-reachable peers directly for performance. Turn off "Skip for clearnet peers" for tor-only |
+| `tor.skip-proxy-for-clearnet-targets` | `false` (tor-only) | `true` (clearnet direct) | Dials clearnet-reachable peers directly for performance (model default; existing nodes keep any explicit value). Turn off "Skip for clearnet peers" for tor-only |
+
+### Database backend
+
+LND runs on the **SQLite** backend with **native SQL** enabled. `db.backend=sqlite` and `db.use-native-sql=true` are **enforced** in `lnd.conf` (see the fixed-settings table above) — SQLite is Lightning Labs' recommended backend and removes the slow startup compaction the legacy `bolt` backend requires.
+
+- **Fresh installs** are born on SQLite — the enforced keys are seeded on install, so **Initialize Wallet** creates the wallet directly in SQLite.
+- **Existing `bolt` nodes** (upgrading from a pre-0.21 release) and **imports from Umbrel or a pre-0.21 StartOS** arrive as `bolt` data and are **converted on the first start**.
+- **Imports from an already-migrated StartOS node** arrive as SQLite data (the tombstoned `bolt` files ride along) and are used as-is, detected by the presence of `channel.sqlite`.
+
+**How the conversion runs.** The migration is an **init step** (`startos/init/migrateSqlite.ts`), so it runs — and must finish — before the service starts; the node is already on SQLite by the time `main` runs. It uses two temporary `runUntilSuccess` daemon chains: the first runs LND once on bolt as a managed daemon to bring the channeldb schema current (`lndinit migrate-db` only transfers buckets — it refuses a stale schema, and 0.21 adds a mandatory channeldb migration), unlocking the wallet to apply the migrations and then shutting LND down; the second, with LND stopped, runs `lndinit migrate-db` to copy every bucket into SQLite. If a `wtclient.db` is present, the finalize run also activates the watchtower client so LND brings that db to the latest schema too — `lndinit` likewise refuses an out-of-date `wtclient.db`, and older LND releases left an empty one behind even on nodes that never used the watchtower client. This is lossless: an empty db is simply initialized, and a db from prior watchtower use keeps its session data. The finalize run uses neutrino and overrides the enforced backend on the CLI (`--db.backend=bolt`) so it operates on the still-bolt data. While it runs, the service is **initializing** and reports its progress to the StartOS update UI as two named phases (_Finalizing database schema_ → _Copying database to SQLite_) via `setInitProgress`; on fresh installs (born on SQLite) and every start after the conversion, `needsSqliteMigration()` short-circuits and the step is a no-op.
+
+**Safety.** The conversion is **one-way and irreversible — back up before updating.** It writes only `startup-flags.json` (never `store.json` or `lnd.conf`). It is resumable, and throws on failure so the init step retries until a run succeeds.
 
 ### Form Defaults and Footnotes
 
@@ -121,7 +137,7 @@ Configuration actions use a consistent pattern across number, text, and boolean 
 You don't have to use the actions — you can edit `lnd.conf` by hand, and your changes are **preserved across restarts**. On each start StartOS merges your existing values rather than discarding them, so any setting it doesn't actively manage stays put. The exceptions, re-derived on every start, are:
 
 - `externalip` / `externalhosts` — rebuilt by `watchHosts` from the Peer interface's addresses plus the **Custom External Host** action
-- `tor.socks` — set by `watchTorSocks` to the Tor service's proxy address, or removed when Tor isn't installed
+- `tor.socks` — set by `watchTorSocks` to the Tor SOCKS proxy's LXC-bridge address (`10.0.3.1:9050`); always written (the bridge address is constant whether or not Tor is installed, so LND never restarts on Tor churn — LND only dials the proxy when Tor is enabled, and a dead address is just connection-refused)
 - the Bitcoin backend keys (`bitcoin.node`, `bitcoind.rpchost`, `bitcoind.rpccookie`, `bitcoind.zmqpubrawblock`, `bitcoind.zmqpubrawtx`, `fee.url`) — re-applied by `main` from the selected backend
 
 The fixed keys in the table above are likewise reset to their pinned values, `rpcuser`/`rpcpass` are stripped (cookie auth only), and **comments are not retained** — the file is rewritten from its parsed settings.
@@ -146,7 +162,7 @@ On every start, the `watchHosts` init rebuilds `externalip`/`externalhosts` for 
 3. **Public domains** — domains on the Peer interface, added to `externalhosts`, but only when "Skip for clearnet peers" is enabled (otherwise the node advertises onion-only)
 4. **Public IPv4** — added to `externalip` as a fallback only when there is no custom host or public domain
 
-`watchHosts` is the **sole writer** of `externalip`/`externalhosts`, so manual edits to *those two keys* are re-derived on the next start — use the Custom External Host action instead. (Every other `lnd.conf` setting you edit by hand is preserved; see [Configuration Management](#configuration-management).)
+`watchHosts` is the **sole writer** of `externalip`/`externalhosts`, so manual edits to _those two keys_ are re-derived on the next start — use the Custom External Host action instead. (Every other `lnd.conf` setting you edit by hand is preserved; see [Configuration Management](#configuration-management).)
 
 ## Actions (StartOS UI)
 
@@ -235,10 +251,10 @@ On every start, the `watchHosts` init rebuilds `externalip`/`externalhosts` for 
 ### Performance
 
 - **Name:** Performance
-- **Purpose:** Database compaction, invoice cleanup, and network efficiency settings
+- **Purpose:** Invoice cleanup and network efficiency settings
 - **Visibility:** Enabled
 - **Availability:** Any status
-- **Inputs:** Auto-compact (tri-state), GC canceled invoices on startup (tri-state), GC canceled invoices live (tri-state), stagger initial reconnect (tri-state), ignore historical gossip (tri-state), strict graph pruning (tri-state)
+- **Inputs:** GC canceled invoices on startup (tri-state), GC canceled invoices live (tri-state), stagger initial reconnect (tri-state), ignore historical gossip (tri-state), strict graph pruning (tri-state)
 - **Outputs:** None
 
 ### Watchtower Server
@@ -321,22 +337,22 @@ When LND first reaches `synced_to_chain && synced_to_graph` after install, a **S
 
 | Dependency   | Required | Mounted Volume                      | Health Checks Required      | Purpose                                                        |
 | ------------ | -------- | ----------------------------------- | --------------------------- | -------------------------------------------------------------- |
-| Bitcoin Core | Optional | `main` → `/mnt/bitcoin` (read-only) | `sync-progress`, `bitcoind` | Block data, transaction broadcasting via ZMQ + RPC cookie auth |
+| Bitcoin      | Optional | `main` → `/mnt/bitcoin` (read-only) | `sync-progress`, `bitcoind` | Block data, transaction broadcasting via ZMQ + RPC cookie auth |
 | Tor          | Optional | None                                | `tor`                       | Required (running) when "Enable Tor" is on (Tor Settings)      |
 
-When using Bitcoin Core as backend, LND requires the listed health checks to pass on Bitcoin Core before starting. LND uses cookie authentication via the mounted `.cookie` file.
+When using Bitcoin as backend, LND requires the listed health checks to pass on Bitcoin before starting. LND uses cookie authentication via the mounted `.cookie` file.
 
-LND can alternatively use **Neutrino** (built-in light client) with no Bitcoin Core dependency.
+LND can alternatively use **Neutrino** (built-in light client) with no Bitcoin dependency.
 
-Tor is likewise a marketplace service, not built into StartOS. It provides LND's outbound SOCKS proxy and the onion services used for inbound reachability, and becomes a required *running* dependency whenever **Enable Tor** is on.
+Tor is likewise a marketplace service, not built into StartOS. It provides LND's outbound SOCKS proxy and the onion services used for inbound reachability, and becomes a required _running_ dependency whenever **Enable Tor** is on.
 
 ## Limitations and Differences
 
 1. **Mainnet only** — testnet/regtest/signet are not available
 2. **No `lncli create` or `lncli unlock`** — wallet lifecycle is fully automated by StartOS
-3. **A few `lnd.conf` keys are StartOS-managed** — `externalip`/`externalhosts`, `tor.socks`, and the Bitcoin backend connection keys are re-derived on every start, so hand-edits to *those* keys don't stick (use the corresponding action). Every other setting you put in `lnd.conf` is preserved across restarts — see [Editing `lnd.conf` directly](#editing-lndconf-directly)
-4. **Bitcoin Core cookie auth only** — `rpcuser`/`rpcpass` are explicitly removed; authentication uses the mounted `.cookie` file
-5. **"Enable Tor" affects outbound only** — Tor is not built into StartOS; it is a marketplace service. The Tor Settings toggle controls whether LND's *outbound* peer dials use the Tor proxy. It does not create inbound reachability: that comes from adding an onion service to the Peer interface (via the Tor service), and once added it works independently of this toggle. Without the Tor service installed, neither outbound nor inbound Tor is available.
+3. **A few `lnd.conf` keys are StartOS-managed** — `externalip`/`externalhosts`, `tor.socks`, and the Bitcoin backend connection keys are re-derived on every start, so hand-edits to _those_ keys don't stick (use the corresponding action). Every other setting you put in `lnd.conf` is preserved across restarts — see [Editing `lnd.conf` directly](#editing-lndconf-directly)
+4. **Bitcoin cookie auth only** — `rpcuser`/`rpcpass` are explicitly removed; authentication uses the mounted `.cookie` file
+5. **"Enable Tor" affects outbound only** — Tor is not built into StartOS; it is a marketplace service. The Tor Settings toggle controls whether LND's _outbound_ peer dials use the Tor proxy. It does not create inbound reachability: that comes from adding an onion service to the Peer interface (via the Tor service), and once added it works independently of this toggle. Without the Tor service installed, neither outbound nor inbound Tor is available.
 6. **Restored nodes should not be reused** — after backup restore, sweep funds and reinstall
 
 ## What Is Unchanged from Upstream
@@ -363,7 +379,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for build instructions and development wo
 ```yaml
 package_id: lnd
 upstream_version: see manifest dockerTag
-image: lightninglabs/lnd
+image: built from ./Dockerfile (lightninglabs/lnd + lndinit binary)
 architectures: [x86_64, aarch64]
 volumes:
   main: /root/.lnd
@@ -379,7 +395,7 @@ startos_managed_env_vars: []
 startos_managed_files:
   - lnd.conf
   - store.json
-  - sync-notified.json
+  - startup-flags.json
   - tls.cert
   - tls.key
 actions:
@@ -404,6 +420,7 @@ health_checks:
   - lncli_getinfo: synced_to_chain, synced_to_graph
   - reachability: conditional (no external address advertised)
   - restored: conditional (set after backup restore)
+  - db_migration: conditional (only on a first start that converts bolt → sqlite)
 backup_volumes:
   - main (excluding data/graph, channel.db, sphinxreplay.db, neutrino.db, block_headers.bin, reg_filter_headers.bin, logs)
 ```

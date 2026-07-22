@@ -15,7 +15,6 @@ export const seedFiles = sdk.setupOnInit(async (effects, kind) => {
     // left at the upstream default stay unset.
     await lndConfFile.merge(effects, {
       'accept-keysend': true,
-      'tor.skip-proxy-for-clearnet-targets': true,
     })
     await storeJson.merge(effects, {
       walletPassword: utils.getDefaultString({

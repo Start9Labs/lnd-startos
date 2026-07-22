@@ -78,10 +78,15 @@ export const shape = z.object({
   rejectpush: iniBoolean,
   'coop-close-target-confs': iniNumber,
 
-  // ──── Onion Messages (BOLT12) ────
-  'protocol.custom-message': iniNumber,
-  'protocol.custom-nodeann': iniNumber,
-  'protocol.custom-init': iniNumber,
+  // ──── Onion Messages (BOLT12) — removed ────
+  // Obsolete in LND 0.21: onion messages are advertised natively (feature bit
+  // 39), so the pre-0.21 overrides are redundant and custom-init/nodeann=39 now
+  // make LND abort server creation ("feature bit: 39 already set") and
+  // crash-loop. Forced to undefined so the file model strips any an upgraded
+  // node still carries; the user-facing toggle and its form mapping are gone.
+  'protocol.custom-message': z.literal(undefined).catch(undefined),
+  'protocol.custom-nodeann': z.literal(undefined).catch(undefined),
+  'protocol.custom-init': z.literal(undefined).catch(undefined),
 
   // ──── Bitcoin ────
   'bitcoin.node': z.enum(['bitcoind', 'neutrino']).optional().catch(undefined),
@@ -90,8 +95,24 @@ export const shape = z.object({
   'bitcoin.feerate': iniNumber,
   'bitcoin.timelockdelta': iniNumber,
 
+  // ──── Database backend (enforced by StartOS) ────
+  // Always SQLite. New installs are born here; existing bolt nodes are
+  // converted by the migrate-sqlite init step (runUntilSuccess) before the
+  // service starts. Enforced (not optional) so the migration never has to
+  // *write* it — a write would trip main's lnd.conf `.const` watch and restart
+  // the service. The conversion's brief schema-finalize run overrides the
+  // backend to bolt on the CLI (`--db.backend=bolt`) to operate on the
+  // still-bolt data.
+  //
+  // Native SQL is enabled on the lnd daemon's CLI (`--db.use-native-sql`), never
+  // in the conf: the bolt schema-finalize run reads the conf and bolt rejects
+  // native SQL ("cannot use native SQL with bolt backend"), and LND's go-flags
+  // can't turn a conf-level bool off on the CLI. Forced to undefined so the file
+  // model strips any stale `db.use-native-sql=true` an older build wrote.
+  'db.backend': z.literal('sqlite').catch('sqlite'),
+  'db.use-native-sql': z.literal(undefined).catch(undefined),
+
   // ──── Performance ────
-  'db.bolt.auto-compact': iniBoolean,
   'gc-canceled-invoices-on-startup': iniBoolean,
   'gc-canceled-invoices-on-the-fly': iniBoolean,
   'stagger-initial-reconnect': iniBoolean,
@@ -111,9 +132,7 @@ export const shape = z.object({
   // ──── Tor ────
   'tor.active': z.boolean().catch(true),
   'tor.socks': iniString,
-  'tor.skip-proxy-for-clearnet-targets': iniBoolean.transform(
-    (v) => v ?? false,
-  ),
+  'tor.skip-proxy-for-clearnet-targets': iniBoolean.transform((v) => v ?? true),
 
   // ──── Watchtower ────
   'watchtower.active': iniBoolean,
@@ -380,23 +399,7 @@ export const fullConfigSpec = InputSpec.of({
     units: 'blocks',
     footnote: `${i18n('Default')}: 6 blocks`,
   }),
-  // ── Onion Messages (BOLT12) ──
-  'onion-messages': Value.toggle({
-    name: i18n('Enable Onion Messages (BOLT12)'),
-    default: false,
-    description: i18n(
-      'Enable onion message support so this node can send and receive BOLT12 offers. Writes the custom protocol entries (custom-message 513, custom-nodeann 39, custom-init 39) to lnd.conf. Required by services such as BOLT12 Pay (LNDK).',
-    ),
-  }),
   // ── Performance ──
-  'auto-compact': Value.triState({
-    name: i18n('Auto-Compact Database'),
-    default: null,
-    description: i18n(
-      'Automatically compact the bolt database on startup. Compaction reclaims wasted disk space and can improve performance over time. Recommended for most nodes',
-    ),
-    footnote: `${i18n('Default')}: false`,
-  }),
   'gc-canceled-invoices-startup': Value.triState({
     name: i18n('Delete Canceled Invoices on Startup'),
     default: null,
@@ -617,13 +620,7 @@ export function fileToForm(conf: LndConf): PartialFormType {
     'allow-circular-route': conf['allow-circular-route'],
     'reject-push': conf.rejectpush,
     'coop-close-target': conf['coop-close-target-confs'],
-    // Onion Messages (BOLT12)
-    'onion-messages':
-      conf['protocol.custom-message'] === 513 &&
-      conf['protocol.custom-nodeann'] === 39 &&
-      conf['protocol.custom-init'] === 39,
     // Performance
-    'auto-compact': conf['db.bolt.auto-compact'],
     'gc-canceled-invoices-startup': conf['gc-canceled-invoices-on-startup'],
     'gc-canceled-invoices-live': conf['gc-canceled-invoices-on-the-fly'],
     'stagger-initial-reconnect': conf['stagger-initial-reconnect'],
@@ -725,17 +722,7 @@ export function formToFile(
   if ('coop-close-target' in input)
     result['coop-close-target-confs'] = input['coop-close-target'] ?? undefined
 
-  // Onion Messages (BOLT12)
-  if ('onion-messages' in input) {
-    const v = input['onion-messages']
-    result['protocol.custom-message'] = v ? 513 : undefined
-    result['protocol.custom-nodeann'] = v ? 39 : undefined
-    result['protocol.custom-init'] = v ? 39 : undefined
-  }
-
   // Performance
-  if ('auto-compact' in input)
-    result['db.bolt.auto-compact'] = input['auto-compact'] ?? undefined
   if ('gc-canceled-invoices-startup' in input)
     result['gc-canceled-invoices-on-startup'] =
       input['gc-canceled-invoices-startup'] ?? undefined

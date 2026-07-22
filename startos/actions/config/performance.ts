@@ -1,11 +1,11 @@
 import {
-  fullConfigSpec,
   fileToForm,
   formToFile,
+  fullConfigSpec,
   lndConfFile,
 } from '../../fileModels/lnd.conf'
-import { sdk } from '../../sdk'
 import { i18n } from '../../i18n'
+import { sdk } from '../../sdk'
 
 export const performanceConfig = sdk.Action.withInput(
   // id
@@ -25,7 +25,6 @@ export const performanceConfig = sdk.Action.withInput(
 
   // form input specification
   fullConfigSpec.filter({
-    'auto-compact': true,
     'gc-canceled-invoices-startup': true,
     'gc-canceled-invoices-live': true,
     'stagger-initial-reconnect': true,

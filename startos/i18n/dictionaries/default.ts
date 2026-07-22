@@ -269,7 +269,6 @@ const dict = {
   'Reject incoming channel open requests that include a non-zero push amount (where the opener gifts sats to your side). This can be used as a precaution against certain probing attacks': 230,
   'Cooperative Close Confirmation Target': 231,
   'The target number of blocks for cooperative channel close transactions. Lower values pay higher on-chain fees for faster confirmation. Higher values (e.g. 100-1000) can save fees when speed is not important': 232,
-  'Auto-Compact Database': 233,
   'Automatically compact the bolt database on startup. Compaction reclaims wasted disk space and can improve performance over time. Recommended for most nodes': 234,
   'Delete Canceled Invoices on Startup': 235,
   'Delete all canceled invoices when LND starts. This reduces database size and improves performance': 236,
@@ -316,12 +315,14 @@ const dict = {
   'Must be a domain name, optionally followed by :port (e.g. example.com:9735).': 265,
   'LND re-resolves this address periodically, so it also works for dynamic-DNS tunnels.': 266,
 
-  // Onion Messages (BOLT12) + Auto-Configure action
-  'Enable Onion Messages (BOLT12)': 267,
-  'Enable onion message support so this node can send and receive BOLT12 offers. Writes the custom protocol entries (custom-message 513, custom-nodeann 39, custom-init 39) to lnd.conf. Required by services such as BOLT12 Pay (LNDK).': 268,
+  // Auto-Configure action
   'Auto-Configure': 269,
   'Automatically configure lnd.conf for the needs of another service': 270,
   'These fields were provided by a task and cannot be edited': 271,
+
+  // sqliteBackend.ts — bolt → SQLite migration progress phases
+  'Finalizing database schema': 272,
+  'Copying database to SQLite': 273,
 } as const
 
 /**

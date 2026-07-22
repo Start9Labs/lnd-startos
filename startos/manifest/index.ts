@@ -1,8 +1,5 @@
 import { setupManifest } from '@start9labs/start-sdk'
 import {
-  alertInstall,
-  alertRestore,
-  alertUninstall,
   depBitcoindDescription,
   depTorDescription,
   long,
@@ -21,16 +18,13 @@ export const manifest = setupManifest({
   volumes: ['main'],
   images: {
     lnd: {
+      // Built from ./Dockerfile: lnd v0.21.1-beta + the lndinit binary (used by
+      // the bolt → SQLite migration in startos/versions/current.ts).
       source: {
-        dockerTag: 'lightninglabs/lnd:v0.20.1-beta',
+        dockerBuild: {},
       },
       arch: ['aarch64', 'x86_64'],
     },
-  },
-  alerts: {
-    install: alertInstall,
-    uninstall: alertUninstall,
-    restore: alertRestore,
   },
   dependencies: {
     bitcoind: {
