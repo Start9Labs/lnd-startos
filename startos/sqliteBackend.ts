@@ -1,5 +1,5 @@
 import { SubContainer, T } from '@start9labs/start-sdk'
-import { stat } from 'fs/promises'
+import { rm, stat } from 'fs/promises'
 import { base64 } from 'rfc4648'
 import { lndConfFile } from './fileModels/lnd.conf'
 import { startupFlagsJson } from './fileModels/startupFlags.json'
@@ -8,7 +8,14 @@ import { i18n } from './i18n'
 import { restPort } from './interfaces'
 import { manifest } from './manifest'
 import { sdk } from './sdk'
-import { lndDataDir, mainMounts, neutrinoBundle, sleep } from './utils'
+import {
+  lndDataDir,
+  mainMounts,
+  mainVolumeHost,
+  neutrinoBundle,
+  sleep,
+  watchtowerServerDir,
+} from './utils'
 
 // The subcontainer type the migration chains run LND / lndinit in.
 type Sub = SubContainer<typeof manifest>
@@ -26,7 +33,6 @@ type MigrationProgress = {
 // old bolt .db files remain on disk alongside the new .sqlite ones (lnd #9708),
 // so the *presence of channel.sqlite* is what tells us a node is on SQLite — not
 // the absence of channel.db.
-const mainVolumeHost = '/media/startos/volumes/main'
 const graphDir = `${mainVolumeHost}/data/graph/mainnet`
 const boltChannelDb = `${graphDir}/channel.db`
 const sqliteChannelDb = `${graphDir}/channel.sqlite`
@@ -212,11 +218,19 @@ async function finalizeBoltSchema(
  * re-run (skipping already-migrated parts), so a retry — or a resume that lost
  * the completion flag — re-checks and finishes cleanly; a non-zero exit is a
  * real failure and the oneshot retries.
+ *
+ * When the watchtower server is disabled, its bolt db is deleted first so
+ * lndinit finds no tower source and skips it — otherwise lndinit copies the
+ * (often huge) tower db by default, regardless of the tower-dir flag.
  */
 async function migrateBoltToSqlite(
   effects: T.Effects,
   watchtowerActive: boolean,
 ): Promise<void> {
+  if (!watchtowerActive) {
+    await rm(watchtowerServerDir, { recursive: true, force: true })
+  }
+
   const migrateSub = sdk.SubContainer.of(
     effects,
     { imageId: 'lnd' },

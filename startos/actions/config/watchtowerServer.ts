@@ -1,7 +1,9 @@
+import { rm } from 'fs/promises'
 import { lndConfFile } from '../../fileModels/lnd.conf'
 import { i18n } from '../../i18n'
 import { watchtowerHostId, watchtowerInterfaceId } from '../../interfaces'
 import { sdk } from '../../sdk'
+import { watchtowerServerDir } from '../../utils'
 
 const { InputSpec } = sdk
 
@@ -17,7 +19,9 @@ export const watchtowerServerConfig = sdk.Action.withInput(
   async ({ effects }) => ({
     name: i18n('Watchtower Server'),
     description: i18n('Enable Watchtower Server in lnd.conf'),
-    warning: null,
+    warning: i18n(
+      "Setting the address to 'none' disables the watchtower server and permanently deletes the backup data it holds for the client nodes that rely on it. This cannot be undone.",
+    ),
     allowedStatuses: 'any',
     group: i18n('Watchtower'),
     visibility: 'enabled',
@@ -52,6 +56,10 @@ export const watchtowerServerConfig = sdk.Action.withInput(
             'watchtower.externalip': undefined,
           },
     )
+
+    if (!watchtowerEnabled) {
+      await rm(watchtowerServerDir, { recursive: true, force: true })
+    }
   },
 )
 

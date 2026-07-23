@@ -16,6 +16,11 @@ import { sdk } from './sdk'
 
 export const lndDataDir = '/root/.lnd'
 export const bitcoindMnt = '/mnt/bitcoin'
+export const mainVolumeHost = '/media/startos/volumes/main'
+// The watchtower *server* database (client sessions + their state-update
+// backups), distinct from the wtclient db under data/graph. Deleted whenever
+// the server is disabled — by the action and, as a backstop, by the migration.
+export const watchtowerServerDir = `${mainVolumeHost}/data/watchtower`
 
 /**
  * Bridge address (`10.0.3.1:<assigned external port>`) of a dependency's
