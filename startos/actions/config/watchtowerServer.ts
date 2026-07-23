@@ -35,26 +35,23 @@ export const watchtowerServerConfig = sdk.Action.withInput(
 
   // the execution function
   async ({ effects, input }) => {
-    {
-      const watchtowerEnabled = input['watchtower.externalip'] !== 'none'
+    const address = input['watchtower.externalip']
+    const watchtowerEnabled = !!address && address !== 'none'
 
-      let watchtowerSettings
-      if (watchtowerEnabled) {
-        watchtowerSettings = {
-          'watchtower.active': true,
-          'watchtower.listen': ['0.0.0.0:9911'],
-          'watchtower.externalip': input['watchtower.externalip'],
-        }
-      } else {
-        watchtowerSettings = {
-          'watchtower.active': false,
-          'watchtower.listen': undefined,
-          'watchtower.externalip': undefined,
-        }
-      }
-
-      await lndConfFile.merge(effects, watchtowerSettings)
-    }
+    await lndConfFile.merge(
+      effects,
+      watchtowerEnabled
+        ? {
+            'watchtower.active': true,
+            'watchtower.listen': ['0.0.0.0:9911'],
+            'watchtower.externalip': address,
+          }
+        : {
+            'watchtower.active': false,
+            'watchtower.listen': undefined,
+            'watchtower.externalip': undefined,
+          },
+    )
   },
 )
 
@@ -98,7 +95,7 @@ export function getExternalAddresses() {
         "Address at which your node can be reached by peers. Select 'none' to disable the watchtower server.",
       ),
       values: urlsWithNone,
-      default: urls.find((u) => u.endsWith('.onion')) || '',
+      default: urls.find((u) => u.endsWith('.onion')) || 'none',
     }
   })
 }

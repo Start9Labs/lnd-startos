@@ -57,6 +57,21 @@ export const shape = z.object({
   'bitcoind.zmqpubrawtx': iniString,
 
   // ──── Application Options ────
+  // LND debuglevel: a global level, optionally with per-subsystem overrides.
+  // The default `info,BTWL=error` keeps Info logging but silences btcwallet's
+  // per-block warnings. `.catch` sets the package default, which the file model
+  // applies to existing installs on their next start.
+  debuglevel: z
+    .enum([
+      'trace',
+      'debug',
+      'info',
+      'info,BTWL=error',
+      'warn',
+      'error',
+      'critical',
+    ])
+    .catch('info,BTWL=error'),
   externalhosts: iniStringArray,
   'accept-keysend': iniBoolean,
   'accept-amp': iniBoolean,
@@ -198,6 +213,22 @@ export const fullConfigSpec = InputSpec.of({
       'Accept Atomic Multi-Path spontaneous payments. AMP allows a single payment to be split across multiple channels for better reliability',
     ),
     footnote: `${i18n('Default')}: false`,
+  }),
+  debuglevel: Value.select({
+    name: i18n('Debug Level'),
+    description: i18n(
+      'Logging level for all subsystems. Trace is the most verbose, Critical is the least.',
+    ),
+    default: 'info,BTWL=error',
+    values: {
+      trace: i18n('Trace'),
+      debug: i18n('Debug'),
+      info: i18n('Info'),
+      'info,BTWL=error': i18n('Info (quiet wallet)'),
+      warn: i18n('Warning'),
+      error: i18n('Error'),
+      critical: i18n('Critical'),
+    },
   }),
   tor: Value.union({
     name: i18n('Enable Tor'),
@@ -594,6 +625,7 @@ export function fileToForm(conf: LndConf): PartialFormType {
     color: conf.color?.replace('#', ''),
     'accept-keysend': conf['accept-keysend'],
     'accept-amp': conf['accept-amp'],
+    debuglevel: conf.debuglevel,
     tor: conf['tor.active']
       ? {
           selection: 'enabled' as const,
@@ -670,6 +702,7 @@ export function formToFile(
     result['accept-keysend'] = input['accept-keysend'] ?? undefined
   if ('accept-amp' in input)
     result['accept-amp'] = input['accept-amp'] ?? undefined
+  if ('debuglevel' in input) result.debuglevel = input.debuglevel ?? undefined
 
   // Tor
   if (input.tor) {
@@ -787,12 +820,18 @@ export function fromLndConf(text: string): Record<string, string[]> {
   const dictionary = {} as Record<string, string[]>
 
   for (const line of lines) {
-    const [key, value] = line.split('=', 2)
-    if (key.startsWith('#') || key.startsWith('[') || key === '') {
+    // Split on the first '=' only, so values that themselves contain '=' — e.g.
+    // the compound debuglevel form `info,BTWL=error` — survive the round-trip.
+    const eq = line.indexOf('=')
+    const trimmedKey = (eq === -1 ? line : line.slice(0, eq)).trim()
+    if (
+      trimmedKey.startsWith('#') ||
+      trimmedKey.startsWith('[') ||
+      trimmedKey === ''
+    ) {
       continue
     }
-    const trimmedKey = key.trim()
-    const trimmedValue = value.trim()
+    const trimmedValue = eq === -1 ? '' : line.slice(eq + 1).trim()
 
     if (!dictionary[trimmedKey]) {
       dictionary[trimmedKey] = []

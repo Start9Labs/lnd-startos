@@ -76,7 +76,7 @@ LND is configured through **StartOS actions** (see [Actions](#actions-startos-ui
 | StartOS-Managed (via Actions) | Details                                                                                      |
 | ----------------------------- | -------------------------------------------------------------------------------------------- |
 | Bitcoin backend selection     | `bitcoind` or `neutrino`                                                                     |
-| General settings              | Alias, color, keysend, AMP                                                                   |
+| General settings              | Alias, color, keysend, AMP, debug level                                                      |
 | Tor settings                  | Enable Tor (outbound proxy), optionally skip the proxy for clearnet peers                    |
 | Custom external host          | Additional advertised public address — a tunnel/VPN endpoint such as Tunnelsats              |
 | Routing fees                  | Base fee, fee rate, timelock delta                                                           |
@@ -187,10 +187,10 @@ On every start, the `watchHosts` init rebuilds `externalip`/`externalhosts` for 
 ### General Settings
 
 - **Name:** General Settings
-- **Purpose:** Configure alias, color, keysend, AMP
+- **Purpose:** Configure alias, color, keysend, AMP, debug level
 - **Visibility:** Enabled
 - **Availability:** Any status
-- **Inputs:** Alias (text, max 32 chars), color (hex), accept-keysend (tri-state, default: true), accept-amp (tri-state, default: null)
+- **Inputs:** Alias (text, max 32 chars), color (hex), accept-keysend (tri-state, default: true), accept-amp (tri-state, default: null), debuglevel (select: trace / debug / info / `info,BTWL=error` / warn / error / critical, default: `info,BTWL=error` — Info with btcwallet warnings silenced)
 - **Outputs:** None
 
 ### Tor Settings

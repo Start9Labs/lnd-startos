@@ -323,6 +323,17 @@ const dict = {
   // sqliteBackend.ts — bolt → SQLite migration progress phases
   'Finalizing database schema': 272,
   'Copying database to SQLite': 273,
+
+  // lnd.conf.ts — Debug Level setting + level labels
+  Trace: 274,
+  Debug: 275,
+  Info: 276,
+  Warning: 277,
+  Error: 278,
+  Critical: 279,
+  'Info (quiet wallet)': 280,
+  'Debug Level': 281,
+  'Logging level for all subsystems. Trace is the most verbose, Critical is the least.': 282,
 } as const
 
 /**
