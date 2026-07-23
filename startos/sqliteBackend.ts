@@ -40,10 +40,14 @@ const tlsCert = `${lndDataDir}/tls.cert`
 const lndUrl = `https://127.0.0.1:${restPort}`
 
 // LND reaches the wallet-unlocker (LOCKED) quickly, but applying the channeldb
-// schema migrations during unlock can take several minutes on a large node.
-const SCHEMA_TIMEOUT_MS = 30 * 60_000
-// Copying every bucket to SQLite is bounded by db size — generous backstop.
-const MIGRATE_TIMEOUT_MS = 30 * 60_000
+// schema migrations during unlock scales with db size — minutes on a small
+// node, far longer on a large one. Both values are pure backstops: on success
+// the chain resolves the instant it's ready, so a generous cap never slows a
+// healthy migration, it only keeps a large node from tripping the deadline.
+const SCHEMA_TIMEOUT_MS = 2 * 60 * 60_000
+// Copying every bucket to SQLite is bounded by db size; a multi-GB channel.db
+// on a busy routing node can take hours. Sized to outlast the largest nodes.
+const MIGRATE_TIMEOUT_MS = 6 * 60 * 60_000
 
 type LndState =
   | 'NON_EXISTING'
