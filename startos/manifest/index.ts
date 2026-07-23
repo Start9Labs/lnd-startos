@@ -1,10 +1,5 @@
 import { setupManifest } from '@start9labs/start-sdk'
-import {
-  depBitcoindDescription,
-  depTorDescription,
-  long,
-  short,
-} from './i18n'
+import { depBitcoindDescription, depTorDescription, long, short } from './i18n'
 
 export const manifest = setupManifest({
   id: 'lnd',
