@@ -153,6 +153,21 @@ The fixed keys in the table above are likewise reset to their pinned values, `rp
 
 The REST and gRPC interfaces export `lndconnect://` URIs with embedded macaroon credentials. The watchtower interface is only exposed when the watchtower server is enabled in configuration.
 
+### TLS on REST and gRPC
+
+The two interfaces are terminated differently, and the asymmetry is deliberate.
+
+**REST** binds with `protocol: 'https'` plus an `addSsl` block, so StartOS terminates the client's TLS at its reverse proxy — serving the device certificate the client already trusts (Root CA, or ACME where a domain is configured) — then opens a second TLS connection to the container, validating what LND serves against the StartOS root CA. `protocol: 'https'` on its own does not do this; the `addSsl` block is what puts the proxy in front.
+
+**gRPC** is passed through instead (`protocol`/`addSsl` null, `secure.ssl`), so LND terminates its own TLS and the client pins that certificate from the `lndconnect://` URI. It cannot use the REST arrangement: no ALPN is negotiated with the client across an `addSsl` rewrap, and gRPC-go rejects a connection without a selected ALPN (`missing selected ALPN property`). Verified from inside the container — `127.0.0.1:10009` negotiates h2, `10.0.3.1:10009` through the proxy fails the handshake outright, while `10.0.3.1:8080` returns 200 over HTTP/1.1, which needs no ALPN.
+
+Consequences worth knowing:
+
+- **Only the gRPC URI carries a certificate.** REST clients validate against the device certificate, so embedding LND's would pin the wrong one — and it inflated the REST QR past what the UI can encode. gRPC has no such option: pinning is the only way a client can verify LND's own certificate, so its QR stays dense.
+- **REST's bridge port lives in `net.assignedSslPort`, not `net.assignedPort`.** A binding with `addSsl` and `secure.ssl` gets an `assignedSslPort` only; `assignedPort` is freed to null and no non-SSL forward is created (`net/host/binding.rs:309`, `net_controller.rs:517`). Dependents still reach REST at `10.0.3.1:8080` — that is the reverse proxy — and their mounted `tls.cert` still validates it, because that file is a fullchain whose last entry is the StartOS root CA and the proxy's bridge certificate chains to the same root. What breaks is only the lookup: a `bridgeAddress`-style helper reading `net.assignedPort` returns null and must read `assignedSslPort` for this host. gRPC is unaffected — passthrough keeps `assignedPort`.
+- **LND's own calls go over loopback.** `selfRestUrl` / `selfGrpcHost` (`startos/utils.ts`) are plain `127.0.0.1` constants. Subcontainers do not unshare the network namespace, so loopback reaches the `lnd` daemon directly; REST's bridge address is the proxy, which answers with the device certificate and would fail the `tls.cert` pin the health checks, wallet unlock and `lncli` use.
+- **`tls.cert` SANs are load-bearing** (`startos/init/setupCerts.ts`): the container IP for the proxy's inbound REST leg, `127.0.0.1` for LND's self-calls, and `10.0.3.1` for dependents dialing passthrough gRPC straight to the container. The container IP is read with `.const()`, so a new container IP reissues the certificate rather than silently breaking the proxy leg.
+
 ### External Address Advertisement
 
 On every start, the `watchHosts` init rebuilds `externalip`/`externalhosts` for the Peer interface from these sources:
@@ -324,7 +339,7 @@ On every start, the `watchHosts` init rebuilds `externalip`/`externalhosts` for 
 
 | Check                      | Method                                                              | Grace Period | Messages                                                  |
 | -------------------------- | ------------------------------------------------------------------- | ------------ | --------------------------------------------------------- |
-| **LND Server**             | HTTPS `GET /v1/state` on port 8080 using the self-signed `tls.cert` | Default      | Success: "LND is ready" / Starting: (no message, waiting) |
+| **LND Server**             | HTTPS `GET /v1/state` on `127.0.0.1:8080` using `tls.cert` | Default      | Success: "LND is ready" / Starting: (no message, waiting) |
 | **Network and Graph Sync** | `lncli getinfo` (synced_to_chain + synced_to_graph)                 | Default      | Synced / Syncing to chain / Syncing to graph / Starting   |
 | **Node Reachability**      | Config check (conditional)                                          | N/A          | Disabled message if no external IP or hostname configured |
 | **Backup Restoration**     | Conditional (after restore)                                         | N/A          | Warning to sweep funds and reinstall                      |
@@ -416,7 +431,7 @@ actions:
   - recreate-macaroons
   - autoconfig (hidden; dependent-driven, e.g. onion messages for BOLT12)
 health_checks:
-  - lnd_state: https GET /v1/state on 8080 (self-signed cert from tls.cert)
+  - lnd_state: https GET /v1/state on 127.0.0.1:8080 (LND's own tls.cert)
   - lncli_getinfo: synced_to_chain, synced_to_graph
   - reachability: conditional (no external address advertised)
   - restored: conditional (set after backup restore)

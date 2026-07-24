@@ -2,9 +2,8 @@ import { T, utils } from '@start9labs/start-sdk'
 import { base64 } from 'rfc4648'
 import { shape, storeJson } from '../fileModels/store.json'
 import { i18n } from '../i18n'
-import { restPort } from '../interfaces'
 import { sdk } from '../sdk'
-import { lndDataDir, mainMounts, sleep } from '../utils'
+import { lndDataDir, mainMounts, selfRestUrl, sleep } from '../utils'
 
 const { InputSpec, Value, Variants } = sdk
 
@@ -161,7 +160,7 @@ async function initFresh(
           '--cacert',
           `${lndDataDir}/tls.cert`,
           '--fail-with-body',
-          `https://127.0.0.1:${restPort}/v1/genseed`,
+          `${selfRestUrl}/v1/genseed`,
         ])
         if (
           res.exitCode === 0 &&
@@ -187,7 +186,7 @@ async function initFresh(
         '--cacert',
         `${lndDataDir}/tls.cert`,
         '--fail-with-body',
-        `https://127.0.0.1:${restPort}/v1/initwallet`,
+        `${selfRestUrl}/v1/initwallet`,
         '-d',
         JSON.stringify({
           wallet_password: base64.stringify(

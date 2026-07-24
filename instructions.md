@@ -24,6 +24,10 @@ Then start LND.
 
 Open the **REST** or **gRPC LND Connect** interface and copy the `lndconnect://` URI (or scan the QR) into your wallet. It embeds your admin macaroon — treat it like a password. These interfaces appear only after the wallet is initialized.
 
+For **REST**, StartOS serves the connection with your server's own certificate, so leave certificate validation **on** in your wallet. Wallets such as Zeus verify it the same way your browser does — over your local network that means having the [StartOS Root CA](https://docs.start9.com/start-os/trust-ca) installed on the device, exactly as for the StartOS dashboard. If you have set up a custom domain with an ACME certificate, wallets trust it with no extra step.
+
+For **gRPC**, LND serves its own certificate, which the `lndconnect://` URI carries so your client can verify it. That makes the gRPC URI much longer, so prefer copying it over scanning the QR.
+
 ### Reachability and networking
 
 Other nodes connect to you over the **Peer** interface; run **Node Info** for your shareable peer URI. Whether others can reach you depends on the addresses your node advertises:

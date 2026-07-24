@@ -48,18 +48,18 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
         buf.toString('base64url'),
       )
 
-      // LND serves REST (and gRPC below) over its own TLS using a
-      // StartOS-issued cert (SANs: lnd.startos + container IP) that clients
-      // pin via the `cert` in the lndconnect URL. Pass the port through
-      // untouched: protocol/addSsl null + secure.ssl makes the OS forward raw
-      // TCP / SNI-passthrough so LND's cert reaches the client. Terminating at
-      // the edge (addSsl) would present the device cert and break the pin.
+      // `protocol: 'https'` alone would not put the proxy in front; the addSsl
+      // block is what does. See README § TLS on REST and gRPC.
       const restMulti = sdk.MultiHost.of(effects, controlHostId)
       const restMultiOrigin = await restMulti.bindPort(restPort, {
-        protocol: null,
-        addSsl: null,
+        protocol: 'https',
         preferredExternalPort: restPort,
-        secure: { ssl: true },
+        addSsl: {
+          alpn: null,
+          auth: null,
+          preferredExternalPort: restPort,
+          addXForwardedHeaders: false,
+        },
       })
 
       const lndConnect = sdk.createInterface(effects, {
@@ -72,7 +72,6 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
         username: null,
         path: '',
         query: {
-          cert,
           macaroon,
         },
       })
@@ -81,7 +80,8 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
 
       const gRPCMulti = sdk.MultiHost.of(effects, gRPCHostId)
 
-      // gRPC: same TLS passthrough as REST above — LND terminates its own TLS.
+      // Not addSsl like REST: an addSsl rewrap negotiates no ALPN with the
+      // client, and gRPC-go rejects that ("missing selected ALPN property").
       const gRPCMultiOrigin = await gRPCMulti.bindPort(gRPCPort, {
         protocol: null,
         addSsl: null,

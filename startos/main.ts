@@ -21,12 +21,12 @@ import {
 } from './utils'
 
 const certPath = '/media/startos/volumes/main/tls.cert'
-/** Hit LND's /v1/state REST endpoint (over the bridge) using its TLS cert. */
-async function getLndState(restUrl: string): Promise<string | null> {
+/** Hit LND's /v1/state REST endpoint on loopback using its TLS cert. */
+async function getLndState(): Promise<string | null> {
   const ca = await readFile(certPath).catch(() => null)
   return new Promise((resolve) => {
     const req = request(
-      `${restUrl}/v1/state`,
+      `${selfRestUrl}/v1/state`,
       { ca: ca ?? undefined, rejectUnauthorized: !!ca, timeout: 5000 },
       (res) => {
         let data = ''
@@ -77,15 +77,6 @@ export const main = sdk.setupMain(async ({ effects }) => {
   }
 
   const useBitcoind = conf['bitcoin.node'] === 'bitcoind'
-
-  // LND's own REST/gRPC reached over the bridge for its self-calls (health
-  // checks, wallet unlock, lncli). Resolved once; the underlying `.const` only
-  // re-runs main if the binding itself changes.
-  const selfRest = await selfRestUrl(effects)
-  const selfGrpc = await selfGrpcHost(effects)
-  if (!selfRest || !selfGrpc) {
-    throw new Error('LND interface bridge address not yet available')
-  }
 
   const bitcoindSettings = useBitcoind
     ? await getBitcoindBundle(effects)
@@ -149,7 +140,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
       ready: {
         display: i18n('LND Server'),
         fn: async () => {
-          const lndState = await getLndState(selfRest)
+          const lndState = await getLndState()
           // WAITING_TO_START (255) is earliest in the state machine — the
           // wallet unlocker sub-server isn't up yet, so don't let the
           // unlock-wallet oneshot fire. LOCKED onward means the unlocker
@@ -176,7 +167,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
             //   NON_EXISTING=0, LOCKED=1, UNLOCKED=2, RPC_ACTIVE=3,
             //   SERVER_ACTIVE=4, WAITING_TO_START=255.
             // WAITING_TO_START means "not started yet" — keep polling.
-            const state = await getLndState(selfRest)
+            const state = await getLndState()
             if (
               state === 'UNLOCKED' ||
               state === 'RPC_ACTIVE' ||
@@ -202,7 +193,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
               'POST',
               '--cacert',
               `${lndDataDir}/tls.cert`,
-              `${selfRest}/v1/unlockwallet`,
+              `${selfRestUrl}/v1/unlockwallet`,
               '-d',
               restore
                 ? JSON.stringify({
@@ -262,7 +253,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
           let res
           try {
             res = await lndSub.exec(
-              ['lncli', `--rpcserver=${selfGrpc}`, 'getinfo'],
+              ['lncli', `--rpcserver=${selfGrpcHost}`, 'getinfo'],
               {},
               30_000,
             )
@@ -364,7 +355,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
                 return {
                   command: [
                     'lncli',
-                    `--rpcserver=${selfGrpc}`,
+                    `--rpcserver=${selfGrpcHost}`,
                     'restorechanbackup',
                     '--multi_file',
                     `${lndDataDir}/data/chain/bitcoin/mainnet/channel.backup`,
@@ -425,7 +416,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
                   let res = await subcontainer.exec(
                     [
                       'lncli',
-                      `--rpcserver=${selfGrpc}`,
+                      `--rpcserver=${selfGrpcHost}`,
                       'wtclient',
                       'add',
                       tower,
