@@ -42,6 +42,9 @@ const boltWtclientDb = `${graphDir}/wtclient.db`
 
 // lndinit's source/dest data dir — the LND data directory inside the container.
 const lndinitDataDir = `${lndDataDir}/data`
+// The SQLite graph db lndinit produces, as seen inside the migration
+// subcontainer (main volume mounted at lndDataDir).
+const channelSqliteInner = `${lndinitDataDir}/graph/mainnet/channel.sqlite`
 const tlsCert = `${lndDataDir}/tls.cert`
 const lndUrl = `https://127.0.0.1:${restPort}`
 
@@ -132,6 +135,8 @@ export async function runSqliteMigration(
   const conf = await lndConfFile.read().once()
   await migrateBoltToSqlite(effects, conf?.['watchtower.active'] === true)
   copyPhase.complete()
+
+  await scrubZombieIndex(effects)
 
   await startupFlagsJson.merge(effects, { dbMigrationComplete: true })
 }
@@ -245,6 +250,34 @@ async function migrateBoltToSqlite(
       requires: [],
     })
     .runUntilSuccess(MIGRATE_TIMEOUT_MS)
+}
+
+/**
+ * Drop malformed zombie-index rows (anything not a valid 8-byte-key /
+ * 66-byte-value zombie) from the freshly-copied SQLite graph, so LND's frozen
+ * native-SQL graph migration — which main runs next and panics on an empty
+ * zombie value on SQLite — completes. Rebuildable gossip cache; valid rows stay.
+ */
+async function scrubZombieIndex(effects: T.Effects): Promise<void> {
+  const sql = `DELETE FROM channeldb_kv WHERE parent_id=(
+      SELECT z.id FROM channeldb_kv z WHERE z.key=CAST('zombie-index' AS BLOB)
+        AND z.parent_id=(SELECT e.id FROM channeldb_kv e
+          WHERE e.key=CAST('graph-edge' AS BLOB) AND e.parent_id IS NULL))
+      AND (length(key)<>8 OR value IS NULL OR length(value)<>66);`
+  await sdk.SubContainer.withTemp(
+    effects,
+    { imageId: 'lnd' },
+    mainMounts,
+    'zombie-scrub',
+    async (sub) => {
+      const res = await sub.exec(['sqlite3', channelSqliteInner, sql])
+      if (res.exitCode !== 0) {
+        throw new Error(
+          `zombie-index scrub failed (exit ${res.exitCode}): ${res.stderr.toString()}`,
+        )
+      }
+    },
+  )
 }
 
 function lndinitArgs(watchtowerActive: boolean): [string, ...string[]] {
