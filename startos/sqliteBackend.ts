@@ -1,5 +1,5 @@
 import { SubContainer, T } from '@start9labs/start-sdk'
-import { stat } from 'fs/promises'
+import { rm, stat } from 'fs/promises'
 import { base64 } from 'rfc4648'
 import { lndConfFile } from './fileModels/lnd.conf'
 import { startupFlagsJson } from './fileModels/startupFlags.json'
@@ -8,7 +8,14 @@ import { i18n } from './i18n'
 import { restPort } from './interfaces'
 import { manifest } from './manifest'
 import { sdk } from './sdk'
-import { lndDataDir, mainMounts, neutrinoBundle, sleep } from './utils'
+import {
+  lndDataDir,
+  mainMounts,
+  mainVolumeHost,
+  neutrinoBundle,
+  sleep,
+  watchtowerServerDir,
+} from './utils'
 
 // The subcontainer type the migration chains run LND / lndinit in.
 type Sub = SubContainer<typeof manifest>
@@ -26,7 +33,6 @@ type MigrationProgress = {
 // old bolt .db files remain on disk alongside the new .sqlite ones (lnd #9708),
 // so the *presence of channel.sqlite* is what tells us a node is on SQLite — not
 // the absence of channel.db.
-const mainVolumeHost = '/media/startos/volumes/main'
 const graphDir = `${mainVolumeHost}/data/graph/mainnet`
 const boltChannelDb = `${graphDir}/channel.db`
 const sqliteChannelDb = `${graphDir}/channel.sqlite`
@@ -36,6 +42,9 @@ const boltWtclientDb = `${graphDir}/wtclient.db`
 
 // lndinit's source/dest data dir — the LND data directory inside the container.
 const lndinitDataDir = `${lndDataDir}/data`
+// The SQLite graph db lndinit produces, as seen inside the migration
+// subcontainer (main volume mounted at lndDataDir).
+const channelSqliteInner = `${lndinitDataDir}/graph/mainnet/channel.sqlite`
 const tlsCert = `${lndDataDir}/tls.cert`
 const lndUrl = `https://127.0.0.1:${restPort}`
 
@@ -127,6 +136,8 @@ export async function runSqliteMigration(
   await migrateBoltToSqlite(effects, conf?.['watchtower.active'] === true)
   copyPhase.complete()
 
+  await scrubZombieIndex(effects)
+
   await startupFlagsJson.merge(effects, { dbMigrationComplete: true })
 }
 
@@ -212,11 +223,19 @@ async function finalizeBoltSchema(
  * re-run (skipping already-migrated parts), so a retry — or a resume that lost
  * the completion flag — re-checks and finishes cleanly; a non-zero exit is a
  * real failure and the oneshot retries.
+ *
+ * When the watchtower server is disabled, its bolt db is deleted first so
+ * lndinit finds no tower source and skips it — otherwise lndinit copies the
+ * (often huge) tower db by default, regardless of the tower-dir flag.
  */
 async function migrateBoltToSqlite(
   effects: T.Effects,
   watchtowerActive: boolean,
 ): Promise<void> {
+  if (!watchtowerActive) {
+    await rm(watchtowerServerDir, { recursive: true, force: true })
+  }
+
   const migrateSub = sdk.SubContainer.of(
     effects,
     { imageId: 'lnd' },
@@ -231,6 +250,34 @@ async function migrateBoltToSqlite(
       requires: [],
     })
     .runUntilSuccess(MIGRATE_TIMEOUT_MS)
+}
+
+/**
+ * Drop malformed zombie-index rows (anything not a valid 8-byte-key /
+ * 66-byte-value zombie) from the freshly-copied SQLite graph, so LND's frozen
+ * native-SQL graph migration — which main runs next and panics on an empty
+ * zombie value on SQLite — completes. Rebuildable gossip cache; valid rows stay.
+ */
+async function scrubZombieIndex(effects: T.Effects): Promise<void> {
+  const sql = `DELETE FROM channeldb_kv WHERE parent_id=(
+      SELECT z.id FROM channeldb_kv z WHERE z.key=CAST('zombie-index' AS BLOB)
+        AND z.parent_id=(SELECT e.id FROM channeldb_kv e
+          WHERE e.key=CAST('graph-edge' AS BLOB) AND e.parent_id IS NULL))
+      AND (length(key)<>8 OR value IS NULL OR length(value)<>66);`
+  await sdk.SubContainer.withTemp(
+    effects,
+    { imageId: 'lnd' },
+    mainMounts,
+    'zombie-scrub',
+    async (sub) => {
+      const res = await sub.exec(['sqlite3', channelSqliteInner, sql])
+      if (res.exitCode !== 0) {
+        throw new Error(
+          `zombie-index scrub failed (exit ${res.exitCode}): ${res.stderr.toString()}`,
+        )
+      }
+    },
+  )
 }
 
 function lndinitArgs(watchtowerActive: boolean): [string, ...string[]] {

@@ -268,6 +268,7 @@ export default {
     280: 'Info (cartera silenciosa)',
     281: 'Nivel de depuración',
     282: 'Nivel de registro para todos los subsistemas. Rastreo es el más detallado, Crítico el menos.',
+    283: "Establecer la dirección en 'none' desactiva el servidor watchtower y elimina de forma permanente los datos de respaldo que guarda para los nodos cliente que dependen de él. Esta acción no se puede deshacer.",
   },
   de_DE: {
     0: 'Starte LND!',
@@ -536,6 +537,7 @@ export default {
     280: 'Info (Wallet leise)',
     281: 'Debug-Level',
     282: 'Protokollierungsstufe für alle Subsysteme. Trace ist am ausführlichsten, Kritisch am wenigsten.',
+    283: "Wird die Adresse auf 'none' gesetzt, wird der Watchtower-Server deaktiviert und die für die abhängigen Client-Nodes gespeicherten Sicherungsdaten werden dauerhaft gelöscht. Dies kann nicht rückgängig gemacht werden.",
   },
   pl_PL: {
     0: 'Uruchamianie LND!',
@@ -804,6 +806,7 @@ export default {
     280: 'Info (cichy portfel)',
     281: 'Poziom debugowania',
     282: 'Poziom logowania dla wszystkich podsystemów. Śledzenie jest najbardziej szczegółowe, Krytyczny najmniej.',
+    283: "Ustawienie adresu na 'none' wyłącza serwer watchtower i trwale usuwa dane kopii zapasowych przechowywane dla węzłów klienckich, które na nim polegają. Tej operacji nie można cofnąć.",
   },
   fr_FR: {
     0: 'Démarrage de LND !',
@@ -1072,5 +1075,6 @@ export default {
     280: 'Info (portefeuille silencieux)',
     281: 'Niveau de débogage',
     282: 'Niveau de journalisation pour tous les sous-systèmes. Trace est le plus détaillé, Critique le moins.',
+    283: "Définir l'adresse sur 'none' désactive le serveur watchtower et supprime définitivement les données de sauvegarde qu'il conserve pour les nœuds clients qui en dépendent. Cette action est irréversible.",
   },
 } satisfies Record<string, LangDict>

@@ -379,7 +379,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for build instructions and development wo
 ```yaml
 package_id: lnd
 upstream_version: see manifest dockerTag
-image: built from ./Dockerfile (lightninglabs/lnd + lndinit binary)
+image: built from ./Dockerfile (lightninglabs/lnd + lndinit binary + sqlite3)
 architectures: [x86_64, aarch64]
 volumes:
   main: /root/.lnd

@@ -208,6 +208,7 @@ const dict = {
   // actions/config/watchtowerServer.ts
   'Watchtower Server': 65,
   'Enable Watchtower Server in lnd.conf': 66,
+  "Setting the address to 'none' disables the watchtower server and permanently deletes the backup data it holds for the client nodes that rely on it. This cannot be undone.": 283,
   'External Address': 187,
   'No available address at which your watchtower can be reached by LND peers.': 188,
   "Address at which your node can be reached by peers. Select 'none' to disable the watchtower server.": 189,
