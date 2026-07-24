@@ -17,7 +17,7 @@ export const setDependencies = sdk.setupDependencies(async ({ effects }) => {
   if (conf?.torActive) {
     deps.tor = {
       kind: 'running',
-      versionRange: '^0.4.9.11:2',
+      versionRange: '^0.4.9.11:4',
       healthChecks: ['tor'],
     }
   }
@@ -35,7 +35,7 @@ export const setDependencies = sdk.setupDependencies(async ({ effects }) => {
 
     deps.bitcoind = {
       kind: 'running',
-      versionRange: '^28.4:13',
+      versionRange: '^28.4:14',
       healthChecks: ['bitcoind', 'sync-progress'],
     }
   }

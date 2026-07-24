@@ -1,7 +1,7 @@
 import { VersionInfo } from '@start9labs/start-sdk'
 
 export const current = VersionInfo.of({
-  version: '0.21.1-beta:3',
+  version: '0.21.1-beta:4',
   releaseNotes: {
     en_US: `Updates LND to **0.21.1-beta** and moves the database off the legacy bolt backend to **SQLite**, removing the slow startup compaction step.
 
