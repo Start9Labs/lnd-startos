@@ -1,7 +1,6 @@
 import { socksHostId, socksPort } from 'tor-startos/startos/utils'
 import { lndConfFile } from '../fileModels/lnd.conf'
 import { sdk } from '../sdk'
-import {} from '../utils'
 
 export const watchTorSocks = sdk.setupOnInit(async (effects) => {
   // Tor SOCKS proxy over the bridge. With the 9050 fallback the address stays

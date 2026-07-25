@@ -32,11 +32,11 @@ A complete implementation of a Lightning Network node by [Lightning Labs](https:
 
 ## Image and Container Runtime
 
-| Property      | Value                                                                  |
-| ------------- | ---------------------------------------------------------------------- |
-| Image         | Built from `./Dockerfile`: `lightninglabs/lnd` + the `lndinit` binary  |
-| Architectures | x86_64, aarch64                                                        |
-| Entrypoint    | `lnd` (default upstream)                                               |
+| Property      | Value                                                                 |
+| ------------- | --------------------------------------------------------------------- |
+| Image         | Built from `./Dockerfile`: `lightninglabs/lnd` + the `lndinit` binary |
+| Architectures | x86_64, aarch64                                                       |
+| Entrypoint    | `lnd` (default upstream)                                              |
 
 `lndinit` is added solely for the offline bolt → SQLite database conversion (see [Database backend](#database-backend)); the `lnd` binary and runtime are otherwise the upstream image.
 
@@ -48,12 +48,12 @@ A complete implementation of a Lightning Network node by [Lightning Labs](https:
 
 StartOS-specific files on the `main` volume:
 
-| File                   | Purpose                                                                                                                       |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `store.json`           | Persistent StartOS state: wallet password, Aezeed cipher seed, restore/reset flags, watchtower clients, custom external hosts |
+| File                   | Purpose                                                                                                                                                                                                                         |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `store.json`           | Persistent StartOS state: wallet password, Aezeed cipher seed, restore/reset flags, watchtower clients, custom external hosts                                                                                                   |
 | `startup-flags.json`   | Per-run flags read with `.once` (so writes don't restart the service): reset-wallet-transactions, restore, the **Sync Complete** notified flag, and bolt→SQLite migration progress (`dbSchemaFinalized`, `dbMigrationComplete`) |
-| `tls.cert` / `tls.key` | StartOS-managed TLS certificates                                                                                              |
-| `lnd.conf`             | LND configuration (managed by StartOS actions)                                                                                |
+| `tls.cert` / `tls.key` | StartOS-managed TLS certificates                                                                                                                                                                                                |
+| `lnd.conf`             | LND configuration (managed by StartOS actions)                                                                                                                                                                                  |
 
 If using the `bitcoind` backend, the Bitcoin `main` volume is mounted read-only at `/mnt/bitcoin` for cookie authentication.
 
@@ -88,27 +88,27 @@ LND is configured through **StartOS actions** (see [Actions](#actions-startos-ui
 
 Settings **fixed** by StartOS (reset to these values, not user-configurable):
 
-| Setting                             | Value                   | Reason                           |
-| ----------------------------------- | ----------------------- | -------------------------------- |
-| `bitcoin.mainnet`                   | `true`                  | Only mainnet supported           |
-| `rpclisten`                         | `0.0.0.0:10009`         | Fixed gRPC listen address        |
-| `restlisten`                        | `0.0.0.0:8080`          | Fixed REST listen address        |
-| `listen`                            | `0.0.0.0:9735`          | Fixed peer listen address        |
-| `rpcmiddleware.enable`              | `true`                  | Required for StartOS integration |
-| `bitcoind.rpchost`                  | `10.0.3.1:8332`         | bitcoind RPC over the LXC bridge |
-| `bitcoind.rpccookie`                | `/mnt/bitcoin/.cookie`  | Cookie auth via mounted volume   |
-| `healthcheck.chainbackend.attempts` | `0`                     | Managed by StartOS health checks |
-| `db.backend`                        | `sqlite`                | SQLite backend (replaces legacy bolt) |
-| `db.use-native-sql`                 | `true`                  | Native SQL storage (invoices/graph/payments) |
+| Setting                             | Value                  | Reason                                       |
+| ----------------------------------- | ---------------------- | -------------------------------------------- |
+| `bitcoin.mainnet`                   | `true`                 | Only mainnet supported                       |
+| `rpclisten`                         | `0.0.0.0:10009`        | Fixed gRPC listen address                    |
+| `restlisten`                        | `0.0.0.0:8080`         | Fixed REST listen address                    |
+| `listen`                            | `0.0.0.0:9735`         | Fixed peer listen address                    |
+| `rpcmiddleware.enable`              | `true`                 | Required for StartOS integration             |
+| `bitcoind.rpchost`                  | `10.0.3.1:8332`        | bitcoind RPC over the LXC bridge             |
+| `bitcoind.rpccookie`                | `/mnt/bitcoin/.cookie` | Cookie auth via mounted volume               |
+| `healthcheck.chainbackend.attempts` | `0`                    | Managed by StartOS health checks             |
+| `db.backend`                        | `sqlite`               | SQLite backend (replaces legacy bolt)        |
+| `db.use-native-sql`                 | `true`                 | Native SQL storage (invoices/graph/payments) |
 
 ### Default Overrides
 
 Only settings that **diverge from upstream LND defaults** are written to `lnd.conf` on install. All other settings are left unset, allowing LND to use its built-in defaults. This keeps `lnd.conf` minimal and avoids drift when upstream defaults change between versions.
 
-| Setting                               | Upstream Default   | Our Default              | Reason                                                                                                                      |
-| ------------------------------------- | ------------------ | ------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
-| `accept-keysend`                      | Disabled           | Enabled                  | Keysend is widely expected by wallets and apps that interact with LND nodes                                                 |
-| `tor.active`                          | `false`            | `true` (enabled)         | Privacy-preserving default; "Enable Tor" defaults on, making Tor a required running dependency                              |
+| Setting                               | Upstream Default   | Our Default              | Reason                                                                                                                                                           |
+| ------------------------------------- | ------------------ | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `accept-keysend`                      | Disabled           | Enabled                  | Keysend is widely expected by wallets and apps that interact with LND nodes                                                                                      |
+| `tor.active`                          | `false`            | `true` (enabled)         | Privacy-preserving default; "Enable Tor" defaults on, making Tor a required running dependency                                                                   |
 | `tor.skip-proxy-for-clearnet-targets` | `false` (tor-only) | `true` (clearnet direct) | Dials clearnet-reachable peers directly for performance (model default; existing nodes keep any explicit value). Turn off "Skip for clearnet peers" for tor-only |
 
 ### Database backend
@@ -164,7 +164,7 @@ The two interfaces are terminated differently, and the asymmetry is deliberate.
 Consequences worth knowing:
 
 - **Only the gRPC URI carries a certificate.** REST clients validate against the device certificate, so embedding LND's would pin the wrong one — and it inflated the REST QR past what the UI can encode. gRPC has no such option: pinning is the only way a client can verify LND's own certificate, so its QR stays dense.
-- **REST's bridge port lives in `net.assignedSslPort`, not `net.assignedPort`.** A binding with `addSsl` and `secure.ssl` gets an `assignedSslPort` only; `assignedPort` is freed to null and no non-SSL forward is created (`net/host/binding.rs:309`, `net_controller.rs:517`). Dependents still reach REST at `10.0.3.1:8080` — that is the reverse proxy — and their mounted `tls.cert` still validates it, because that file is a fullchain whose last entry is the StartOS root CA and the proxy's bridge certificate chains to the same root. What breaks is only the lookup: a `bridgeAddress`-style helper reading `net.assignedPort` returns null and must read `assignedSslPort` for this host. gRPC is unaffected — passthrough keeps `assignedPort`.
+- **REST's bridge port lives in `net.assignedSslPort`, not `net.assignedPort`.** A binding with `addSsl` and `secure.ssl` gets an `assignedSslPort` only; `assignedPort` is freed to null and no non-SSL forward is created (`net/host/binding.rs:309`, `net_controller.rs:517`). Dependents still reach REST at `10.0.3.1:8080` — that is the reverse proxy — and their mounted `tls.cert` still validates it, because that file is a fullchain whose last entry is the StartOS root CA and the proxy's bridge certificate chains to the same root. What breaks is only the lookup: a dependent reading `net.assignedPort` directly resolves null. `sdk.host.getBridgeAddress` reads the binding's derived address instead and is correct either way, which is what every dependent now uses.
 - **LND's own calls go over loopback.** `selfRestUrl` / `selfGrpcHost` (`startos/utils.ts`) are plain `127.0.0.1` constants. Subcontainers do not unshare the network namespace, so loopback reaches the `lnd` daemon directly; REST's bridge address is the proxy, which answers with the device certificate and would fail the `tls.cert` pin the health checks, wallet unlock and `lncli` use.
 - **`tls.cert` SANs are load-bearing** (`startos/init/setupCerts.ts`): the container IP for the proxy's inbound REST leg, `127.0.0.1` for LND's self-calls, and `10.0.3.1` for dependents dialing passthrough gRPC straight to the container. The container IP is read with `.const()`, so a new container IP reissues the certificate rather than silently breaking the proxy leg.
 
@@ -337,12 +337,12 @@ On every start, the `watchHosts` init rebuilds `externalip`/`externalhosts` for 
 
 ## Health Checks
 
-| Check                      | Method                                                              | Grace Period | Messages                                                  |
-| -------------------------- | ------------------------------------------------------------------- | ------------ | --------------------------------------------------------- |
+| Check                      | Method                                                     | Grace Period | Messages                                                  |
+| -------------------------- | ---------------------------------------------------------- | ------------ | --------------------------------------------------------- |
 | **LND Server**             | HTTPS `GET /v1/state` on `127.0.0.1:8080` using `tls.cert` | Default      | Success: "LND is ready" / Starting: (no message, waiting) |
-| **Network and Graph Sync** | `lncli getinfo` (synced_to_chain + synced_to_graph)                 | Default      | Synced / Syncing to chain / Syncing to graph / Starting   |
-| **Node Reachability**      | Config check (conditional)                                          | N/A          | Disabled message if no external IP or hostname configured |
-| **Backup Restoration**     | Conditional (after restore)                                         | N/A          | Warning to sweep funds and reinstall                      |
+| **Network and Graph Sync** | `lncli getinfo` (synced_to_chain + synced_to_graph)        | Default      | Synced / Syncing to chain / Syncing to graph / Starting   |
+| **Node Reachability**      | Config check (conditional)                                 | N/A          | Disabled message if no external IP or hostname configured |
+| **Backup Restoration**     | Conditional (after restore)                                | N/A          | Warning to sweep funds and reinstall                      |
 
 The LND Server check calls the REST `/v1/state` endpoint and returns `success` once the server replies with any valid state JSON. It is a stronger readiness signal than a bare port-listening check — the port binds before LND is actually ready to serve RPCs — so dependent services (like Mempool) that gate on this health check will wait until LND can answer API calls.
 
@@ -350,10 +350,10 @@ When LND first reaches `synced_to_chain && synced_to_graph` after install, a **S
 
 ## Dependencies
 
-| Dependency   | Required | Mounted Volume                      | Health Checks Required      | Purpose                                                        |
-| ------------ | -------- | ----------------------------------- | --------------------------- | -------------------------------------------------------------- |
-| Bitcoin      | Optional | `main` → `/mnt/bitcoin` (read-only) | `sync-progress`, `bitcoind` | Block data, transaction broadcasting via ZMQ + RPC cookie auth |
-| Tor          | Optional | None                                | `tor`                       | Required (running) when "Enable Tor" is on (Tor Settings)      |
+| Dependency | Required | Mounted Volume                      | Health Checks Required      | Purpose                                                        |
+| ---------- | -------- | ----------------------------------- | --------------------------- | -------------------------------------------------------------- |
+| Bitcoin    | Optional | `main` → `/mnt/bitcoin` (read-only) | `sync-progress`, `bitcoind` | Block data, transaction broadcasting via ZMQ + RPC cookie auth |
+| Tor        | Optional | None                                | `tor`                       | Required (running) when "Enable Tor" is on (Tor Settings)      |
 
 When using Bitcoin as backend, LND requires the listed health checks to pass on Bitcoin before starting. LND uses cookie authentication via the mounted `.cookie` file.
 
