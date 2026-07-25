@@ -164,7 +164,7 @@ The two interfaces are terminated differently, and the asymmetry is deliberate.
 Consequences worth knowing:
 
 - **Only the gRPC URI carries a certificate.** REST clients validate against the device certificate, so embedding LND's would pin the wrong one — and it inflated the REST QR past what the UI can encode. gRPC has no such option: pinning is the only way a client can verify LND's own certificate, so its QR stays dense.
-- **REST's bridge port lives in `net.assignedSslPort`, not `net.assignedPort`.** A binding with `addSsl` and `secure.ssl` gets an `assignedSslPort` only; `assignedPort` is freed to null and no non-SSL forward is created (`net/host/binding.rs:309`, `net_controller.rs:517`). Dependents still reach REST at `10.0.3.1:8080` — that is the reverse proxy — and their mounted `tls.cert` still validates it, because that file is a fullchain whose last entry is the StartOS root CA and the proxy's bridge certificate chains to the same root. What breaks is only the lookup: a dependent reading `net.assignedPort` directly resolves null. `sdk.host.getBridgeAddress` reads the binding's derived address instead and is correct either way, which is what every dependent now uses.
+- **REST's bridge port lives in `net.assignedSslPort`, not `net.assignedPort`.** A binding with `addSsl` and `secure.ssl` gets an `assignedSslPort` only; `assignedPort` is freed to null and no non-SSL forward is created (`BindInfo::new` / `BindInfo::update` in `net/host/binding.rs`). Dependents still reach REST at `10.0.3.1:8080` — that is the reverse proxy — and their mounted `tls.cert` still validates it, because that file is a fullchain whose last entry is the StartOS root CA and the proxy's bridge certificate chains to the same root. What breaks is only the lookup: a dependent reading `net.assignedPort` directly resolves null. `sdk.host.getBridgeAddress` reads the binding's derived address instead and is correct either way, which is what every dependent now uses.
 - **LND's own calls go over loopback.** `selfRestUrl` / `selfGrpcHost` (`startos/utils.ts`) are plain `127.0.0.1` constants. Subcontainers do not unshare the network namespace, so loopback reaches the `lnd` daemon directly; REST's bridge address is the proxy, which answers with the device certificate and would fail the `tls.cert` pin the health checks, wallet unlock and `lncli` use.
 - **`tls.cert` SANs are load-bearing** (`startos/init/setupCerts.ts`): the container IP for the proxy's inbound REST leg, `127.0.0.1` for LND's self-calls, and `10.0.3.1` for dependents dialing passthrough gRPC straight to the container. The container IP is read with `.const()`, so a new container IP reissues the certificate rather than silently breaking the proxy leg.
 
@@ -385,7 +385,7 @@ Tor is likewise a marketplace service, not built into StartOS. It provides LND's
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for build instructions and development workflow.
+Build and development workflow follow the StartOS packaging guide: <https://docs.start9.com/packaging>. Keep `README.md`, `instructions.md`, and `AGENTS.md` in sync with any change to user-visible behavior or package structure.
 
 ---
 
