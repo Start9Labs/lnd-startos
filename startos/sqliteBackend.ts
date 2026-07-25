@@ -5,7 +5,6 @@ import { lndConfFile } from './fileModels/lnd.conf'
 import { startupFlagsJson } from './fileModels/startupFlags.json'
 import { storeJson } from './fileModels/store.json'
 import { i18n } from './i18n'
-import { restPort } from './interfaces'
 import { manifest } from './manifest'
 import { sdk } from './sdk'
 import {
@@ -13,6 +12,7 @@ import {
   mainMounts,
   mainVolumeHost,
   neutrinoBundle,
+  selfRestUrl,
   sleep,
   watchtowerServerDir,
 } from './utils'
@@ -46,7 +46,6 @@ const lndinitDataDir = `${lndDataDir}/data`
 // subcontainer (main volume mounted at lndDataDir).
 const channelSqliteInner = `${lndinitDataDir}/graph/mainnet/channel.sqlite`
 const tlsCert = `${lndDataDir}/tls.cert`
-const lndUrl = `https://127.0.0.1:${restPort}`
 
 // LND reaches the wallet-unlocker (LOCKED) quickly, but applying the channeldb
 // schema migrations during unlock scales with db size — minutes on a small
@@ -319,7 +318,7 @@ async function unlockWallet(sub: Sub, walletPassword: string): Promise<void> {
     'POST',
     '--cacert',
     tlsCert,
-    `${lndUrl}/v1/unlockwallet`,
+    `${selfRestUrl}/v1/unlockwallet`,
     '-d',
     JSON.stringify({
       wallet_password: base64.stringify(Buffer.from(walletPassword, 'latin1')),
@@ -342,7 +341,7 @@ async function getState(sub: Sub): Promise<LndState | null> {
     '-s',
     '--cacert',
     tlsCert,
-    `${lndUrl}/v1/state`,
+    `${selfRestUrl}/v1/state`,
   ])
   if (res.exitCode !== 0 || typeof res.stdout !== 'string') return null
   try {

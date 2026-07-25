@@ -1,118 +1,63 @@
 import { VersionInfo } from '@start9labs/start-sdk'
 
 export const current = VersionInfo.of({
-  version: '0.21.1-beta:4',
+  version: '0.21.1-beta:5',
   releaseNotes: {
-    en_US: `Updates LND to **0.21.1-beta** and moves the database off the legacy bolt backend to **SQLite**, removing the slow startup compaction step.
+    en_US: `Puts the **REST** connection back behind StartOS-managed TLS. gRPC is unchanged.
 
-**⚠️ One-time database conversion — back up first**
-- Runs automatically the first time LND starts after updating, and **cannot be undone**.
-- If it fails, LND won't start, so you can safely retry. This first start may take a while, as LND also converts to native SQL.
+**REST wallets connect without turning off certificate checks**
+- StartOS serves REST on port 8080 with your server's own certificate — the one your device already trusts through the StartOS Root CA, or your Let's Encrypt certificate if you use a custom domain. Wallets such as Zeus connect with certificate validation left on.
+- LND's certificate no longer travels inside the REST connection string, so its pairing QR code is small enough to display and scan again.
 
-**External wallet connections fixed (REST & gRPC)**
-- These ports now pass straight through, so LND's own TLS certificate is used end-to-end, and the REST connection URL now includes that certificate — wallets such as Zeus connect reliably over Tor and your local network.
+**⚠️ Re-pair REST wallets after updating**
+- The REST port and certificate both change, so REST connection details saved from the previous version will not reconnect. Open the **REST LND Connect** interface and scan the new code. gRPC connections are unaffected.
 
-**Onion messages (BOLT12) are now native**
-- Supported directly by LND, so the separate enable-toggle is gone and old custom protocol entries are cleaned up automatically on update. Services like BOLT12 Pay (LNDK) work without extra configuration.
+**⚠️ Services using LND's REST API need their own update**
+- LNbits, Ride The Lightning and BOLT12 Pay look up LND's REST address in a way that stops resolving here, and will report LND as unreachable until each of them is updated. Nothing about the connection itself changes for them — only how they find the port. Services that use gRPC are unaffected.`,
+    es_ES: `Devuelve la conexión **REST** al TLS gestionado por StartOS. gRPC no cambia.
 
-**Watchtower server**
-- Disabling it now permanently deletes the backup data it stored for its clients.
+**Los monederos REST se conectan sin desactivar la validación de certificados**
+- StartOS sirve REST en el puerto 8080 con el certificado propio de tu servidor: el que tu dispositivo ya considera de confianza a través de la CA raíz de StartOS, o tu certificado de Let's Encrypt si usas un dominio propio. Monederos como Zeus se conectan con la validación de certificados activada.
+- El certificado de LND ya no viaja dentro de la cadena de conexión REST, así que su código QR de emparejamiento vuelve a ser lo bastante pequeño como para mostrarse y escanearse.
 
-**Upstream 0.21.1-beta fixes**
-- Fresh Tor nodes now create v3 onion services correctly.
-- A DNS-fallback crash is fixed.
-- On-chain forward-interceptor settlement resolves after a force close.
-- Stricter final-hop HTLC CLTV-expiry validation.
+**⚠️ Vuelve a emparejar los monederos REST tras actualizar**
+- El puerto y el certificado REST cambian, por lo que los datos de conexión REST guardados de la versión anterior no volverán a conectar. Abre la interfaz **REST LND Connect** y escanea el nuevo código. Las conexiones gRPC no se ven afectadas.
 
-[Full release notes](https://github.com/lightningnetwork/lnd/releases/tag/v0.21.1-beta)`,
-    es_ES: `Actualiza LND a **0.21.1-beta** y cambia la base de datos del antiguo backend bolt a **SQLite**, eliminando el lento paso de compactación al iniciar.
+**⚠️ Los servicios que usan la API REST de LND necesitan su propia actualización**
+- LNbits, Ride The Lightning y BOLT12 Pay localizan la dirección REST de LND de una forma que aquí deja de resolverse, y mostrarán LND como inaccesible hasta que cada uno se actualice. La conexión en sí no cambia para ellos: solo cómo encuentran el puerto. Los servicios que usan gRPC no se ven afectados.`,
+    de_DE: `Stellt die **REST**-Verbindung wieder auf das von StartOS verwaltete TLS um. gRPC bleibt unverändert.
 
-**⚠️ Conversión única de la base de datos: haz una copia de seguridad primero**
-- Se ejecuta automáticamente la primera vez que LND arranca tras la actualización y **no se puede deshacer**.
-- Si falla, LND no arrancará, así que podrás reintentarlo con seguridad. Ese primer arranque puede tardar, ya que LND también convierte a SQL nativo.
+**REST-Wallets verbinden sich ohne abgeschaltete Zertifikatsprüfung**
+- StartOS bedient REST auf Port 8080 mit dem eigenen Zertifikat Ihres Servers — dem, dem Ihr Gerät über die StartOS-Root-CA bereits vertraut, oder Ihrem Let's-Encrypt-Zertifikat, wenn Sie eine eigene Domain nutzen. Wallets wie Zeus verbinden sich mit aktivierter Zertifikatsprüfung.
+- Das Zertifikat von LND steckt nicht mehr in der REST-Verbindungszeichenfolge, sodass deren Kopplungs-QR-Code wieder klein genug ist, um angezeigt und gescannt zu werden.
 
-**Conexiones de monederos externos corregidas (REST y gRPC)**
-- Ahora estos puertos se redirigen directamente para que se use el propio certificado TLS de LND de extremo a extremo, y la URL de conexión REST incluye ahora ese certificado — monederos como Zeus se conectan de forma fiable a través de Tor y de la red local.
+**⚠️ Koppeln Sie REST-Wallets nach dem Update neu**
+- REST-Port und -Zertifikat ändern sich, daher verbinden sich gespeicherte REST-Verbindungsdaten der vorherigen Version nicht mehr. Öffnen Sie die Schnittstelle **REST LND Connect** und scannen Sie den neuen Code. gRPC-Verbindungen sind nicht betroffen.
 
-**Los mensajes onion (BOLT12) ahora son nativos**
-- Compatibles directamente con LND, por lo que se ha eliminado el interruptor para habilitarlos y las antiguas entradas de protocolo personalizadas se limpian automáticamente al actualizar. Servicios como BOLT12 Pay (LNDK) funcionan sin configuración adicional.
+**⚠️ Dienste, die LNDs REST-API nutzen, brauchen ihr eigenes Update**
+- LNbits, Ride The Lightning und BOLT12 Pay ermitteln die REST-Adresse von LND auf eine Weise, die hier nicht mehr auflöst, und melden LND als nicht erreichbar, bis jeder von ihnen aktualisiert wurde. An der Verbindung selbst ändert sich für sie nichts — nur daran, wie sie den Port finden. Dienste, die gRPC nutzen, sind nicht betroffen.`,
+    pl_PL: `Przywraca połączenie **REST** do TLS zarządzanego przez StartOS. gRPC pozostaje bez zmian.
 
-**Servidor watchtower**
-- Desactivarlo ahora elimina de forma permanente los datos de respaldo que almacenaba para sus clientes.
+**Portfele REST łączą się bez wyłączania weryfikacji certyfikatu**
+- StartOS obsługuje REST na porcie 8080 własnym certyfikatem serwera — tym, któremu Twoje urządzenie już ufa dzięki głównemu CA StartOS, albo Twoim certyfikatem Let's Encrypt, jeśli używasz własnej domeny. Portfele takie jak Zeus łączą się z włączoną weryfikacją certyfikatu.
+- Certyfikat LND nie jest już przenoszony w ciągu połączenia REST, więc jego kod QR do parowania znów jest na tyle mały, że da się go wyświetlić i zeskanować.
 
-**Correcciones de upstream en 0.21.1-beta**
-- Los nodos Tor nuevos ahora crean servicios onion v3 correctamente.
-- Se corrige un fallo en el respaldo DNS.
-- La liquidación del interceptor de reenvío on-chain se resuelve tras un cierre forzado.
-- Validación más estricta del CLTV del último salto.
+**⚠️ Po aktualizacji sparuj ponownie portfele REST**
+- Port i certyfikat REST się zmieniają, więc dane połączenia REST zapisane z poprzedniej wersji nie połączą się ponownie. Otwórz interfejs **REST LND Connect** i zeskanuj nowy kod. Połączenia gRPC pozostają bez zmian.
 
-[Notas completas](https://github.com/lightningnetwork/lnd/releases/tag/v0.21.1-beta)`,
-    de_DE: `Aktualisiert LND auf **0.21.1-beta** und stellt die Datenbank vom alten bolt-Backend auf **SQLite** um, wodurch der langsame Komprimierungsschritt beim Start entfällt.
+**⚠️ Usługi korzystające z API REST LND wymagają własnej aktualizacji**
+- LNbits, Ride The Lightning i BOLT12 Pay ustalają adres REST LND w sposób, który przestaje tu działać, i będą zgłaszać LND jako nieosiągalny, dopóki każda z nich nie zostanie zaktualizowana. Samo połączenie się dla nich nie zmienia — zmienia się tylko sposób znajdowania portu. Usługi korzystające z gRPC pozostają nietknięte.`,
+    fr_FR: `Replace la connexion **REST** derrière le TLS géré par StartOS. gRPC est inchangé.
 
-**⚠️ Einmalige Datenbankkonvertierung — vorher sichern**
-- Läuft beim ersten Start von LND nach der Aktualisierung automatisch und **kann nicht rückgängig gemacht werden**.
-- Schlägt sie fehl, startet LND nicht, sodass Sie es gefahrlos erneut versuchen können. Dieser erste Start kann eine Weile dauern, da LND auch auf natives SQL umstellt.
+**Les portefeuilles REST se connectent sans désactiver la validation du certificat**
+- StartOS sert REST sur le port 8080 avec le certificat propre à votre serveur — celui auquel votre appareil fait déjà confiance via l'autorité racine StartOS, ou votre certificat Let's Encrypt si vous utilisez un domaine personnalisé. Des portefeuilles comme Zeus se connectent avec la validation du certificat activée.
+- Le certificat de LND ne circule plus dans la chaîne de connexion REST, si bien que son QR code d'appairage est de nouveau assez petit pour être affiché et scanné.
 
-**Verbindungen externer Wallets korrigiert (REST & gRPC)**
-- Diese Ports werden jetzt direkt durchgereicht, sodass LNDs eigenes TLS-Zertifikat durchgängig verwendet wird, und die REST-Verbindungs-URL enthält nun dieses Zertifikat — Wallets wie Zeus verbinden sich zuverlässig über Tor und das lokale Netzwerk.
+**⚠️ Réappairez les portefeuilles REST après la mise à jour**
+- Le port et le certificat REST changent : les informations de connexion REST enregistrées avec la version précédente ne se reconnecteront pas. Ouvrez l'interface **REST LND Connect** et scannez le nouveau code. Les connexions gRPC ne sont pas concernées.
 
-**Onion-Nachrichten (BOLT12) sind jetzt nativ**
-- Direkt von LND unterstützt, daher wurde der separate Aktivierungsschalter entfernt und alte benutzerdefinierte Protokolleinträge werden beim Update automatisch bereinigt. Dienste wie BOLT12 Pay (LNDK) funktionieren ohne zusätzliche Konfiguration.
-
-**Watchtower-Server**
-- Das Deaktivieren löscht jetzt dauerhaft die für seine Clients gespeicherten Sicherungsdaten.
-
-**Upstream-Fehlerbehebungen in 0.21.1-beta**
-- Neue Tor-Knoten erstellen jetzt korrekt v3-Onion-Dienste.
-- Ein Absturz beim DNS-Fallback wurde behoben.
-- Die On-Chain-Forward-Interceptor-Abwicklung wird nach einem Force-Close aufgelöst.
-- Strengere CLTV-Prüfung am letzten Hop.
-
-[Vollständige Hinweise](https://github.com/lightningnetwork/lnd/releases/tag/v0.21.1-beta)`,
-    pl_PL: `Aktualizuje LND do **0.21.1-beta** i przenosi bazę danych ze starego backendu bolt do **SQLite**, eliminując powolny etap kompaktowania przy starcie.
-
-**⚠️ Jednorazowa konwersja bazy danych — najpierw kopia zapasowa**
-- Uruchamia się automatycznie przy pierwszym starcie LND po aktualizacji i **nie można jej cofnąć**.
-- Jeśli się nie powiedzie, LND się nie uruchomi, więc można bezpiecznie spróbować ponownie. Ten pierwszy start może chwilę potrwać, ponieważ LND konwertuje też do natywnego SQL.
-
-**Naprawiono połączenia zewnętrznych portfeli (REST i gRPC)**
-- Te porty są teraz przekazywane bezpośrednio, dzięki czemu używany jest własny certyfikat TLS LND od końca do końca, a adres URL połączenia REST zawiera teraz ten certyfikat — portfele takie jak Zeus łączą się niezawodnie przez Tor i sieć lokalną.
-
-**Wiadomości onion (BOLT12) są teraz natywne**
-- Obsługiwane bezpośrednio przez LND, więc osobny przełącznik włączający został usunięty, a stare niestandardowe wpisy protokołu są automatycznie czyszczone podczas aktualizacji. Usługi takie jak BOLT12 Pay (LNDK) działają bez dodatkowej konfiguracji.
-
-**Serwer watchtower**
-- Wyłączenie go trwale usuwa teraz dane kopii zapasowych przechowywane dla jego klientów.
-
-**Poprawki z upstream w 0.21.1-beta**
-- Nowe węzły Tor poprawnie tworzą usługi onion v3.
-- Naprawiono awarię w mechanizmie awaryjnym DNS.
-- Rozliczenie przechwytywacza przekazań on-chain jest realizowane po zamknięciu wymuszonym.
-- Ściślejsza walidacja CLTV na ostatnim przeskoku.
-
-[Pełne informacje](https://github.com/lightningnetwork/lnd/releases/tag/v0.21.1-beta)`,
-    fr_FR: `Met à jour LND vers **0.21.1-beta** et fait passer la base de données de l'ancien backend bolt à **SQLite**, supprimant la lente étape de compactage au démarrage.
-
-**⚠️ Conversion unique de la base de données — sauvegardez d'abord**
-- S'exécute automatiquement au premier démarrage de LND après la mise à jour et **est irréversible**.
-- En cas d'échec, LND ne démarrera pas, ce qui vous permet de réessayer sans risque. Ce premier démarrage peut prendre un certain temps, car LND convertit aussi vers le SQL natif.
-
-**Connexions des portefeuilles externes corrigées (REST et gRPC)**
-- Ces ports sont désormais transmis directement afin que le propre certificat TLS de LND soit utilisé de bout en bout, et l'URL de connexion REST inclut maintenant ce certificat — des portefeuilles comme Zeus se connectent de manière fiable via Tor et le réseau local.
-
-**Les messages onion (BOLT12) sont désormais natifs**
-- Pris en charge directement par LND ; le commutateur d'activation distinct a donc été supprimé et les anciennes entrées de protocole personnalisées sont nettoyées automatiquement lors de la mise à jour. Des services comme BOLT12 Pay (LNDK) fonctionnent sans configuration supplémentaire.
-
-**Serveur watchtower**
-- Sa désactivation supprime désormais définitivement les données de sauvegarde qu'il conservait pour ses clients.
-
-**Correctifs upstream de 0.21.1-beta**
-- Les nouveaux nœuds Tor créent désormais correctement les services onion v3.
-- Un plantage du repli DNS est corrigé.
-- Le règlement de l'intercepteur de transfert on-chain se résout après une fermeture forcée.
-- Validation plus stricte du CLTV au dernier saut.
-
-[Notes complètes](https://github.com/lightningnetwork/lnd/releases/tag/v0.21.1-beta)`,
+**⚠️ Les services utilisant l'API REST de LND nécessitent leur propre mise à jour**
+- LNbits, Ride The Lightning et BOLT12 Pay déterminent l'adresse REST de LND d'une manière qui cesse de se résoudre ici, et signaleront LND comme injoignable tant que chacun n'aura pas été mis à jour. La connexion elle-même ne change pas pour eux — seulement la façon dont ils trouvent le port. Les services utilisant gRPC ne sont pas concernés.`,
   },
   migrations: {},
 })

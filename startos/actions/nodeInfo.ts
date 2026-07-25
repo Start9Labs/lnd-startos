@@ -19,15 +19,17 @@ export const nodeInfo = sdk.Action.withoutInput(
 
   // the execution function
   async ({ effects }): Promise<T.ActionResult & { version: '1' }> => {
-    const rpcserver = await selfGrpcHost(effects)
-    if (!rpcserver) throw new Error('LND gRPC bridge address unavailable')
     const getInfoRes = await sdk.SubContainer.withTemp(
       effects,
       { imageId: 'lnd' },
       mainMounts,
       'get-info',
       async (subc) => {
-        return await subc.exec(['lncli', `--rpcserver=${rpcserver}`, 'getinfo'])
+        return await subc.exec([
+          'lncli',
+          `--rpcserver=${selfGrpcHost}`,
+          'getinfo',
+        ])
       },
     )
 
