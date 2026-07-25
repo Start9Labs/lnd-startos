@@ -1,7 +1,7 @@
 import { VersionInfo } from '@start9labs/start-sdk'
 
 export const current = VersionInfo.of({
-  version: '0.21.1-beta:5',
+  version: '0.21.1-beta:6',
   releaseNotes: {
     en_US: `Puts the **REST** connection back behind StartOS-managed TLS. gRPC is unchanged.
 
