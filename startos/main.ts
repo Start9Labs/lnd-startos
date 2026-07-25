@@ -112,10 +112,14 @@ export const main = sdk.setupMain(async ({ effects }) => {
     'lnd-sub',
   )
 
-  // Restart if Bitcoin .cookie changes
+  // Restart only when bitcoind writes a replacement cookie — an absent cookie
+  // means bitcoind is down, and stopping LND then hangs its shutdown.
   if (useBitcoind) {
     await FileHelper.string(`${await lndSub.rootfs}${bitcoindMnt}/.cookie`)
-      .read()
+      .read(
+        (cookie) => cookie,
+        (prev, next) => next === null || prev === next,
+      )
       .const(effects)
   }
 
