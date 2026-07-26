@@ -1,43 +1,33 @@
 import { VersionInfo } from '@start9labs/start-sdk'
 
 export const current = VersionInfo.of({
-  version: '0.21.1-beta:7',
+  version: '0.21.1-beta:8',
   releaseNotes: {
-    en_US: `Fixes LND being force-stopped every time Bitcoin Core restarts.
+    en_US: `Corrects the Bitcoin version requirement this service displays.
 
-**LND now waits for Bitcoin Core to come back before reloading**
-- LND reloads whenever Bitcoin Core issues new RPC credentials, which it does on every restart. That reload used to be triggered the moment Bitcoin Core *began* shutting down — while its RPC was already unreachable — so LND could not finish its own shutdown and was force-stopped after 60 seconds.
-- LND now ignores the credentials disappearing and reloads only once Bitcoin Core is back up and has published new ones, so it stops cleanly and restarts against a working connection.
+LND declared its Bitcoin requirement in a form that rendered as "must be below 29", which was never true — LND works with every current major version of Bitcoin. The requirement now reads as intended: Bitcoin 28.4:17 or newer.
 
-Channels and funds were never at risk: LND's databases are built to survive an abrupt stop. A clean shutdown simply avoids the recovery work an abrupt one leaves behind.`,
-    es_ES: `Corrige que LND se detuviera a la fuerza cada vez que Bitcoin Core se reiniciaba.
+If your Bitcoin service is older than 28.4:17, update it before updating LND.`,
+    es_ES: `Corrige el requisito de versión de Bitcoin que muestra este servicio.
 
-**LND ahora espera a que Bitcoin Core vuelva antes de recargarse**
-- LND se recarga cuando Bitcoin Core emite nuevas credenciales RPC, algo que hace en cada reinicio. Esa recarga se activaba en el momento en que Bitcoin Core *empezaba* a apagarse — cuando su RPC ya era inalcanzable —, así que LND no podía completar su propio apagado y se detenía a la fuerza a los 60 segundos.
-- Ahora LND ignora la desaparición de las credenciales y se recarga solo cuando Bitcoin Core ha vuelto y ha publicado unas nuevas, de modo que se detiene limpiamente y arranca con una conexión operativa.
+LND declaraba su requisito de Bitcoin de una forma que se mostraba como «debe ser inferior a 29», algo que nunca fue cierto: LND funciona con todas las versiones principales actuales de Bitcoin. El requisito ahora se lee tal y como se pretendía: Bitcoin 28.4:17 o posterior.
 
-Los canales y los fondos nunca estuvieron en riesgo: las bases de datos de LND están hechas para sobrevivir a una parada abrupta. Un apagado limpio simplemente evita el trabajo de recuperación que deja una parada abrupta.`,
-    de_DE: `Behebt, dass LND bei jedem Neustart von Bitcoin Core zwangsweise beendet wurde.
+Si tu servicio Bitcoin es anterior a 28.4:17, actualízalo antes de actualizar LND.`,
+    de_DE: `Korrigiert die von diesem Dienst angezeigte Bitcoin-Versionsanforderung.
 
-**LND wartet jetzt auf die Rückkehr von Bitcoin Core, bevor es neu lädt**
-- LND lädt neu, sobald Bitcoin Core neue RPC-Zugangsdaten ausgibt — was bei jedem Neustart geschieht. Dieses Neuladen wurde bisher in dem Moment ausgelöst, in dem Bitcoin Core mit dem Herunterfahren *begann* — während dessen RPC bereits nicht mehr erreichbar war. LND konnte sein eigenes Herunterfahren daher nicht abschließen und wurde nach 60 Sekunden zwangsweise beendet.
-- LND ignoriert nun das Verschwinden der Zugangsdaten und lädt erst neu, wenn Bitcoin Core wieder läuft und neue veröffentlicht hat. So fährt es sauber herunter und startet mit einer funktionierenden Verbindung.
+LND gab seine Bitcoin-Anforderung in einer Form an, die als „muss kleiner als 29 sein“ dargestellt wurde — was nie zutraf: LND funktioniert mit allen aktuellen Hauptversionen von Bitcoin. Die Anforderung lautet nun wie beabsichtigt: Bitcoin 28.4:17 oder neuer.
 
-Kanäle und Guthaben waren nie gefährdet: Die Datenbanken von LND sind darauf ausgelegt, einen abrupten Stopp zu überstehen. Ein sauberes Herunterfahren erspart lediglich die Wiederherstellungsarbeit, die ein abrupter Stopp hinterlässt.`,
-    pl_PL: `Naprawia wymuszone zatrzymywanie LND przy każdym restarcie Bitcoin Core.
+Wenn dein Bitcoin-Dienst älter als 28.4:17 ist, aktualisiere ihn, bevor du LND aktualisierst.`,
+    pl_PL: `Poprawia wymóg wersji Bitcoina wyświetlany przez tę usługę.
 
-**LND czeka teraz na powrót Bitcoin Core, zanim się przeładuje**
-- LND przeładowuje się, gdy Bitcoin Core wydaje nowe dane uwierzytelniające RPC, co robi przy każdym restarcie. Dotąd to przeładowanie uruchamiało się w chwili, gdy Bitcoin Core *zaczynał* się wyłączać — a jego RPC było już nieosiągalne — więc LND nie mogło dokończyć własnego wyłączania i po 60 sekundach było zatrzymywane siłą.
-- Teraz LND ignoruje zniknięcie danych uwierzytelniających i przeładowuje się dopiero wtedy, gdy Bitcoin Core wróci i opublikuje nowe. Dzięki temu zatrzymuje się czysto i startuje z działającym połączeniem.
+LND deklarował swój wymóg dotyczący Bitcoina w formie, która wyświetlała się jako „musi być niższa niż 29”, co nigdy nie było prawdą — LND działa ze wszystkimi aktualnymi głównymi wersjami Bitcoina. Wymóg brzmi teraz zgodnie z zamierzeniem: Bitcoin 28.4:17 lub nowszy.
 
-Kanały i środki nigdy nie były zagrożone: bazy danych LND są zaprojektowane tak, by przetrwać nagłe zatrzymanie. Czyste wyłączenie po prostu oszczędza pracy naprawczej, którą zostawia po sobie nagłe.`,
-    fr_FR: `Corrige l'arrêt forcé de LND à chaque redémarrage de Bitcoin Core.
+Jeśli twoja usługa Bitcoin jest starsza niż 28.4:17, zaktualizuj ją przed aktualizacją LND.`,
+    fr_FR: `Corrige l'exigence de version de Bitcoin affichée par ce service.
 
-**LND attend désormais le retour de Bitcoin Core avant de se recharger**
-- LND se recharge lorsque Bitcoin Core émet de nouveaux identifiants RPC, ce qu'il fait à chaque redémarrage. Ce rechargement était jusqu'ici déclenché au moment où Bitcoin Core *commençait* à s'arrêter — alors que son RPC était déjà injoignable —, si bien que LND ne pouvait pas terminer son propre arrêt et était arrêté de force au bout de 60 secondes.
-- LND ignore maintenant la disparition des identifiants et ne se recharge qu'une fois Bitcoin Core revenu et de nouveaux identifiants publiés. Il s'arrête donc proprement et redémarre sur une connexion fonctionnelle.
+LND déclarait son exigence Bitcoin sous une forme qui s'affichait comme « doit être inférieure à 29 », ce qui n'a jamais été vrai : LND fonctionne avec toutes les versions majeures actuelles de Bitcoin. L'exigence s'affiche désormais comme prévu : Bitcoin 28.4:17 ou plus récent.
 
-Les canaux et les fonds n'ont jamais été en danger : les bases de données de LND sont conçues pour survivre à un arrêt brutal. Un arrêt propre évite simplement le travail de récupération qu'un arrêt brutal laisse derrière lui.`,
+Si votre service Bitcoin est antérieur à 28.4:17, mettez-le à jour avant de mettre à jour LND.`,
   },
   migrations: {},
 })

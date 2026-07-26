@@ -35,7 +35,7 @@ export const setDependencies = sdk.setupDependencies(async ({ effects }) => {
 
     deps.bitcoind = {
       kind: 'running',
-      versionRange: '^28.4:14',
+      versionRange: '>=28.4:17',
       healthChecks: ['bitcoind', 'sync-progress'],
     }
   }

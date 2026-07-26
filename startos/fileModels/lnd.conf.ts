@@ -575,7 +575,7 @@ export const fullConfigSpec = InputSpec.of({
   bitcoind: Value.select({
     name: i18n('Select Bitcoin Node'),
     description: i18n(
-      'Select between a local bitcoin node and Neutrino as the backend for LND. As Neutrino involves reliance on third-party nodes it is advisable to use either Core or Knots instead. Once Core or Knots are selected it is not supported to switch to Neutrino; however LND can always switch from Neutrino to Core/Knots at a later time.',
+      'Select between a local Bitcoin node and Neutrino as the backend for LND. As Neutrino involves reliance on third-party nodes it is advisable to use a local Bitcoin node instead. Once a local Bitcoin node is selected it is not supported to switch to Neutrino; however LND can always switch from Neutrino to a local Bitcoin node at a later time.',
     ),
     default: 'bitcoind',
     values: {
