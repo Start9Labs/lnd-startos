@@ -147,6 +147,7 @@ export const shape = z.object({
   // ──── Tor ────
   'tor.active': z.boolean().catch(true),
   'tor.socks': iniString,
+  'tor.dns': iniString,
   'tor.skip-proxy-for-clearnet-targets': iniBoolean.transform((v) => v ?? true),
 
   // ──── Watchtower ────
