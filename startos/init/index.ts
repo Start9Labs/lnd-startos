@@ -9,6 +9,7 @@ import { seedFiles } from './seedFiles'
 import { setupCerts } from './setupCerts'
 import { tasksOnInstall } from './tasksOnInstall'
 import { watchHosts } from './watchHosts'
+import { watchTorDns } from './watchTorDns'
 import { watchTorSocks } from './watchTorSocks'
 
 export const init = sdk.setupInit(
@@ -22,6 +23,7 @@ export const init = sdk.setupInit(
   migrateSqlite,
   watchHosts,
   watchTorSocks,
+  watchTorDns,
   tasksOnInstall,
 )
 

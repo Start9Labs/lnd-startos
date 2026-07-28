@@ -138,6 +138,7 @@ You don't have to use the actions — you can edit `lnd.conf` by hand, and your 
 
 - `externalip` / `externalhosts` — rebuilt by `watchHosts` from the Peer interface's addresses plus the **Custom External Host** action
 - `tor.socks` — set by `watchTorSocks` to the Tor SOCKS proxy's LXC-bridge address (`10.0.3.1:9050`); always written (the bridge address is constant whether or not Tor is installed, so LND never restarts on Tor churn — LND only dials the proxy when Tor is enabled, and a dead address is just connection-refused)
+- `tor.dns` — set by `watchTorDns` to the OS resolver (`10.0.3.1:53`); written like `tor.socks` in every mode except tor-only, where it is cleared. See [DNS-seed bootstrapping under Tor](#dns-seed-bootstrapping-under-tor)
 - the Bitcoin backend keys (`bitcoin.node`, `bitcoind.rpchost`, `bitcoind.rpccookie`, `bitcoind.zmqpubrawblock`, `bitcoind.zmqpubrawtx`, `fee.url`) — re-applied by `main` from the selected backend
 
 The fixed keys in the table above are likewise reset to their pinned values, `rpcuser`/`rpcpass` are stripped (cookie auth only), and **comments are not retained** — the file is rewritten from its parsed settings.
@@ -361,11 +362,31 @@ LND can alternatively use **Neutrino** (built-in light client) with no Bitcoin d
 
 Tor is likewise a marketplace service, not built into StartOS. It provides LND's outbound SOCKS proxy and the onion services used for inbound reachability, and becomes a required _running_ dependency whenever **Enable Tor** is on.
 
+### DNS-seed bootstrapping under Tor
+
+A node with no channels and no graph has only two ways to find a first peer: sample the channel graph, or resolve the BOLT-10 DNS seeds. The first is circular on a fresh install — the graph it would sample is the graph it hasn't downloaded — which leaves the seeds, and those need an SRV lookup.
+
+SOCKS5 can't carry an SRV query, so with `tor.active` LND doesn't use the system resolver for it — `tor.LookupSRV` dials `tor.dns` over TCP itself. That collides with the StartOS **egress guard**, which drops container traffic to port 53 off the LXC bridge (`inet startos_egress_guard`, in `start-core`'s base nftables ruleset) — services are expected to resolve through the OS proxy at `10.0.3.1:53`, a host-local input-hook destination the guard never sees. LND's built-in `tor.dns` default is a public nameserver (`soa.nodes.lightning.directory:53`), and with **Skip for clearnet peers** on that dial goes out direct, into the guard. The rule is a `drop`, not a `reject`, so nothing comes back: the connection sits in `SYN_SENT` until LND's own timeout and every bootstrap round logs `Unable to retrieve initial bootstrap peers: no addresses found`. The node stays at zero peers and `synced_to_graph` never goes true.
+
+`watchTorDns` sets `tor.dns` to the OS resolver so the query stays on the bridge. Like `tor.socks` it is written in every mode but one:
+
+| Mode                                   | `tor.dns`   | Why                                                                                                                                                                                                     |
+| -------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tor on, **Skip for clearnet peers** on | OS resolver | The affected path — the dial goes out direct, so it must target a resolver the guard doesn't drop                                                                                                       |
+| Tor on, tor-only                       | unset       | LND's `dialProxy` bypasses SOCKS only under `skipProxyForClearNetTargets`, so here the dial is proxied and no exit would reach an RFC1918 address. Unaffected anyway: it goes to the SOCKS port, not 53 |
+| Tor off                                | OS resolver | Parsed but never dialed — `ProxyNet` is only built under `tor.active`. Inert, as `tor.socks` is in this mode                                                                                            |
+
+Two things to know before editing this. The value must be `host:port` — LND documents the flag that way, and while a bare host picks up `:53` from `verifyPort`, writing it explicitly matches the form of the default. And the key is normalized on **every** start regardless of `tor.active` (LND's `ParseAddressString` call sits above the `if cfg.Tor.Active` block in `config.go`), so whatever is written must always parse; an unresolvable value would abort startup even with Tor off.
+
+Note this is only about how LND finds the seeds. With Tor off, DNS is unremarkable — the Go resolver follows `/etc/resolv.conf` to `10.0.3.1`, an input-hook destination the forward-hook guard never sees.
+
+This only ever bit nodes bootstrapping from nothing. Once the graph is populated the graph bootstrapper carries the node on its own, which is why an established node never showed the symptom.
+
 ## Limitations and Differences
 
 1. **Mainnet only** — testnet/regtest/signet are not available
 2. **No `lncli create` or `lncli unlock`** — wallet lifecycle is fully automated by StartOS
-3. **A few `lnd.conf` keys are StartOS-managed** — `externalip`/`externalhosts`, `tor.socks`, and the Bitcoin backend connection keys are re-derived on every start, so hand-edits to _those_ keys don't stick (use the corresponding action). Every other setting you put in `lnd.conf` is preserved across restarts — see [Editing `lnd.conf` directly](#editing-lndconf-directly)
+3. **A few `lnd.conf` keys are StartOS-managed** — `externalip`/`externalhosts`, `tor.socks`, `tor.dns`, and the Bitcoin backend connection keys are re-derived on every start, so hand-edits to _those_ keys don't stick (use the corresponding action). Every other setting you put in `lnd.conf` is preserved across restarts — see [Editing `lnd.conf` directly](#editing-lndconf-directly)
 4. **Bitcoin cookie auth only** — `rpcuser`/`rpcpass` are explicitly removed; authentication uses the mounted `.cookie` file
 5. **"Enable Tor" affects outbound only** — Tor is not built into StartOS; it is a marketplace service. The Tor Settings toggle controls whether LND's _outbound_ peer dials use the Tor proxy. It does not create inbound reachability: that comes from adding an onion service to the Peer interface (via the Tor service), and once added it works independently of this toggle. Without the Tor service installed, neither outbound nor inbound Tor is available.
 6. **Restored nodes should not be reused** — after backup restore, sweep funds and reinstall
