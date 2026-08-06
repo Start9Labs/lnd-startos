@@ -11,7 +11,6 @@ import {
   lndDataDir,
   mainMounts,
   mainVolumeHost,
-  neutrinoBundle,
   selfRestUrl,
   sleep,
   watchtowerServerDir,
@@ -47,12 +46,13 @@ const lndinitDataDir = `${lndDataDir}/data`
 const channelSqliteInner = `${lndinitDataDir}/graph/mainnet/channel.sqlite`
 const tlsCert = `${lndDataDir}/tls.cert`
 
-// LND reaches the wallet-unlocker (LOCKED) quickly, but applying the channeldb
-// schema migrations during unlock scales with db size — minutes on a small
-// node, far longer on a large one. Both values are pure backstops: on success
-// the chain resolves the instant it's ready, so a generous cap never slows a
-// healthy migration, it only keeps a large node from tripping the deadline.
-const SCHEMA_TIMEOUT_MS = 2 * 60 * 60_000
+// Both are backstops: on success the chain resolves the instant it's ready, so
+// neither cap slows a healthy migration. They differ because the work does. The
+// schema run only opens the db and applies channeldb migrations, so it stays
+// tight — runUntilSuccess waits out the full timeout even when the daemon is
+// exiting non-zero on a loop, which makes this cap the ceiling on how long a
+// hard failure takes to surface.
+const SCHEMA_TIMEOUT_MS = 60 * 60_000
 // Copying every bucket to SQLite is bounded by db size; a multi-GB channel.db
 // on a busy routing node can take hours. Sized to outlast the largest nodes.
 const MIGRATE_TIMEOUT_MS = 6 * 60 * 60_000
@@ -142,12 +142,14 @@ export async function runSqliteMigration(
 
 /**
  * Finalize the bolt channeldb schema by running LND on it once, as a temporary
- * runUntilSuccess daemon chain. LND runs on neutrino so it needs no external
- * chain backend (a bitcoind node's conf has no fee.url, so supply neutrino's —
- * the run never actually syncs), with the enforced sqlite backend overridden
- * back to bolt on the CLI so it opens the still-bolt data. A dependent oneshot
- * unlocks the wallet and waits for UNLOCKED; the SDK then tears LND down, fully
- * — the chain owns its own subcontainer — so lndinit later opens a closed db.
+ * runUntilSuccess daemon chain. LND runs with no chain backend at all, so the
+ * run reaches neither bitcoind nor the node's own neutrino store — the latter
+ * matters because a stale or inconsistent one would otherwise fail the run for
+ * a node that has nothing to do with neutrino any more — and needs no fee
+ * source. The enforced sqlite backend is overridden back to bolt on the CLI so
+ * it opens the still-bolt data. A dependent oneshot unlocks the wallet and
+ * waits for UNLOCKED; the SDK then tears LND down, fully — the chain owns its
+ * own subcontainer — so lndinit later opens a closed db.
  *
  * When a stale wtclient.db is present, the watchtower client is also activated
  * so LND migrates it to the latest schema in this same run (it runs in
@@ -169,11 +171,15 @@ async function finalizeBoltSchema(
     'lnd',
     '--bitcoin.active',
     '--bitcoin.mainnet',
-    '--bitcoin.node=neutrino',
-    `--fee.url=${neutrinoBundle['fee.url']}`,
+    '--bitcoin.node=nochainbackend',
     // Native SQL is not in the conf (main strips it), so bolt loads cleanly;
     // passing --db.use-native-sql=false would fail (LND bools reject `=value`).
     '--db.backend=bolt',
+    // The unlock starts the server, which dials peers under nochainbackend's
+    // height-1 chain view and warns on every gossip message it takes in. This
+    // run needs no peers — though a node with channels still reconnects to
+    // those, so this trims the noise rather than removing it.
+    '--nobootstrap',
     // Migrate a stale wtclient.db up losslessly: an empty (v0) db is just
     // initialized; one from prior use keeps its session data.
     ...((await fileExists(boltWtclientDb)) ? ['--wtclient.active'] : []),
