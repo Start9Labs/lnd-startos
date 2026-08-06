@@ -142,13 +142,16 @@ async function initFresh(
     mainMounts,
     'initialize-lnd',
     async (subc) => {
-      // Use neutrino to pass config validation — the wallet unlocker API
-      // starts before any chain sync, so the backend doesn't matter here.
+      // No chain backend: genseed and initwallet are served before any chain
+      // init, and the wallet this creates is empty, so there is nothing for one
+      // to do. --nobootstrap keeps the server initwallet starts from dialing
+      // peers it has no use for.
       const child = await subc.spawn([
         'lnd',
         '--bitcoin.active',
         '--bitcoin.mainnet',
-        '--bitcoin.node=neutrino',
+        '--bitcoin.node=nochainbackend',
+        '--nobootstrap',
       ])
 
       let cipherSeed: string[] = []
