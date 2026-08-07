@@ -48,12 +48,12 @@ A complete implementation of a Lightning Network node by [Lightning Labs](https:
 
 StartOS-specific files on the `main` volume:
 
-| File                   | Purpose                                                                                                                                                                                                                         |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `store.json`           | Persistent StartOS state: wallet password, Aezeed cipher seed, restore/reset flags, watchtower clients, custom external hosts                                                                                                   |
-| `startup-flags.json`   | Per-run flags read with `.once` (so writes don't restart the service): reset-wallet-transactions, restore, the **Sync Complete** notified flag, and bolt→SQLite migration progress (`dbSchemaFinalized`, `dbMigrationComplete`) |
-| `tls.cert` / `tls.key` | StartOS-managed TLS certificates                                                                                                                                                                                                |
-| `lnd.conf`             | LND configuration (managed by StartOS actions)                                                                                                                                                                                  |
+| File                   | Purpose                                                                                                                                                                                                                                                  |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `store.json`           | Persistent StartOS state: wallet password, Aezeed cipher seed, restore/reset flags, watchtower clients, custom external hosts                                                                                                                            |
+| `startup-flags.json`   | Per-run flags read with `.once` (so writes don't restart the service): reset-wallet-transactions, restore, `rotateMacaroonRootKey`, the **Sync Complete** notified flag, and bolt→SQLite migration progress (`dbSchemaFinalized`, `dbMigrationComplete`) |
+| `tls.cert` / `tls.key` | StartOS-managed TLS certificates                                                                                                                                                                                                                         |
+| `lnd.conf`             | LND configuration (managed by StartOS actions)                                                                                                                                                                                                           |
 
 If using the `bitcoind` backend, the Bitcoin `main` volume is mounted read-only at `/mnt/bitcoin` for cookie authentication.
 
@@ -309,15 +309,21 @@ On every start, the `watchHosts` init rebuilds `externalip`/`externalhosts` for 
 - **Inputs:** None
 - **Outputs:** None (restarts LND with `--reset-wallet-transactions`)
 
-### Recreate Macaroons
+### Revoke Macaroons
 
-- **Name:** Recreate Macaroons
-- **Purpose:** Delete and regenerate all macaroon files
+- **Name:** Revoke Macaroons
+- **Purpose:** Revoke all macaroons — rotates the macaroon root key and re-bakes every macaroon file
 - **Visibility:** Enabled
 - **Availability:** Any status
 - **Inputs:** None
 - **Outputs:** None
-- **Warning:** May require restarting dependent services
+- **Warning:** Revokes every existing macaroon; dependent services lose access until they pick up the new one and may need restarting
+
+**Deleting macaroon files does not revoke anything.** A macaroon is verified against the root key in the macaroon store, not against the file, so LND re-bakes the deleted files from the surviving key and a macaroon copied beforehand still authenticates. That was this action's behavior before `0.21.1-beta:11`.
+
+Clearing the store by hand is not the fix either. Its location depends on the backend — bolt's `macaroons.db` on an older node, the `macaroondb_kv` table inside `chain.sqlite` once migrated (the `macaroons.db.migrated-to-sqlite-*` marker means the bolt file is a dead leftover and deleting it is a no-op). Worse, emptying it out-of-band leaves the on-disk macaroons signed with a key LND no longer holds, so every caller — including the package's own health check — fails with `signature mismatch after caveat verification`.
+
+So the action does neither. It sets `rotateMacaroonRootKey` in `startup-flags.json` and restarts; the `unlock-wallet` oneshot in `main.ts` then unlocks through `/v1/changepassword` with `new_macaroon_root_key: true` instead of `/v1/unlockwallet`, passing the stored password unchanged in both fields. That is LND's supported rotation: it generates the new root key and rewrites the macaroon files in one step, so the node comes back consistent. A `clear-macaroon-rotation-flag` oneshot gated on `unlock-wallet` clears the flag afterwards, so a failed rotation retries on the next start and a successful one never repeats.
 
 ### Auto-Configure
 
@@ -449,7 +455,7 @@ actions:
   - tower-info
   - initialize-wallet
   - reset-wallet-transactions
-  - recreate-macaroons
+  - revoke-macaroons
   - autoconfig (hidden; dependent-driven, e.g. onion messages for BOLT12)
 health_checks:
   - lnd_state: https GET /v1/state on 127.0.0.1:8080 (LND's own tls.cert)
