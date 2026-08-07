@@ -18,6 +18,11 @@ export const startupFlagsJson = FileHelper.json(
     resetWalletTransactions: z.boolean().catch(false),
     restore: z.boolean().catch(false),
     notified: z.boolean().catch(false),
+    // Set by the Revoke Macaroons action. Consumed by the unlock-wallet
+    // oneshot, which unlocks via /v1/changepassword with new_macaroon_root_key
+    // instead of /v1/unlockwallet — the only supported way to rotate the root
+    // key, which is what actually revokes (see the action).
+    rotateMacaroonRootKey: z.boolean().catch(false),
     // bolt → SQLite migration progress (persistent, like `notified`).
     //   dbSchemaFinalized — LND has been run on bolt to apply pending schema
     //     migrations, so a resumed conversion skips that step.

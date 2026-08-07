@@ -1,33 +1,44 @@
 import { VersionInfo } from '@start9labs/start-sdk'
+import { sdk } from '../sdk'
 
 export const current = VersionInfo.of({
-  version: '0.21.1-beta:10',
+  version: '0.21.1-beta:11',
   releaseNotes: {
-    en_US: `Fixes the update to 0.21 failing on nodes that carry leftover Neutrino data.
+    en_US: `**Revoke Macaroons (previously “Recreate Macaroons”) now actually revokes them.**
 
-The bolt → SQLite database conversion briefly starts LND to bring the database schema up to date. That run used the Neutrino light client, so it opened whatever Neutrino chain data was already on disk. On a node carrying an old or inconsistent copy — common after switching from Neutrino to a Bitcoin node — LND could not start at all, so the conversion never finished and the update eventually timed out and rolled back. The run now uses no chain backend, reaching neither your Bitcoin node nor any Neutrino data.
+Deleting a macaroon file never revoked it: LND verifies a macaroon against the root key in its macaroon store, then simply re-bakes any file you removed from that same key — so a macaroon copied beforehand kept working. The action now rotates the root key itself, through LND's own wallet-unlocker, which regenerates the key and rewrites every macaroon file together.
 
-If your update failed this way, simply retry it — no other action is needed.`,
-    es_ES: `Corrige el fallo de la actualización a 0.21 en nodos con datos de Neutrino sobrantes.
+Run it if a macaroon may have been copied or exposed — in particular if you run BTCPay Server, which reads LND's admin macaroon and shipped an actively exploited vulnerability in versions before 2.4.2. Every service connected to LND loses access until it picks up the new macaroon, and may need to be restarted.`,
+    es_ES: `**«Revocar macaroons» (antes «Recrear Macaroons») ahora los revoca de verdad.**
 
-La conversión de la base de datos de bolt a SQLite arranca LND brevemente para poner al día el esquema de la base de datos. Esa ejecución usaba el cliente ligero Neutrino, por lo que abría los datos de cadena de Neutrino que hubiera en el disco. En un nodo con una copia antigua o inconsistente —algo habitual tras cambiar de Neutrino a un nodo Bitcoin— LND no podía arrancar, así que la conversión nunca terminaba y la actualización acababa expirando y revirtiéndose. Ahora esa ejecución no usa ningún backend de cadena, por lo que no accede ni a tu nodo Bitcoin ni a ningún dato de Neutrino.
+Borrar un archivo de macaroon nunca lo revocaba: LND valida cada macaroon con la clave raíz de su almacén y vuelve a generar a partir de esa misma clave cualquier archivo que elimines, así que un macaroon copiado previamente seguía funcionando. Ahora la acción rota la propia clave raíz, mediante el desbloqueador de monedero de LND, que regenera la clave y reescribe todos los archivos de macaroons a la vez.
 
-Si tu actualización falló de esta forma, basta con reintentarla; no hace falta nada más.`,
-    de_DE: `Behebt das Fehlschlagen des Updates auf 0.21 auf Knoten mit übrig gebliebenen Neutrino-Daten.
+Ejecútala si algún macaroon pudo ser copiado o quedar expuesto, sobre todo si usas BTCPay Server, que lee el macaroon de administrador de LND y tuvo una vulnerabilidad explotada activamente en las versiones anteriores a la 2.4.2. Todos los servicios conectados a LND perderán el acceso hasta que tomen el nuevo macaroon, y puede que necesiten reiniciarse.`,
+    de_DE: `**„Macaroons widerrufen“ (vormals „Macaroons neu erstellen“) widerruft sie jetzt wirklich.**
 
-Die Datenbankkonvertierung von bolt zu SQLite startet LND kurz, um das Datenbankschema zu aktualisieren. Dieser Lauf nutzte den Neutrino-Light-Client und öffnete daher die auf der Festplatte vorhandenen Neutrino-Chain-Daten. Auf einem Knoten mit einer alten oder inkonsistenten Kopie — verbreitet nach dem Wechsel von Neutrino zu einem Bitcoin-Knoten — konnte LND überhaupt nicht starten, sodass die Konvertierung nie abschloss und das Update schließlich in einen Timeout lief und zurückgerollt wurde. Der Lauf verwendet jetzt gar kein Chain-Backend und greift weder auf deinen Bitcoin-Knoten noch auf Neutrino-Daten zu.
+Das Löschen einer Macaroon-Datei hat nie etwas widerrufen: LND prüft ein Macaroon gegen den Root-Schlüssel in seinem Macaroon-Speicher und erzeugt jede gelöschte Datei einfach aus genau diesem Schlüssel neu — ein zuvor kopiertes Macaroon funktionierte also weiter. Die Aktion rotiert jetzt den Root-Schlüssel selbst, über LNDs eigenen Wallet-Unlocker, der den Schlüssel neu erzeugt und alle Macaroon-Dateien in einem Schritt neu schreibt.
 
-Wenn dein Update auf diese Weise fehlgeschlagen ist, wiederhole es einfach — weitere Schritte sind nicht nötig.`,
-    pl_PL: `Naprawia niepowodzenie aktualizacji do 0.21 na węzłach z pozostałościami danych Neutrino.
+Führen Sie sie aus, wenn ein Macaroon kopiert oder offengelegt worden sein könnte — insbesondere wenn Sie BTCPay Server betreiben, das das Admin-Macaroon von LND liest und in Versionen vor 2.4.2 eine aktiv ausgenutzte Sicherheitslücke hatte. Jeder mit LND verbundene Dienst verliert den Zugriff, bis er das neue Macaroon übernimmt, und muss möglicherweise neu gestartet werden.`,
+    pl_PL: `**„Unieważnij macaroons” (dawniej „Odtwórz Macaroons”) teraz naprawdę je unieważnia.**
 
-Konwersja bazy danych z bolt na SQLite na krótko uruchamia LND, aby zaktualizować schemat bazy danych. To uruchomienie korzystało z lekkiego klienta Neutrino, więc otwierało dane łańcucha Neutrino znajdujące się na dysku. Na węźle ze starą lub niespójną kopią — co jest częste po przejściu z Neutrino na węzeł Bitcoin — LND w ogóle nie mógł się uruchomić, więc konwersja nigdy się nie kończyła, a aktualizacja ostatecznie wygasała i była wycofywana. To uruchomienie nie korzysta już z żadnego backendu łańcucha, więc nie sięga ani do twojego węzła Bitcoin, ani do danych Neutrino.
+Usunięcie pliku macaroona nigdy go nie unieważniało: LND weryfikuje macaroona względem klucza głównego w swoim magazynie, a usunięty plik po prostu odtwarza z tego samego klucza — więc wcześniej skopiowany macaroon nadal działał. Akcja rotuje teraz sam klucz główny, przez wbudowany mechanizm odblokowania portfela LND, który generuje nowy klucz i przepisuje wszystkie pliki macaroonów za jednym razem.
 
-Jeśli twoja aktualizacja zakończyła się w ten sposób, po prostu ponów ją — nic więcej nie trzeba robić.`,
-    fr_FR: `Corrige l'échec de la mise à jour vers 0.21 sur les nœuds conservant d'anciennes données Neutrino.
+Uruchom ją, jeśli któryś macaroon mógł zostać skopiowany lub ujawniony — zwłaszcza jeśli korzystasz z BTCPay Server, który odczytuje macaroon administratora LND i w wersjach starszych niż 2.4.2 zawierał aktywnie wykorzystywaną lukę. Każda usługa połączona z LND utraci dostęp, dopóki nie pobierze nowego macaroona, i może wymagać restartu.`,
+    fr_FR: `**« Révoquer les macaroons » (anciennement « Recréer les Macaroons ») les révoque désormais réellement.**
 
-La conversion de la base de données de bolt vers SQLite démarre brièvement LND pour mettre à jour le schéma de la base. Cette exécution utilisait le client léger Neutrino et ouvrait donc les données de chaîne Neutrino présentes sur le disque. Sur un nœud portant une copie ancienne ou incohérente — courant après être passé de Neutrino à un nœud Bitcoin — LND ne pouvait pas démarrer du tout : la conversion n'aboutissait jamais et la mise à jour finissait par expirer et être annulée. Cette exécution n'utilise plus aucun backend de chaîne et n'accède ni à votre nœud Bitcoin ni à des données Neutrino.
+Supprimer un fichier de macaroon ne révoquait rien : LND vérifie un macaroon avec la clé racine de son magasin, puis régénère à partir de cette même clé tout fichier que vous avez supprimé — un macaroon copié auparavant continuait donc de fonctionner. L'action fait désormais tourner la clé racine elle-même, via le déverrouilleur de portefeuille de LND, qui régénère la clé et réécrit tous les fichiers de macaroons en une seule opération.
 
-Si votre mise à jour a échoué de cette manière, il suffit de la relancer — aucune autre action n'est nécessaire.`,
+Exécutez-la si un macaroon a pu être copié ou exposé — en particulier si vous utilisez BTCPay Server, qui lit le macaroon administrateur de LND et présentait une vulnérabilité activement exploitée dans les versions antérieures à 2.4.2. Tout service connecté à LND perd l'accès jusqu'à ce qu'il récupère le nouveau macaroon, et devra peut-être être redémarré.`,
   },
-  migrations: {},
+  migrations: {
+    up: async ({ effects }) => {
+      // Replay keys abandoned when bitcoind renamed its config action. Nothing
+      // reaps them, and they keep demanding whatever they last asked for.
+      await sdk.action.clearTask(
+        effects,
+        'bitcoind:config',
+        'bitcoind:other-config',
+      )
+    },
+  },
 })

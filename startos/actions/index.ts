@@ -12,7 +12,7 @@ import { wtClientConfig } from './config/watchtowerClient'
 import { watchtowerServerConfig } from './config/watchtowerServer'
 import { initializeWallet } from './initializeWallet'
 import { nodeInfo } from './nodeInfo'
-import { recreateMacaroons } from './recreate-macaroons'
+import { revokeMacaroons } from './revoke-macaroons'
 import { resetWalletTransactions } from './resetTxns'
 import { towerInfo } from './towerInfo'
 
@@ -31,5 +31,5 @@ export const actions = sdk.Actions.of()
   .addAction(towerInfo)
   .addAction(nodeInfo)
   .addAction(initializeWallet)
-  .addAction(recreateMacaroons)
+  .addAction(revokeMacaroons)
   .addAction(autoconfig)

@@ -68,7 +68,8 @@ export const main = sdk.setupMain(async ({ effects }) => {
   if (!startupFlags) {
     throw new Error('No startup-flags.json')
   }
-  const { resetWalletTransactions, restore } = startupFlags
+  const { resetWalletTransactions, restore, rotateMacaroonRootKey } =
+    startupFlags
   let notified = startupFlags.notified
 
   const conf = await lndConfFile.read().const(effects)
@@ -190,6 +191,11 @@ export const main = sdk.setupMain(async ({ effects }) => {
             if (!walletPassword)
               throw new Error('Wallet Password is undefined!')
 
+            const pw = base64.stringify(Buffer.from(walletPassword, 'latin1'))
+            // changepassword also unlocks, so it replaces the unlock call
+            // rather than joining it. Passing the same password back is what
+            // keeps this a macaroon rotation and not a password change; LND
+            // regenerates the root key and rewrites every macaroon file.
             const res = await subcontainer.exec([
               'curl',
               '--no-progress-meter',
@@ -197,27 +203,35 @@ export const main = sdk.setupMain(async ({ effects }) => {
               'POST',
               '--cacert',
               `${lndDataDir}/tls.cert`,
-              `${selfRestUrl}/v1/unlockwallet`,
+              rotateMacaroonRootKey
+                ? `${selfRestUrl}/v1/changepassword`
+                : `${selfRestUrl}/v1/unlockwallet`,
               '-d',
-              restore
+              rotateMacaroonRootKey
                 ? JSON.stringify({
-                    wallet_password: base64.stringify(
-                      Buffer.from(walletPassword, 'latin1'),
-                    ),
-                    recovery_window: 2_500,
+                    current_password: pw,
+                    new_password: pw,
+                    new_macaroon_root_key: true,
                   })
-                : JSON.stringify({
-                    wallet_password: base64.stringify(
-                      Buffer.from(walletPassword, 'latin1'),
-                    ),
-                  }),
+                : restore
+                  ? JSON.stringify({
+                      wallet_password: pw,
+                      recovery_window: 2_500,
+                    })
+                  : JSON.stringify({ wallet_password: pw }),
             ])
             console.log('wallet-unlock response', res)
             const stdout = res.stdout.toString().trim()
             // `{}` = unlock succeeded. "wallet already unlocked" = wallet is
             // already past the LOCKED state (e.g. because /v1/state raced
-            // with the oneshot). Both mean we're done.
-            if (stdout === '{}' || stdout.includes('wallet already unlocked')) {
+            // with the oneshot). Both mean we're done. changepassword answers
+            // with an admin_macaroon field instead of `{}`, and only when it
+            // fails does the body carry an error.
+            if (
+              stdout === '{}' ||
+              stdout.includes('wallet already unlocked') ||
+              (rotateMacaroonRootKey && !stdout.includes('"error"'))
+            ) {
               break
             }
             await sleep(10_000)
@@ -228,6 +242,24 @@ export const main = sdk.setupMain(async ({ effects }) => {
       subcontainer: lndSub,
       requires: ['lnd'],
     })
+    .addOneshot('clear-macaroon-rotation-flag', () =>
+      // Gated on unlock-wallet succeeding, so a failed rotation is retried on
+      // the next start rather than silently dropped.
+      rotateMacaroonRootKey
+        ? {
+            subcontainer: null,
+            exec: {
+              fn: async () => {
+                await startupFlagsJson.merge(effects, {
+                  rotateMacaroonRootKey: false,
+                })
+                return null
+              },
+            },
+            requires: ['unlock-wallet'],
+          }
+        : null,
+    )
     .addOneshot('clear-reset-flag', () =>
       // `--reset-wallet-transactions` is consumed once, when LND opens the
       // wallet at unlock. Now that unlock-wallet has completed the reset has

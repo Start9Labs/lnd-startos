@@ -55,11 +55,11 @@ const dict = {
   // shared
   'Aezeed Cipher Seed': 42,
 
-  // actions/recreate-macaroons.ts
-  'Recreate Macaroons': 45,
-  'Deletes current macaroons, and restarts LND to recreate all macaroons.': 46,
-  'This will delete and recreate all existing macaroon files, so you may need to restart other services using LND.': 47,
-  'Existing macaroons have been deleted and fresh macaroons will be created on next startup. If LND is already running, it will be restarted now': 48,
+  // actions/revoke-macaroons.ts
+  'Revoke Macaroons': 45,
+  'Revokes every macaroon this node has issued by rotating the root key they are signed with, then restarts LND to write fresh ones. Deleting macaroon files alone does not revoke them, so use this if one may have been copied or exposed.': 46,
+  'This revokes every existing macaroon. Any service connected to LND loses access until it picks up the new macaroon, and may need to be restarted.': 47,
+  'LND is restarting to generate a new macaroon root key. Every macaroon issued before now becomes invalid, and fresh ones are written once the wallet unlocks.': 48,
 
   // actions/resetTxns.ts
   'Reset Wallet Transactions': 49,

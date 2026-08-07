@@ -13,7 +13,7 @@ A full **LND** node on Bitcoin mainnet, with **REST** and **gRPC** LND Connect i
 
 LND posts two critical tasks on install; you can't start it until both are done:
 
-1. **Initialize Wallet** — **Start Fresh** for a new wallet, or **Migrate from Umbrel** / **Migrate from StartOS** to import one. Start Fresh shows your 24-word seed **once** — write it down. **The seed alone is not enough:** it recovers *on-chain* funds only; funds in channels can be recovered only from the **Static Channel Backup** in your StartOS backups, so keep backups (see [Backups](#backups)).
+1. **Initialize Wallet** — **Start Fresh** for a new wallet, or **Migrate from Umbrel** / **Migrate from StartOS** to import one. Start Fresh shows your 24-word seed **once** — write it down. **The seed alone is not enough:** it recovers _on-chain_ funds only; funds in channels can be recovered only from the **Static Channel Backup** in your StartOS backups, so keep backups (see [Backups](#backups)).
 2. **Bitcoin Backend** — **Bitcoin** (recommended if you run it on this server) or **Neutrino** (built-in light client). Choosing Bitcoin posts a task on it to enable ZMQ.
 
 Then start LND.
@@ -32,9 +32,9 @@ For **gRPC**, LND serves its own certificate, which the `lndconnect://` URI carr
 
 Other nodes connect to you over the **Peer** interface; run **Node Info** for your shareable peer URI. Whether others can reach you depends on the addresses your node advertises:
 
-- **Tor** — Tor is a separate marketplace service, not built in. Install and start **Tor**, and LND will route outbound connections through it (on by default; change in **Tor Settings**). To be reachable *inbound* over Tor, also add an onion service to the **Peer** interface (the interface's **Tor** table, or the Tor service's **Manage Onion Services** action).
+- **Tor** — Tor is a separate marketplace service, not built in. Install and start **Tor**, and LND will route outbound connections through it (on by default; change in **Tor Settings**). To be reachable _inbound_ over Tor, also add an onion service to the **Peer** interface (the interface's **Tor** table, or the Tor service's **Manage Onion Services** action).
 - **Clearnet** — set a **Custom External Host** (e.g. a Tunnelsats or VPN endpoint) to advertise a clearnet address alongside any onion. A public domain on the Peer interface also works, but only with **Skip for clearnet peers** enabled in **Tor Settings**.
-- If no address is advertised, the **Node Reachability** health check shows *disabled*: you can still open channels outbound, but others can't open channels to you.
+- If no address is advertised, the **Node Reachability** health check shows _disabled_: you can still open channels outbound, but others can't open channels to you.
 
 ### Configuration
 
@@ -42,7 +42,9 @@ Configure LND through its settings actions — General, Routing Fees, Channel Se
 
 By default LND logs at **Info** level with btcwallet's frequent per-block warnings silenced (the **Info (quiet wallet)** option), keeping the log readable without hiding normal activity. Change this with **Debug Level** under General settings — pick plain **Info** to include those wallet warnings, drop to **Warning**/**Error** for less, or raise to **Debug**/**Trace** when troubleshooting.
 
-Two advanced actions worth knowing: **Reset Wallet Transactions** rescans the chain for on-chain transactions LND may have missed; **Recreate Macaroons** rotates credentials, after which you must reconnect wallets with the new `lndconnect://` URI.
+Two advanced actions worth knowing: **Reset Wallet Transactions** rescans the chain for on-chain transactions LND may have missed; **Revoke Macaroons** revokes every existing macaroon and mints fresh ones, after which you must reconnect wallets with the new `lndconnect://` URI.
+
+Run **Revoke Macaroons** if a macaroon may have been copied or exposed — for example if you run BTCPay Server, which reads LND's admin macaroon and shipped an actively exploited vulnerability in versions before 2.4.2. Every other service connected to LND also loses access until it picks up the new macaroon, so expect to restart them.
 
 ## Backups
 
