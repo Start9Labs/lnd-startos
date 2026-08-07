@@ -1,8 +1,8 @@
 id: lnd
 title: LND
-version: 0.20.1
+version: 0.20.1.1
 release-notes: |-
-  * Update to 0.20.1 [Release Notes](https://github.com/lightningnetwork/lnd/releases/tag/v0.20.1-beta)
+  * Update Recreate Macaroons action to revoke old macaroons
 license: MIT
 wrapper-repo: "https://github.com/Start9Labs/lnd-startos"
 upstream-repo: "https://github.com/lightningnetwork/lnd"
@@ -306,7 +306,7 @@ actions:
       io-format: json
   recreate-macaroons:
     name: "Recreate Macaroons"
-    description: "Deletes current macaroons, and restarts LND to recreate all macaroons."
+    description: "Deletes and revoked existing macaroons, and restarts LND to recreate all macaroons fresh."
     warning: "This will delete and recreate all existing macaroon files, so you may need to restart other services using LND."
     allowed-statuses:
       - running
