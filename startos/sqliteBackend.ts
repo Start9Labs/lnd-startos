@@ -1,5 +1,5 @@
 import { SubContainer, T } from '@start9labs/start-sdk'
-import { rm, stat } from 'fs/promises'
+import { readdir, rm, stat } from 'fs/promises'
 import { base64 } from 'rfc4648'
 import { lndConfFile } from './fileModels/lnd.conf'
 import { startupFlagsJson } from './fileModels/startupFlags.json'
@@ -38,6 +38,17 @@ const sqliteChannelDb = `${graphDir}/channel.sqlite`
 // lndinit refuses to convert a wtclient.db that isn't at the latest schema; a
 // pre-0.14 LND left an empty version-0 one on nodes that never used the client.
 const boltWtclientDb = `${graphDir}/wtclient.db`
+
+// The wallet lives in the chain namespace, which — unlike data/graph — IS part
+// of a backup, so a restored bolt-era node has a bolt wallet.db and no channel
+// db at all. See needsSqliteMigration.
+const chainDir = `${mainVolumeHost}/data/chain/bitcoin/mainnet`
+const boltWalletDb = `${chainDir}/wallet.db`
+// lndinit marks a transferred source by dropping a sibling file named
+// `<db>.migrated-to-sqlite-<YYYY-MM-DD-HH-MM>` and leaving the .db itself in
+// place (lnd #9708) — so the marker, not the .db's absence, is what says
+// "already converted".
+const migratedMarkerPrefix = 'wallet.db.migrated-to-sqlite-'
 
 // lndinit's source/dest data dir — the LND data directory inside the container.
 const lndinitDataDir = `${lndDataDir}/data`
@@ -78,6 +89,13 @@ type LndState =
  *     imported from an already-migrated node; LND uses it directly → no.
  *   - bolt channel.db present (incl. a tombstoned copy left by a resumable
  *     conversion) → yes.
+ *   - un-converted bolt wallet.db present → yes, even with no channel db at all.
+ *     Backups exclude data/graph (stale channel state is toxic on restore) but
+ *     keep the wallet, so a restored bolt-era node has a bolt wallet and no
+ *     channel.db. Keying only off channel.db skipped the conversion there, and
+ *     LND — pinned to the sqlite backend — then opened an empty sqlite wallet,
+ *     reported NON_EXISTING forever and never reached the LOCKED state the
+ *     unlock oneshot waits for.
  *   - otherwise (fresh, pre-wallet) → no.
  */
 export async function needsSqliteMigration(): Promise<boolean> {
@@ -86,7 +104,21 @@ export async function needsSqliteMigration(): Promise<boolean> {
   if ((await fileExists(sqliteChannelDb)) && !flags?.dbSchemaFinalized) {
     return false
   }
-  return fileExists(boltChannelDb)
+  return (await fileExists(boltChannelDb)) || hasUnconvertedBoltWallet()
+}
+
+/**
+ * Whether a bolt wallet.db is present AND has not already been transferred to
+ * SQLite. The marker check is what keeps an already-converted node from
+ * re-running the conversion on every start: lndinit leaves the source .db on
+ * disk, so "wallet.db exists" alone is true forever after a successful
+ * conversion. Markers live in the chain namespace and so survive a backup
+ * restore, which is exactly when this check has to hold.
+ */
+async function hasUnconvertedBoltWallet(): Promise<boolean> {
+  if (!(await fileExists(boltWalletDb))) return false
+  const entries = await readdir(chainDir).catch(() => [] as string[])
+  return !entries.some((entry) => entry.startsWith(migratedMarkerPrefix))
 }
 
 /**
@@ -264,6 +296,13 @@ async function migrateBoltToSqlite(
  * zombie value on SQLite — completes. Rebuildable gossip cache; valid rows stay.
  */
 async function scrubZombieIndex(effects: T.Effects): Promise<void> {
+  // In practice the conversion always yields a channel.sqlite — even a
+  // wallet-only restore, because the schema-finalize run creates a fresh bolt
+  // channel.db for lndinit to transfer. Guard regardless: sqlite3 exits 1 on a
+  // db with no channeldb_kv table ("no such table"), which would throw and fail
+  // a conversion that had otherwise fully succeeded.
+  if (!(await fileExists(sqliteChannelDb))) return
+
   const sql = `DELETE FROM channeldb_kv WHERE parent_id=(
       SELECT z.id FROM channeldb_kv z WHERE z.key=CAST('zombie-index' AS BLOB)
         AND z.parent_id=(SELECT e.id FROM channeldb_kv e
