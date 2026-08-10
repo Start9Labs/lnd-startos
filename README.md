@@ -61,7 +61,7 @@ If using the `bitcoind` backend, the Bitcoin `main` volume is mounted read-only 
 
 1. On install, StartOS creates two **critical tasks**:
    - **Select a Bitcoin backend** (local Bitcoin node or Neutrino)
-   - **Initialize wallet** (start fresh, or migrate from Umbrel 1.x or another StartOS server)
+   - **Initialize wallet** (start fresh; migrate from Umbrel 1.x or another StartOS server; or adopt manually copied LND data from any other platform)
 2. TLS certificates are generated using StartOS's certificate system
 3. The **Initialize Wallet** action generates a new wallet via the LND `/v1/genseed` and `/v1/initwallet` API. The 24-word Aezeed mnemonic is displayed **once** in the action result (the only time it is shown in the UI — write it down). Both the wallet password and the cipher seed are persisted to `store.json` (`walletPassword`, `aezeedCipherSeed`). The seed recovers on-chain funds only; recovering channel funds requires LND's Static Channel Backup, captured in StartOS backups
 4. The wallet is **automatically unlocked** on every start via the `/v1/unlockwallet` API
@@ -116,7 +116,7 @@ Only settings that **diverge from upstream LND defaults** are written to `lnd.co
 LND runs on the **SQLite** backend with **native SQL** enabled. `db.backend=sqlite` and `db.use-native-sql=true` are **enforced** in `lnd.conf` (see the fixed-settings table above) — SQLite is Lightning Labs' recommended backend and removes the slow startup compaction the legacy `bolt` backend requires.
 
 - **Fresh installs** are born on SQLite — the enforced keys are seeded on install, so **Initialize Wallet** creates the wallet directly in SQLite.
-- **Existing `bolt` nodes** (upgrading from a pre-0.21 release) and **imports from Umbrel or a pre-0.21 StartOS** arrive as `bolt` data and are **converted on the first start**.
+- **Existing `bolt` nodes** (upgrading from a pre-0.21 release), **imports from Umbrel or a pre-0.21 StartOS**, and **manually copied `bolt` data** (Migrate Manually) arrive as `bolt` data and are **converted on the first start** — including a wallet-only copy with no channel db (see `hasUnconvertedBoltWallet`).
 - **Imports from an already-migrated StartOS node** arrive as SQLite data (the tombstoned `bolt` files ride along) and are used as-is, detected by the presence of `channel.sqlite`.
 
 **How the conversion runs.** The migration is an **init step** (`startos/init/migrateSqlite.ts`), so it runs — and must finish — before the service starts; the node is already on SQLite by the time `main` runs. It uses two temporary `runUntilSuccess` daemon chains: the first runs LND once on bolt as a managed daemon to bring the channeldb schema current (`lndinit migrate-db` only transfers buckets — it refuses a stale schema, and 0.21 adds a mandatory channeldb migration), unlocking the wallet to apply the migrations and then shutting LND down; the second, with LND stopped, runs `lndinit migrate-db` to copy every bucket into SQLite. If a `wtclient.db` is present, the finalize run also activates the watchtower client so LND brings that db to the latest schema too — `lndinit` likewise refuses an out-of-date `wtclient.db`, and older LND releases left an empty one behind even on nodes that never used the watchtower client. This is lossless: an empty db is simply initialized, and a db from prior watchtower use keeps its session data. The finalize run starts LND with no chain backend (`--bitcoin.node=nochainbackend`), so it reaches neither bitcoind nor a neutrino store and needs no fee source, and overrides the enforced backend on the CLI (`--db.backend=bolt`) so it operates on the still-bolt data. While it runs, the service is **initializing** and reports its progress to the StartOS update UI as two named phases (_Finalizing database schema_ → _Copying database to SQLite_) via `setInitProgress`; on fresh installs (born on SQLite) and every start after the conversion, `needsSqliteMigration()` short-circuits and the step is a no-op.
@@ -294,11 +294,12 @@ On every start, the `watchHosts` init rebuilds `externalip`/`externalhosts` for 
 ### Initialize Wallet
 
 - **Name:** Initialize Wallet
-- **Purpose:** Create a new wallet or migrate from Umbrel 1.x / another StartOS server
+- **Purpose:** Create a new wallet, migrate from Umbrel 1.x / another StartOS server, or adopt manually copied LND data
 - **Visibility:** Hidden (triggered as critical task on install)
 - **Availability:** Stopped only
-- **Inputs:** Select variant: "Start Fresh" (no inputs), "Migrate from Umbrel" (host + password), or "Migrate from StartOS" (host + master password)
+- **Inputs:** Select variant: "Start Fresh" (no inputs), "Migrate from Umbrel" (host + password), "Migrate from StartOS" (host + master password), or "Migrate Manually" (wallet password — for data the user copied into the volume themselves, any source platform)
 - **Outputs:** For fresh: 24-word Aezeed mnemonic (masked, copyable — shown once in the UI; the seed is persisted in `store.json` as `aezeedCipherSeed`). For migration: success/failure message
+- **Mechanics:** The Umbrel and StartOS imports run `assets/import-*.sh` in a temp `lnd`-image subcontainer (the image carries `openssh-client` + `sshpass` for exactly this; see Dockerfile). Both scripts stop the origin node first — the StartOS one polls `pgrep` until LND has actually exited, since copying a live bolt db yields a corrupt copy — copy **only the `data/` subtree** (wallet, channel state, macaroons; never the origin's `lnd.conf` or TLS keypair, which would clobber the managed conf and be served to gRPC clients), verify `wallet.db` arrived, and hand the origin's wallet password back through `/tmp/old-store.json`. The StartOS import authenticates as `start9` with the master password (the OS writes its hash onto that system user at first dashboard login) and finishes by uninstalling LND on the origin so it can never broadcast stale channel state. Manual migration verifies `wallet.db` exists in the volume (inverse of the guard the other variants use) and stores the user-supplied unlock password; bolt-format data is picked up by the SQLite conversion on next start, including wallet-only copies
 
 ### Reset Wallet Transactions
 

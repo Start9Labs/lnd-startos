@@ -13,7 +13,11 @@ A full **LND** node on Bitcoin mainnet, with **REST** and **gRPC** LND Connect i
 
 LND posts two critical tasks on install; you can't start it until both are done:
 
-1. **Initialize Wallet** — **Start Fresh** for a new wallet, or **Migrate from Umbrel** / **Migrate from StartOS** to import one. Start Fresh shows your 24-word seed **once** — write it down. **The seed alone is not enough:** it recovers _on-chain_ funds only; funds in channels can be recovered only from the **Static Channel Backup** in your StartOS backups, so keep backups (see [Backups](#backups)).
+1. **Initialize Wallet** — **Start Fresh** for a new wallet, or import one:
+   - **Migrate from Umbrel** / **Migrate from StartOS** pull your wallet and channels straight from the old device: enter its address and password, and StartOS stops the old node, copies its LND data, and (for StartOS origins) uninstalls LND there so it can never broadcast stale channel state.
+   - **Migrate Manually** covers every other platform (RaspiBlitz, myNode, a self-built node): stop LND on the old machine, copy its LND `data` directory to `/media/startos/data/package-data/volumes/lnd/data/main/data` on this server yourself (SSH as `start9`), then run this option and enter your old wallet's unlock password. Data in LND's older database format is converted automatically on first start.
+   - **Whichever way you migrate, never start the old node again** — two nodes sharing one wallet will broadcast stale channel states and can lose funds.
+   - Start Fresh shows your 24-word seed **once** — write it down. **The seed alone is not enough:** it recovers _on-chain_ funds only; funds in channels can be recovered only from the **Static Channel Backup** in your StartOS backups, so keep backups (see [Backups](#backups)).
 2. **Bitcoin Backend** — **Bitcoin** (recommended if you run it on this server) or **Neutrino** (built-in light client). Choosing Bitcoin posts a task on it to enable ZMQ.
 
 Then start LND.

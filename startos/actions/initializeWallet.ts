@@ -18,7 +18,7 @@ const initWalletSpec = InputSpec.of({
   method: Value.union({
     name: i18n('Initialization Method'),
     description: i18n(
-      'Choose how to initialize your LND wallet. Start Fresh creates a new wallet. Migrate from Umbrel or StartOS imports an existing wallet.',
+      'Choose how to initialize your LND wallet. Start Fresh creates a new wallet. Migrate from Umbrel or StartOS pulls an existing wallet from the old device over your local network. Migrate Manually adopts LND data you have already copied into place.',
     ),
     default: 'fresh',
     variants: Variants.of({
@@ -75,9 +75,45 @@ const initWalletSpec = InputSpec.of({
           }),
         }),
       },
+      manual: {
+        name: i18n('Migrate Manually'),
+        spec: InputSpec.of({
+          'wallet-password': Value.text({
+            name: i18n('Wallet Password'),
+            description: i18n(
+              "The password that unlocks the wallet you copied — your old node's LND wallet password.",
+            ),
+            default: null,
+            required: true,
+            masked: true,
+            placeholder: 'password',
+          }),
+        }),
+      },
     }),
   }),
 })
+
+// Host-side path of the LND data volume, for user-facing guidance in the
+// manual flow (the container sees it at lndDataDir).
+const hostVolumePath = '/media/startos/data/package-data/volumes/lnd/data/main'
+
+async function walletDbExists(effects: T.Effects): Promise<boolean> {
+  return sdk.SubContainer.withTemp(
+    effects,
+    { imageId: 'lnd' },
+    mainMounts,
+    'check-wallet',
+    async (subc) => {
+      const res = await subc.exec([
+        'test',
+        '-f',
+        `${lndDataDir}/data/chain/bitcoin/mainnet/wallet.db`,
+      ])
+      return res.exitCode === 0
+    },
+  )
+}
 
 export const initializeWallet = sdk.Action.withInput(
   // id
@@ -101,23 +137,15 @@ export const initializeWallet = sdk.Action.withInput(
 
   // execution function
   async ({ effects, input }) => {
-    // Check if a wallet already exists to prevent accidental re-initialization
-    const walletExists = await sdk.SubContainer.withTemp(
-      effects,
-      { imageId: 'lnd' },
-      mainMounts,
-      'check-wallet',
-      async (subc) => {
-        const res = await subc.exec([
-          'test',
-          '-f',
-          `${lndDataDir}/data/chain/bitcoin/mainnet/wallet.db`,
-        ])
-        return res.exitCode === 0
-      },
-    )
+    // The manual flow ADOPTS data the user already copied in, so a present
+    // wallet.db is its precondition, not a conflict.
+    if (input.method.selection === 'manual') {
+      return await adoptManual(effects, input.method.value)
+    }
 
-    if (walletExists) {
+    // For every other method, an existing wallet means re-initializing would
+    // overwrite it and could lead to loss of funds.
+    if (await walletDbExists(effects)) {
       throw new Error(
         'A wallet already exists. Re-initializing would overwrite your existing wallet and could lead to loss of funds.',
       )
@@ -132,6 +160,39 @@ export const initializeWallet = sdk.Action.withInput(
     }
   },
 )
+
+/**
+ * Adopt LND data the user copied into the volume themselves (any source
+ * platform): verify a wallet is actually there, then store the password that
+ * unlocks it. Data in LND's older bolt format is picked up by the bolt →
+ * SQLite conversion on the next start (sqliteBackend.ts) — including a
+ * wallet-only copy with no channel db.
+ */
+async function adoptManual(
+  effects: T.Effects,
+  input: { 'wallet-password': string },
+): Promise<T.ActionResult & { version: '1' }> {
+  if (!(await walletDbExists(effects))) {
+    throw new Error(
+      'No wallet found. Copy your old node\'s LND data directory to ' +
+        `${hostVolumePath}/data on this server (so the wallet lands at ` +
+        'data/chain/bitcoin/mainnet/wallet.db), then run this action again.',
+    )
+  }
+
+  await storeJson.merge(effects, {
+    walletPassword: input['wallet-password'],
+  })
+
+  return {
+    version: '1' as const,
+    title: i18n('Success'),
+    message: i18n(
+      'Successfully imported the copied LND data. WARNING: Never start your old node again with the same wallet. Running two LND nodes with the same seed will lead to unpredictable behavior or loss of funds.',
+    ),
+    result: null,
+  }
+}
 
 async function initFresh(
   effects: T.Effects,
