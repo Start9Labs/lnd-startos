@@ -13,7 +13,7 @@ A full **LND** node on Bitcoin mainnet, with **REST** and **gRPC** LND Connect i
 
 LND posts two critical tasks on install; you can't start it until both are done:
 
-1. **Initialize Wallet** — **Start Fresh** for a new wallet, or **Migrate from Umbrel** / **Migrate from StartOS** to import one. Start Fresh shows your 24-word seed **once** — write it down. **The seed alone is not enough:** it recovers _on-chain_ funds only; funds in channels can be recovered only from the **Static Channel Backup** in your StartOS backups, so keep backups (see [Backups](#backups)).
+1. **Initialize Wallet** — **Start Fresh** for a new wallet, or **Migrate from Umbrel** / **Migrate from myNode** / **Migrate from StartOS** to import one from a node on your local network. Start Fresh shows your 24-word seed **once** — write it down. **The seed alone is not enough:** it recovers _on-chain_ funds only; funds in channels can be recovered only from the **Static Channel Backup** in your StartOS backups, so keep backups (see [Backups](#backups)). Choosing a migration option checks that your address and password reach the origin node and schedules the migration; the migration itself runs **when you start LND** — it shuts the origin down, copies its data, and converts the database before LND comes online, which can take hours on a large node. Watch it under **Health Checks**. Once it has finished, **never start LND on the origin device again** — two nodes sharing one seed loses funds. The full walkthrough is in the [LND migration guide](https://docs.start9.com/bitcoin-guides/lnd-migration).
 2. **Bitcoin Backend** — **Bitcoin** (recommended if you run it on this server) or **Neutrino** (built-in light client). Choosing Bitcoin posts a task on it to enable ZMQ.
 
 Then start LND.

@@ -16,6 +16,13 @@ export const { createBackup, restoreInit } = sdk.setupBackups(
         ],
       })
       .setPostRestore(async (effects) => {
-        await startupFlagsJson.merge(effects, { restore: true })
+        // Drop any import the backup was carrying: its origin credentials are
+        // stale, and re-running a copy against the origin is never what a
+        // restore means — recovery goes through the SCB flow the restore flag
+        // drives. Re-running Initialize Wallet is the way to migrate again.
+        await startupFlagsJson.merge(effects, {
+          restore: true,
+          importPending: false,
+        })
       }),
 )

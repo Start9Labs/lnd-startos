@@ -16,6 +16,11 @@ const dict = {
   'Your node can peer with other nodes, but other nodes cannot peer with you. Optionally add a Tor domain, public domain, or public IP address to change this behavior.': 12,
   'Lightning Labs strongly recommends against continuing to use a LND node after running restorechanbackup. Please recover and sweep any remaining funds to another wallet. Afterwards LND should be uninstalled. LND can then be re-installed fresh if you would like to continue using LND.': 13,
 
+  // main.ts — the import phase
+  'Wallet Import': 292,
+  'Importing LND data from ${source}. Stopping the origin node and copying its data can take hours on a large node.': 293,
+  'Imported LND data from ${source}.': 294,
+
   // interfaces.ts
   'REST LND Connect': 14,
   'Used for REST connections': 15,
@@ -70,15 +75,21 @@ const dict = {
   'Initialize Wallet': 204,
   'Create a new LND wallet or migrate from another device': 205,
   'Initialization Method': 206,
-  'Choose how to initialize your LND wallet. Start Fresh creates a new wallet. Migrate from Umbrel or StartOS imports an existing wallet.': 207,
+  'Choose how to initialize your LND wallet. Start Fresh creates a new wallet. The migration options import an existing wallet from another node on your local network.': 207,
   'Start Fresh': 208,
   'Migrate from Umbrel': 209,
   "IMPORTANT: Write down these 24 words and store them in a safe place — this is the ONLY time they will be displayed. The seed alone is NOT enough to recover your node: it restores ON-CHAIN funds only and has no knowledge of your channels. To recover funds locked in Lightning channels, you must ALSO keep StartOS backups, which include LND's Static Channel Backup. This is NOT a BIP-39 seed and cannot be used with wallets other than LND.": 210,
-  'Successfully Imported Umbrel Data. WARNING!!! With the Migration of LND complete, be sure to NEVER re-start your Umbrel using the same LND seed! You should never run two different lnd nodes with the same seed! This will lead to strange/unpredictable behavior or even loss of funds.': 78,
+  'Your Umbrel was reached and its credentials verified. Start LND to run the migration — LND stops your Umbrel, copies its data, and converts the database before it comes online. On a large node this can take hours; watch its progress under Health Checks. Once the migration is complete, never run LND on your Umbrel again: two nodes sharing one seed leads to unpredictable behavior or loss of funds.': 78,
   'Umbrel Address': 83,
   'The IP address or hostname of your Umbrel (e.g. 192.168.1.9 or umbrel.local).': 84,
   'Umbrel Password': 85,
   'The password you use to log into your Umbrel dashboard or SSH': 86,
+  'Migrate from myNode': 284,
+  'myNode Address': 285,
+  'The IP address or hostname of your myNode (e.g. 192.168.1.7 or mynode.local).': 286,
+  'myNode Password': 287,
+  'The password for your myNode "admin" user — the one you use for SSH and for the myNode web interface.': 288,
+  'Your myNode was reached and its credentials verified. Start LND to run the migration — LND stops your myNode, copies its data, and converts the database before it comes online. On a large node this can take hours; watch its progress under Health Checks. Once the migration is complete, never run LND on your myNode again: two nodes sharing one seed leads to unpredictable behavior or loss of funds.': 289,
 
   // actions/config/general.ts
   'General Settings': 54,
@@ -252,8 +263,8 @@ const dict = {
   'The LAN IP address or hostname of your old StartOS server (e.g. 192.168.1.9 or adjective-noun.local).': 214,
   'Master Password': 215,
   'The master password for your old StartOS server.': 216,
-  'Failed to parse wallet password from origin StartOS server.': 217,
-  'Successfully imported LND data from StartOS. WARNING: Do NOT start LND on the old server again with the same wallet. Running two LND nodes with the same seed will lead to unpredictable behavior or loss of funds.': 218,
+  'Failed to read the wallet password from the origin node.': 217,
+  'Your old StartOS server was reached and its credentials verified. Start LND to run the migration — LND stops LND on the old server, copies its data, and converts the database before it comes online. On a large node this can take hours; watch its progress under Health Checks. Once the migration is complete, never run LND on the old server again: two nodes sharing one seed leads to unpredictable behavior or loss of funds.': 218,
 
   // actions/config — new config fields
   'Accept AMP': 219,
@@ -324,6 +335,8 @@ const dict = {
   // sqliteBackend.ts — bolt → SQLite migration progress phases
   'Finalizing database schema': 272,
   'Copying database to SQLite': 273,
+  'Database Conversion': 290,
+  'Converted to the SQLite database backend.': 291,
 
   // lnd.conf.ts — Debug Level setting + level labels
   Trace: 274,
