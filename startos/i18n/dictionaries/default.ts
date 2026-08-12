@@ -78,19 +78,19 @@ const dict = {
   'Initialization Method': 206,
   'Choose how to initialize your LND wallet. Start Fresh creates a new wallet. The migration options import an existing wallet from another node on your local network.': 207,
   'Start Fresh': 208,
-  'Migrate from Umbrel': 209,
+  'Migrate from ${source}': 209,
   "IMPORTANT: Write down these 24 words and store them in a safe place — this is the ONLY time they will be displayed. The seed alone is NOT enough to recover your node: it restores ON-CHAIN funds only and has no knowledge of your channels. To recover funds locked in Lightning channels, you must ALSO keep StartOS backups, which include LND's Static Channel Backup. This is NOT a BIP-39 seed and cannot be used with wallets other than LND.": 210,
-  'Your Umbrel was reached and its credentials verified. Start LND to run the migration — LND stops your Umbrel, copies its data, and converts the database before it comes online. On a large node this can take hours; watch its progress under Health Checks. Once the migration is complete, never run LND on your Umbrel again: two nodes sharing one seed leads to unpredictable behavior or loss of funds.': 78,
+  'Your Umbrel was reached and its credentials verified.': 78,
+  'Start LND to run the migration — LND stops the origin node, copies its data, and converts the database before coming online. On a large node this can take hours; watch its progress under Health Checks. Once the migration is complete, never run LND on the origin server again: two nodes sharing one seed leads to unpredictable behavior or loss of funds.': 296,
   'Umbrel Address': 83,
   'The IP address or hostname of your Umbrel (e.g. 192.168.1.9 or umbrel.local).': 84,
   'Umbrel Password': 85,
   'The password you use to log into your Umbrel dashboard or SSH': 86,
-  'Migrate from myNode': 284,
   'myNode Address': 285,
   'The IP address or hostname of your myNode (e.g. 192.168.1.7 or mynode.local).': 286,
   'myNode Password': 287,
   'The password for your myNode "admin" user — the one you use for SSH and for the myNode web interface.': 288,
-  'Your myNode was reached and its credentials verified. Start LND to run the migration — LND stops your myNode, copies its data, and converts the database before it comes online. On a large node this can take hours; watch its progress under Health Checks. Once the migration is complete, never run LND on your myNode again: two nodes sharing one seed leads to unpredictable behavior or loss of funds.': 289,
+  'Your myNode was reached and its credentials verified.': 289,
 
   // actions/config/general.ts
   'General Settings': 54,
@@ -259,13 +259,12 @@ const dict = {
   'LND requires ZMQ enabled in Bitcoin': 76,
 
   // actions/initializeWallet.ts (StartOS migration)
-  'Migrate from StartOS': 212,
   'Origin Server Address': 213,
   'The LAN IP address or hostname of your old StartOS server (e.g. 192.168.1.9 or adjective-noun.local).': 214,
   'Master Password': 215,
   'The master password for your old StartOS server.': 216,
   'Failed to read the wallet password from the origin node.': 217,
-  'Your old StartOS server was reached and its credentials verified. Start LND to run the migration — LND stops LND on the old server, copies its data, and converts the database before it comes online. On a large node this can take hours; watch its progress under Health Checks. Once the migration is complete, never run LND on the old server again: two nodes sharing one seed leads to unpredictable behavior or loss of funds.': 218,
+  'Your old StartOS server was reached and its credentials verified.': 218,
 
   // actions/config — new config fields
   'Accept AMP': 219,

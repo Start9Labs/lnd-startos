@@ -31,7 +31,7 @@ const initWalletSpec = InputSpec.of({
         spec: InputSpec.of({}),
       },
       umbrel: {
-        name: i18n('Migrate from Umbrel'),
+        name: i18n('Migrate from ${source}', { source: 'Umbrel' }),
         spec: InputSpec.of({
           'umbrel-host': Value.text({
             name: i18n('Umbrel Address'),
@@ -56,7 +56,7 @@ const initWalletSpec = InputSpec.of({
         }),
       },
       mynode: {
-        name: i18n('Migrate from myNode'),
+        name: i18n('Migrate from ${source}', { source: 'myNode' }),
         spec: InputSpec.of({
           'mynode-host': Value.text({
             name: i18n('myNode Address'),
@@ -81,7 +81,7 @@ const initWalletSpec = InputSpec.of({
         }),
       },
       startos: {
-        name: i18n('Migrate from StartOS'),
+        name: i18n('Migrate from ${source}', { source: 'StartOS' }),
         spec: InputSpec.of({
           'startos-host': Value.text({
             name: i18n('Origin Server Address'),
@@ -184,8 +184,8 @@ export const initializeWallet = sdk.Action.withInput(
           user: 'umbrel',
           host: input.method.value['umbrel-host'],
           password: input.method.value['umbrel-password'],
-          success: i18n(
-            'Your Umbrel was reached and its credentials verified. Start LND to run the migration — LND stops your Umbrel, copies its data, and converts the database before it comes online. On a large node this can take hours; watch its progress under Health Checks. Once the migration is complete, never run LND on your Umbrel again: two nodes sharing one seed leads to unpredictable behavior or loss of funds.',
+          reached: i18n(
+            'Your Umbrel was reached and its credentials verified.',
           ),
         })
       case 'mynode':
@@ -195,8 +195,8 @@ export const initializeWallet = sdk.Action.withInput(
           user: 'admin',
           host: input.method.value['mynode-host'],
           password: input.method.value['mynode-password'],
-          success: i18n(
-            'Your myNode was reached and its credentials verified. Start LND to run the migration — LND stops your myNode, copies its data, and converts the database before it comes online. On a large node this can take hours; watch its progress under Health Checks. Once the migration is complete, never run LND on your myNode again: two nodes sharing one seed leads to unpredictable behavior or loss of funds.',
+          reached: i18n(
+            'Your myNode was reached and its credentials verified.',
           ),
         })
       case 'startos':
@@ -206,8 +206,8 @@ export const initializeWallet = sdk.Action.withInput(
           user: 'start9',
           host: input.method.value['startos-host'],
           password: input.method.value['startos-password'],
-          success: i18n(
-            'Your old StartOS server was reached and its credentials verified. Start LND to run the migration — LND stops LND on the old server, copies its data, and converts the database before it comes online. On a large node this can take hours; watch its progress under Health Checks. Once the migration is complete, never run LND on the old server again: two nodes sharing one seed leads to unpredictable behavior or loss of funds.',
+          reached: i18n(
+            'Your old StartOS server was reached and its credentials verified.',
           ),
         })
     }
@@ -337,7 +337,7 @@ async function scheduleImport(
     user: string
     host: string
     password: string
-    success: string
+    reached: string
   },
 ): Promise<T.ActionResult & { version: '1' }> {
   const res = await sdk.SubContainer.withTemp(
@@ -385,7 +385,9 @@ async function scheduleImport(
   return {
     version: '1' as const,
     title: i18n('Success'),
-    message: source.success,
+    message: `${source.reached} ${i18n(
+      'Start LND to run the migration — LND stops the origin node, copies its data, and converts the database before coming online. On a large node this can take hours; watch its progress under Health Checks. Once the migration is complete, never run LND on the origin server again: two nodes sharing one seed leads to unpredictable behavior or loss of funds.',
+    )}`,
     result: null,
   }
 }
