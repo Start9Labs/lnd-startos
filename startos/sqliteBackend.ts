@@ -35,6 +35,15 @@ type MigrationProgress = {
 const graphDir = `${mainVolumeHost}/data/graph/mainnet`
 const boltChannelDb = `${graphDir}/channel.db`
 const sqliteChannelDb = `${graphDir}/channel.sqlite`
+// Backups exclude data/graph entirely, so a backup taken before a conversion
+// completed restores a bolt wallet.db with no channel.db at all — the wallet
+// pair is the discriminator that still catches it (see needsSqliteMigration).
+// On the SQLite backend the wallet and macaroons live in chain.sqlite (there
+// is no wallet.sqlite), so its presence is what says a wallet is already
+// converted.
+const chainDir = `${mainVolumeHost}/data/chain/bitcoin/mainnet`
+const boltWalletDb = `${chainDir}/wallet.db`
+const sqliteChainDb = `${chainDir}/chain.sqlite`
 // lndinit refuses to convert a wtclient.db that isn't at the latest schema; a
 // pre-0.14 LND left an empty version-0 one on nodes that never used the client.
 const boltWtclientDb = `${graphDir}/wtclient.db`
@@ -67,8 +76,9 @@ type LndState =
 
 /**
  * Whether the bolt → SQLite conversion still needs to run. Checked by the
- * migrate init step (init/migrateSqlite.ts); when false, no conversion runs and
- * the service starts normally.
+ * update migration (versions/current.ts) and by main's conversion phase
+ * ({@link migrateOnStart}); when false, no conversion runs and the service
+ * starts normally.
  *
  * Decided from startup-flags (read `.once`) and on-disk files only — never from
  * lnd.conf's db.backend, which is enforced to 'sqlite' (see lnd.conf.ts) and so
@@ -78,6 +88,13 @@ type LndState =
  *     imported from an already-migrated node; LND uses it directly → no.
  *   - bolt channel.db present (incl. a tombstoned copy left by a resumable
  *     conversion) → yes.
+ *   - bolt wallet.db present with no chain.sqlite → yes. A backup taken
+ *     before a conversion completed has this shape and nothing else to key
+ *     on: backups exclude data/graph, so the restored volume has no channel
+ *     db of either kind, and without this branch LND would come up on the
+ *     enforced SQLite backend with no wallet at all. The finalize run
+ *     creates a fresh (empty) channel.db as a side effect, which the copy
+ *     then converts along with the wallet.
  *   - otherwise (fresh, pre-wallet) → no.
  */
 export async function needsSqliteMigration(): Promise<boolean> {
@@ -86,13 +103,59 @@ export async function needsSqliteMigration(): Promise<boolean> {
   if ((await fileExists(sqliteChannelDb)) && !flags?.dbSchemaFinalized) {
     return false
   }
-  return fileExists(boltChannelDb)
+  if (await fileExists(boltChannelDb)) return true
+  return (await fileExists(boltWalletDb)) && !(await fileExists(sqliteChainDb))
 }
 
 /**
- * Convert bolt → SQLite, run from the migrate init step before the service
- * starts. Two temporary daemon chains (runUntilSuccess); writes only startup-
- * flags. Resumable, and throws on failure so init retries until a run succeeds.
+ * The same conversion, driven from `main` — the path for every bolt arrival
+ * except an update (whose version migration converts inside the update, where
+ * the progress UI is): an Initialize Wallet import, a conversion interrupted
+ * and resumed across boot or rebuild, a restored pre-conversion backup. A
+ * migration runs on updates only, so boot and rebuild never stall behind an
+ * hours-long conversion — it lands here, after a fast boot, instead.
+ *
+ * Runs as the oneshot of main's conversion phase (main.ts), not as a blocking
+ * step ahead of the daemon chain — so the service reaches `started` and can be
+ * stopped while a multi-hour conversion is in progress. Reports through the
+ * `db-migration` health check, since main has no init progress tracker; the
+ * phase names are the same two the init path shows. Writing the completion flag
+ * at the end is what swaps the conversion phase out for LND.
+ */
+export async function migrateOnStart(effects: T.Effects): Promise<void> {
+  if (!(await needsSqliteMigration())) return
+
+  const name = i18n('Database Conversion')
+  const report = (message: string) =>
+    sdk
+      .setHealth(effects, {
+        id: 'db-migration',
+        name,
+        result: 'loading',
+        message,
+      })
+      .catch((e) => console.error('failed to report conversion progress', e))
+
+  await runSqliteMigration(effects, {
+    addPhase: (phase) => ({
+      start: () => void report(phase),
+      complete: () => {},
+    }),
+  })
+
+  await sdk.setHealth(effects, {
+    id: 'db-migration',
+    name,
+    result: 'success',
+    message: i18n('Converted to the SQLite database backend.'),
+  })
+}
+
+/**
+ * Convert bolt → SQLite, run before LND opens the data — from the update
+ * migration (versions/current.ts), or from main via {@link migrateOnStart}.
+ * Two temporary daemon chains (runUntilSuccess); writes only startup-flags.
+ * Resumable, and throws on failure so the caller retries until a run succeeds.
  *
  *   1. finalizeBoltSchema — run LND once on bolt so it applies pending channeldb
  *      *schema* migrations. lndinit only transfers buckets and refuses a stale
@@ -102,9 +165,10 @@ export async function needsSqliteMigration(): Promise<boolean> {
  *      tombstoning the source. Idempotent/resumable, and runs only after LND is
  *      fully down.
  *
- * Each stage is reported to the init progress UI as a named phase. The backend
- * is already sqlite in lnd.conf (enforced — native SQL lives on the daemon CLI,
- * not the conf), so there is nothing to write there on completion.
+ * Each stage is reported as a named phase — to the update progress UI, or to
+ * the health check main reports through. The backend is already sqlite in lnd.conf
+ * (enforced — native SQL lives on the daemon CLI, not the conf), so there is
+ * nothing to write there on completion.
  */
 export async function runSqliteMigration(
   effects: T.Effects,

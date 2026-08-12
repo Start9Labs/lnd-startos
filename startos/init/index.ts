@@ -4,7 +4,6 @@ import { setDependencies } from '../dependencies'
 import { versionGraph } from '../versions'
 import { setInterfaces } from '../interfaces'
 import { sdk } from '../sdk'
-import { migrateSqlite } from './migrateSqlite'
 import { seedFiles } from './seedFiles'
 import { setupCerts } from './setupCerts'
 import { tasksOnInstall } from './tasksOnInstall'
@@ -20,7 +19,6 @@ export const init = sdk.setupInit(
   setDependencies,
   actions,
   setupCerts,
-  migrateSqlite,
   watchHosts,
   watchTorSocks,
   watchTorDns,

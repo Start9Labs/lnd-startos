@@ -1,15 +1,19 @@
 import { T, utils } from '@start9labs/start-sdk'
 import { base64 } from 'rfc4648'
-import { shape, storeJson } from '../fileModels/store.json'
+import { startupFlagsJson } from '../fileModels/startupFlags.json'
+import { storeJson } from '../fileModels/store.json'
 import { i18n } from '../i18n'
 import { sdk } from '../sdk'
 import { lndDataDir, mainMounts, selfRestUrl, sleep } from '../utils'
 
 const { InputSpec, Value, Variants } = sdk
 
+// The alternation must be grouped: `.matches()` anchors the expression as a
+// whole, so a bare `A|B` becomes `^A|B$` — each alternative anchored on one
+// side only, letting `192.168.1.9; anything` straight through.
 const lanHost: T.inputSpecTypes.Pattern = {
   regex: new utils.regexes.ComposableRegex(
-    `${utils.regexes.ipv4.asExpr()}|${utils.regexes.localHostname.asExpr()}`,
+    `(?:${utils.regexes.ipv4.asExpr()}|${utils.regexes.localHostname.asExpr()})`,
   ).matches(),
   description: 'Must be a valid IPv4 address or .local hostname',
 }
@@ -18,7 +22,7 @@ const initWalletSpec = InputSpec.of({
   method: Value.union({
     name: i18n('Initialization Method'),
     description: i18n(
-      'Choose how to initialize your LND wallet. Start Fresh creates a new wallet. Migrate from Umbrel or StartOS imports an existing wallet.',
+      'Choose how to initialize your LND wallet. Start Fresh creates a new wallet. The migration options import an existing wallet from another node on your local network.',
     ),
     default: 'fresh',
     variants: Variants.of({
@@ -27,7 +31,7 @@ const initWalletSpec = InputSpec.of({
         spec: InputSpec.of({}),
       },
       umbrel: {
-        name: i18n('Migrate from Umbrel'),
+        name: i18n('Migrate from ${source}', { source: 'Umbrel' }),
         spec: InputSpec.of({
           'umbrel-host': Value.text({
             name: i18n('Umbrel Address'),
@@ -46,12 +50,38 @@ const initWalletSpec = InputSpec.of({
             ),
             default: null,
             required: true,
+            masked: true,
+            placeholder: 'password',
+          }),
+        }),
+      },
+      mynode: {
+        name: i18n('Migrate from ${source}', { source: 'myNode' }),
+        spec: InputSpec.of({
+          'mynode-host': Value.text({
+            name: i18n('myNode Address'),
+            description: i18n(
+              'The IP address or hostname of your myNode (e.g. 192.168.1.7 or mynode.local).',
+            ),
+            default: null,
+            required: true,
+            placeholder: 'mynode.local',
+            patterns: [lanHost],
+          }),
+          'mynode-password': Value.text({
+            name: i18n('myNode Password'),
+            description: i18n(
+              'The password for your myNode "admin" user — the one you use for SSH and for the myNode web interface.',
+            ),
+            default: null,
+            required: true,
+            masked: true,
             placeholder: 'password',
           }),
         }),
       },
       startos: {
-        name: i18n('Migrate from StartOS'),
+        name: i18n('Migrate from ${source}', { source: 'StartOS' }),
         spec: InputSpec.of({
           'startos-host': Value.text({
             name: i18n('Origin Server Address'),
@@ -101,7 +131,19 @@ export const initializeWallet = sdk.Action.withInput(
 
   // execution function
   async ({ effects, input }) => {
-    // Check if a wallet already exists to prevent accidental re-initialization
+    // A wallet on disk blocks re-initialization — overwriting it loses funds.
+    // Two spellings: wallet.db is a bolt-era or imported wallet; chain.sqlite
+    // holds the wallet on the SQLite backend (a fresh 0.21 install creates no
+    // .db files at all, so testing wallet.db alone misses it).
+    //
+    // One exception: while an import is scheduled or has failed partway
+    // (importPending set), any wallet material on the volume is an incomplete
+    // copy of the origin's, so re-running a *migration* over it is the
+    // recovery path. Start Fresh stays blocked even then — that partial data
+    // could be the only copy of a migrated channel state (a StartOS origin is
+    // left stopped, but its data may since be gone), so discarding it is a
+    // decision for uninstall, not a side effect.
+    const chainDir = `${lndDataDir}/data/chain/bitcoin/mainnet`
     const walletExists = await sdk.SubContainer.withTemp(
       effects,
       { imageId: 'lnd' },
@@ -109,26 +151,65 @@ export const initializeWallet = sdk.Action.withInput(
       'check-wallet',
       async (subc) => {
         const res = await subc.exec([
-          'test',
-          '-f',
-          `${lndDataDir}/data/chain/bitcoin/mainnet/wallet.db`,
+          'sh',
+          '-c',
+          `test -f ${chainDir}/wallet.db -o -f ${chainDir}/chain.sqlite`,
         ])
         return res.exitCode === 0
       },
     )
 
     if (walletExists) {
-      throw new Error(
-        'A wallet already exists. Re-initializing would overwrite your existing wallet and could lead to loss of funds.',
-      )
+      const importPending = (await startupFlagsJson.read().once())
+        ?.importPending
+      if (!importPending) {
+        throw new Error(
+          'A wallet already exists. Re-initializing would overwrite your existing wallet and could lead to loss of funds.',
+        )
+      }
+      if (input.method.selection === 'fresh') {
+        throw new Error(
+          'An interrupted migration left imported data on this server. Re-run the migration to finish it — it picks up where it left off — or uninstall LND and reinstall to truly start fresh.',
+        )
+      }
     }
 
-    if (input.method.selection === 'fresh') {
-      return await initFresh(effects)
-    } else if (input.method.selection === 'umbrel') {
-      return await importFromUmbrel(effects, input.method.value)
-    } else {
-      return await importFromStartOS(effects, input.method.value)
+    switch (input.method.selection) {
+      case 'fresh':
+        return await initFresh(effects)
+      case 'umbrel':
+        return await scheduleImport(effects, {
+          id: 'umbrel',
+          label: 'Umbrel',
+          user: 'umbrel',
+          host: input.method.value['umbrel-host'],
+          password: input.method.value['umbrel-password'],
+          reached: i18n(
+            'Your Umbrel was reached and its credentials verified.',
+          ),
+        })
+      case 'mynode':
+        return await scheduleImport(effects, {
+          id: 'mynode',
+          label: 'myNode',
+          user: 'admin',
+          host: input.method.value['mynode-host'],
+          password: input.method.value['mynode-password'],
+          reached: i18n(
+            'Your myNode was reached and its credentials verified.',
+          ),
+        })
+      case 'startos':
+        return await scheduleImport(effects, {
+          id: 'startos',
+          label: 'StartOS',
+          user: 'start9',
+          host: input.method.value['startos-host'],
+          password: input.method.value['startos-password'],
+          reached: i18n(
+            'Your old StartOS server was reached and its credentials verified.',
+          ),
+        })
     }
   },
 )
@@ -136,6 +217,10 @@ export const initializeWallet = sdk.Action.withInput(
 async function initFresh(
   effects: T.Effects,
 ): Promise<T.ActionResult & { version: '1' }> {
+  // Drop a migration the user scheduled and then thought better of — otherwise
+  // main would import over the wallet this creates on the next start.
+  await startupFlagsJson.merge(effects, { importPending: false })
+
   const cipherSeed = await sdk.SubContainer.withTemp(
     effects,
     { imageId: 'lnd' },
@@ -231,146 +316,78 @@ async function initFresh(
   }
 }
 
-async function importFromUmbrel(
+/**
+ * Verify we can log in to the origin node, then record the migration in
+ * startup-flags for main to run. The copy itself cannot happen here: StartOS
+ * caps an action run at 120 seconds, while handing over a routing node's channel
+ * database takes minutes to hours. So the action does the part that has to be
+ * interactive — telling the user, now, whether the address and password work —
+ * and main's import phase does the part that has to be long.
+ *
+ * The SSH login is the whole preflight: every import script authenticates with
+ * this same user and password (myNode and StartOS feed it to `sudo -S` as well),
+ * so a login that succeeds is the strongest check available without touching the
+ * origin's data.
+ */
+async function scheduleImport(
   effects: T.Effects,
-  input: { 'umbrel-host': string; 'umbrel-password': string },
+  source: {
+    id: 'umbrel' | 'mynode' | 'startos'
+    label: string
+    user: string
+    host: string
+    password: string
+    reached: string
+  },
 ): Promise<T.ActionResult & { version: '1' }> {
-  const mounts = sdk.Mounts.of()
-    .mountVolume({
-      volumeId: 'main',
-      subpath: null,
-      mountpoint: lndDataDir,
-      readonly: false,
-    })
-    .mountAssets({ subpath: null, mountpoint: '/scripts' })
-
   const res = await sdk.SubContainer.withTemp(
     effects,
     { imageId: 'lnd' },
-    mounts,
-    'import-umbrel',
-    async (subc) => {
-      const scriptRes = await subc.exec(['sh', '/scripts/import-umbrel.sh'], {
-        env: {
-          UMBREL_HOST: input['umbrel-host'],
-          UMBREL_PASS: input['umbrel-password'],
-        },
-      })
-      if (scriptRes.exitCode !== 0) return scriptRes
-
-      const catRes = await subc.exec(['cat', '/tmp/old-store.json'])
-      if (catRes.exitCode !== 0 || typeof catRes.stdout !== 'string') {
-        return { ...catRes, exitCode: 1 }
-      }
-
-      return { ...catRes, exitCode: 0 }
-    },
+    null,
+    `preflight-${source.id}`,
+    (subc) =>
+      subc.exec(
+        [
+          'sshpass',
+          '-e',
+          'ssh',
+          '-o',
+          'StrictHostKeyChecking=no',
+          '-o',
+          'ConnectTimeout=10',
+          '-T',
+          `${source.user}@${source.host}`,
+          'true',
+        ],
+        { env: { SSHPASS: source.password } },
+        30_000,
+      ),
   )
 
-  if (res.exitCode === 0 && typeof res.stdout === 'string') {
-    const oldStore = shape.safeParse(JSON.parse(res.stdout))
-    if (!oldStore.success) {
-      return {
-        version: '1' as const,
-        title: i18n('Failure'),
-        message: i18n(
-          'Failed to parse wallet password from origin StartOS server.',
-        ),
-        result: null,
-      }
-    }
-
-    await storeJson.merge(effects, {
-      walletPassword: oldStore.data.walletPassword,
-    })
-
-    return {
-      version: '1' as const,
-      title: i18n('Success'),
-      message: i18n(
-        'Successfully Imported Umbrel Data. WARNING!!! With the Migration of LND complete, be sure to NEVER re-start your Umbrel using the same LND seed! You should never run two different lnd nodes with the same seed! This will lead to strange/unpredictable behavior or even loss of funds.',
-      ),
-      result: null,
-    }
+  if (res.exitCode !== 0) {
+    // sshpass exits 5 when the password is rejected; everything else means we
+    // never got that far (wrong address, host down, SSH disabled, firewall).
+    throw new Error(
+      res.exitCode === 5
+        ? `The password for ${source.user}@${source.host} was rejected. Check your ${source.label} password and try again.`
+        : `Could not reach ${source.label} at ${source.user}@${source.host} over SSH: ${String(res.stderr).trim()}`,
+    )
   }
+
+  await startupFlagsJson.merge(effects, {
+    importPending: {
+      source: source.id,
+      host: source.host,
+      password: source.password,
+    },
+  })
 
   return {
     version: '1' as const,
-    title: i18n('Failure'),
-    message: `Failed to import LND from Umbrel: ${typeof res.stderr === 'string' ? res.stderr : JSON.stringify(res)}`,
-    result: null,
-  }
-}
-
-async function importFromStartOS(
-  effects: T.Effects,
-  input: { 'startos-host': string; 'startos-password': string },
-): Promise<T.ActionResult & { version: '1' }> {
-  const mounts = sdk.Mounts.of()
-    .mountVolume({
-      volumeId: 'main',
-      subpath: null,
-      mountpoint: lndDataDir,
-      readonly: false,
-    })
-    .mountAssets({ subpath: null, mountpoint: '/scripts' })
-
-  const res = await sdk.SubContainer.withTemp(
-    effects,
-    { imageId: 'lnd' },
-    mounts,
-    'import-startos',
-    async (subc) => {
-      // Run the import script: stops LND on origin, copies data + store.json
-      const scriptRes = await subc.exec(['sh', '/scripts/import-startos.sh'], {
-        env: {
-          STARTOS_HOST: input['startos-host'],
-          STARTOS_PASS: input['startos-password'],
-        },
-      })
-      if (scriptRes.exitCode !== 0) return scriptRes
-
-      // Extract wallet password from the old store.json
-      const catRes = await subc.exec(['cat', '/tmp/old-store.json'])
-      if (catRes.exitCode !== 0 || typeof catRes.stdout !== 'string') {
-        return { ...catRes, exitCode: 1 }
-      }
-
-      return { ...catRes, exitCode: 0 }
-    },
-  )
-
-  if (res.exitCode === 0 && typeof res.stdout === 'string') {
-    const oldStore = shape.safeParse(JSON.parse(res.stdout))
-    if (!oldStore.success) {
-      return {
-        version: '1' as const,
-        title: i18n('Failure'),
-        message: i18n(
-          'Failed to parse wallet password from origin StartOS server.',
-        ),
-        result: null,
-      }
-    }
-
-    await storeJson.merge(effects, {
-      walletPassword: oldStore.data.walletPassword,
-    })
-
-    return {
-      version: '1' as const,
-      title: i18n('Success'),
-      message: i18n(
-        'Successfully imported LND data from StartOS. WARNING: Do NOT start LND on the old server again with the same wallet. Running two LND nodes with the same seed will lead to unpredictable behavior or loss of funds.',
-      ),
-      result: null,
-    }
-  }
-
-  return {
-    version: '1' as const,
-    title: i18n('Failure'),
-    message: `Failed to import LND from StartOS: ${typeof res.stderr === 'string' ? res.stderr : JSON.stringify(res)}`,
+    title: i18n('Success'),
+    message: `${source.reached} ${i18n(
+      'Start LND to run the migration — LND stops the origin node, copies its data, and converts the database before coming online. On a large node this can take hours; watch its progress under Health Checks. Once the migration is complete, never run LND on the origin server again: two nodes sharing one seed leads to unpredictable behavior or loss of funds.',
+    )}`,
     result: null,
   }
 }

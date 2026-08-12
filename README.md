@@ -38,7 +38,7 @@ A complete implementation of a Lightning Network node by [Lightning Labs](https:
 | Architectures | x86_64, aarch64                                                       |
 | Entrypoint    | `lnd` (default upstream)                                              |
 
-`lndinit` is added solely for the offline bolt → SQLite database conversion (see [Database backend](#database-backend)); the `lnd` binary and runtime are otherwise the upstream image.
+`lndinit` is added solely for the offline bolt → SQLite database conversion (see [Database backend](#database-backend)); the `lnd` binary and runtime are otherwise the upstream image. The Dockerfile also restores `curl` (dropped when the upstream image moved to Alpine) and adds `sqlite`, `openssh-client`, and `sshpass` — see [Initialize Wallet](#initialize-wallet) for what the SSH pair is for.
 
 ## Volume and Data Layout
 
@@ -48,12 +48,12 @@ A complete implementation of a Lightning Network node by [Lightning Labs](https:
 
 StartOS-specific files on the `main` volume:
 
-| File                   | Purpose                                                                                                                                                                                                                                                  |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `store.json`           | Persistent StartOS state: wallet password, Aezeed cipher seed, restore/reset flags, watchtower clients, custom external hosts                                                                                                                            |
-| `startup-flags.json`   | Per-run flags read with `.once` (so writes don't restart the service): reset-wallet-transactions, restore, `rotateMacaroonRootKey`, the **Sync Complete** notified flag, and bolt→SQLite migration progress (`dbSchemaFinalized`, `dbMigrationComplete`) |
-| `tls.cert` / `tls.key` | StartOS-managed TLS certificates                                                                                                                                                                                                                         |
-| `lnd.conf`             | LND configuration (managed by StartOS actions)                                                                                                                                                                                                           |
+| File                   | Purpose                                                                                                                                                                                                                                                                                                                                                                                               |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `store.json`           | Persistent StartOS state: wallet password, Aezeed cipher seed, restore/reset flags, watchtower clients, custom external hosts                                                                                                                                                                                                                                                                         |
+| `startup-flags.json`   | Per-run flags, none of which restart the service when written: reset-wallet-transactions, restore, `rotateMacaroonRootKey`, the **Sync Complete** notified flag, bolt→SQLite migration progress (`dbSchemaFinalized`, `dbMigrationComplete`), and `importPending` — a migration scheduled by **Initialize Wallet**, holding the origin's address and password (see [Startup phases](#startup-phases)) |
+| `tls.cert` / `tls.key` | StartOS-managed TLS certificates                                                                                                                                                                                                                                                                                                                                                                      |
+| `lnd.conf`             | LND configuration (managed by StartOS actions)                                                                                                                                                                                                                                                                                                                                                        |
 
 If using the `bitcoind` backend, the Bitcoin `main` volume is mounted read-only at `/mnt/bitcoin` for cookie authentication.
 
@@ -61,13 +61,29 @@ If using the `bitcoind` backend, the Bitcoin `main` volume is mounted read-only 
 
 1. On install, StartOS creates two **critical tasks**:
    - **Select a Bitcoin backend** (local Bitcoin node or Neutrino)
-   - **Initialize wallet** (start fresh, or migrate from Umbrel 1.x or another StartOS server)
+   - **Initialize wallet** (start fresh, or migrate from Umbrel 1.x, myNode, or another StartOS server)
 2. TLS certificates are generated using StartOS's certificate system
 3. The **Initialize Wallet** action generates a new wallet via the LND `/v1/genseed` and `/v1/initwallet` API. The 24-word Aezeed mnemonic is displayed **once** in the action result (the only time it is shown in the UI — write it down). Both the wallet password and the cipher seed are persisted to `store.json` (`walletPassword`, `aezeedCipherSeed`). The seed recovers on-chain funds only; recovering channel funds requires LND's Static Channel Backup, captured in StartOS backups
 4. The wallet is **automatically unlocked** on every start via the `/v1/unlockwallet` API
 5. If a Bitcoin backend is selected, StartOS creates a task on Bitcoin to **enable ZMQ**
 
 Users never interact with `lncli create` or `lncli unlock` — StartOS handles both automatically.
+
+### Startup phases
+
+`main` does not return one fixed daemon chain. It returns a `Daemons.dynamic` reconciler that picks one of three chains from the state on disk, and swaps to the next one as that state changes:
+
+| Phase           | Runs when                                      | What it does                                                                                                             |
+| --------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `import`        | `importPending` is set in `startup-flags.json` | Runs the origin's import script (stop the origin, copy its data, adopt its wallet password), then clears `importPending` |
+| `db-conversion` | `needsSqliteMigration()` is true               | Runs the bolt → SQLite conversion, which sets `dbMigrationComplete`                                                      |
+| LND             | neither of the above                           | The real chain: the `lnd` daemon, wallet unlock, sync/reachability health checks, watchtowers                            |
+
+The order is load-bearing — LND must never open an un-imported or un-converted data directory — and each preparatory phase ends by writing the flag that selects the next one. The reconciler watches `importPending` and `dbMigrationComplete` with `.const()` on its own child effects, so a phase completing swaps the chain **without restarting main**; the outer `store.json` / `lnd.conf` watches keep their usual restart-main semantics.
+
+Both preparatory phases have to be phases rather than work done up front. An action is capped at 120 seconds by StartOS, so a copy or a conversion measured in hours cannot run there; and awaiting it inside `setupMain` instead would hold the service at _starting_, with no health checks of its own and no logs to watch. As phases, the chain is built immediately and the service reaches **started**, each phase reporting progress through a health check (`import`, `db-migration`) with a `loading` result — so the badge reads _Running_ while the work is in flight, and **Stop** tears the work down instead of finding the service wedged in _starting_. The import copy is given the phase's abort signal, so a stop kills the transfer rather than waiting it out.
+
+Because a failed oneshot is retried by the SDK (with a backoff up to 30 s) and a oneshot's own health is internal to the chain — StartOS shows nothing for it — each phase writes its own health entry on every exit path: `loading` while working, `success` when done, `failure` with the error otherwise. A failure therefore stays visible on the service page, and the retry flips the same entry back to `loading` when it starts over.
 
 ## Configuration Management
 
@@ -116,12 +132,19 @@ Only settings that **diverge from upstream LND defaults** are written to `lnd.co
 LND runs on the **SQLite** backend with **native SQL** enabled. `db.backend=sqlite` and `db.use-native-sql=true` are **enforced** in `lnd.conf` (see the fixed-settings table above) — SQLite is Lightning Labs' recommended backend and removes the slow startup compaction the legacy `bolt` backend requires.
 
 - **Fresh installs** are born on SQLite — the enforced keys are seeded on install, so **Initialize Wallet** creates the wallet directly in SQLite.
-- **Existing `bolt` nodes** (upgrading from a pre-0.21 release) and **imports from Umbrel or a pre-0.21 StartOS** arrive as `bolt` data and are **converted on the first start**.
+- **Existing `bolt` nodes** (upgrading from a pre-0.21 release) and **imports from Umbrel, myNode, or a pre-0.21 StartOS** arrive as `bolt` data and are **converted on the first start**.
 - **Imports from an already-migrated StartOS node** arrive as SQLite data (the tombstoned `bolt` files ride along) and are used as-is, detected by the presence of `channel.sqlite`.
 
-**How the conversion runs.** The migration is an **init step** (`startos/init/migrateSqlite.ts`), so it runs — and must finish — before the service starts; the node is already on SQLite by the time `main` runs. It uses two temporary `runUntilSuccess` daemon chains: the first runs LND once on bolt as a managed daemon to bring the channeldb schema current (`lndinit migrate-db` only transfers buckets — it refuses a stale schema, and 0.21 adds a mandatory channeldb migration), unlocking the wallet to apply the migrations and then shutting LND down; the second, with LND stopped, runs `lndinit migrate-db` to copy every bucket into SQLite. If a `wtclient.db` is present, the finalize run also activates the watchtower client so LND brings that db to the latest schema too — `lndinit` likewise refuses an out-of-date `wtclient.db`, and older LND releases left an empty one behind even on nodes that never used the watchtower client. This is lossless: an empty db is simply initialized, and a db from prior watchtower use keeps its session data. The finalize run starts LND with no chain backend (`--bitcoin.node=nochainbackend`), so it reaches neither bitcoind nor a neutrino store and needs no fee source, and overrides the enforced backend on the CLI (`--db.backend=bolt`) so it operates on the still-bolt data. While it runs, the service is **initializing** and reports its progress to the StartOS update UI as two named phases (_Finalizing database schema_ → _Copying database to SQLite_) via `setInitProgress`; on fresh installs (born on SQLite) and every start after the conversion, `needsSqliteMigration()` short-circuits and the step is a no-op.
+**How the conversion runs.** The work lives in `startos/sqliteBackend.ts` and always finishes before LND itself starts. It uses two temporary `runUntilSuccess` daemon chains: the first runs LND once on bolt as a managed daemon to bring the channeldb schema current (`lndinit migrate-db` only transfers buckets — it refuses a stale schema, and 0.21 adds a mandatory channeldb migration), unlocking the wallet to apply the migrations and then shutting LND down; the second, with LND stopped, runs `lndinit migrate-db` to copy every bucket into SQLite. If a `wtclient.db` is present, the finalize run also activates the watchtower client so LND brings that db to the latest schema too — `lndinit` likewise refuses an out-of-date `wtclient.db`, and older LND releases left an empty one behind even on nodes that never used the watchtower client. This is lossless: an empty db is simply initialized, and a db from prior watchtower use keeps its session data. The finalize run starts LND with no chain backend (`--bitcoin.node=nochainbackend`), so it reaches neither bitcoind nor a neutrino store and needs no fee source, and overrides the enforced backend on the CLI (`--db.backend=bolt`) so it operates on the still-bolt data.
 
-**Safety.** The conversion is **one-way and irreversible — back up before updating.** It writes only `startup-flags.json` (never `store.json` or `lnd.conf`). It is resumable, and throws on failure so the init step retries until a run succeeds.
+**Two callers: updates convert in init, everything else in main.**
+
+- **An update** brings bolt data in before the service can start, so the conversion runs as the **current version's migration** (`startos/versions/current.ts`, `migrations.up`) — reporting two named phases (_Finalizing database schema_ → _Copying database to SQLite_) to the update progress UI the updating user is already watching. A migration runs on updates only by construction, which is the point: init also fires on server boot and container rebuild — awaited with no timeout, four packages at a time — so a conversion there would stall the whole server coming up.
+- **Every other arrival or resume** — an Initialize Wallet import, a conversion interrupted and resumed across a boot or container rebuild, a restored pre-conversion backup — is handled by **main's conversion phase** (`migrateOnStart`, see [Startup phases](#startup-phases)), reporting the same two phases through the `db-migration` health check after a fast boot.
+
+Both callers gate on the same `needsSqliteMigration()`, which short-circuits on fresh installs (born on SQLite) and on every start after a conversion, so on the normal path each is a couple of stat calls. Besides the bolt `channel.db` check, the gate also triggers on a bolt `wallet.db` with no `chain.sqlite` beside it (on the SQLite backend the wallet and macaroons live in `chain.sqlite`; there is no `wallet.sqlite`): backups exclude `data/graph` entirely, so a backup taken before a conversion completed restores a bolt wallet with no channel db of either kind — without this branch such a restore would come up on the enforced SQLite backend with no wallet at all. (Restores can encounter this state at the current version because backups embed the s9pk that made them, so only a backup of an unconverted _current-version_ node — imported but not yet converted — hits it; a bolt-era backup restores the bolt-era package.) `startup-flags.json` is excluded from backups entirely (see [Backups](#backups-and-restore)), and a restore additionally clears any `importPending` (`startos/backups.ts`) as a belt against backups made by earlier builds: its origin credentials would be stale, and restore recovery goes through the SCB flow, not a re-copy.
+
+**Safety.** The conversion is **one-way and irreversible — back up before updating.** It writes only `startup-flags.json` (never `store.json` or `lnd.conf`). It is resumable, and throws on failure so the caller retries until a run succeeds.
 
 ### Form Defaults and Footnotes
 
@@ -294,11 +317,29 @@ On every start, the `watchHosts` init rebuilds `externalip`/`externalhosts` for 
 ### Initialize Wallet
 
 - **Name:** Initialize Wallet
-- **Purpose:** Create a new wallet or migrate from Umbrel 1.x / another StartOS server
+- **Purpose:** Create a new wallet or migrate from Umbrel 1.x / myNode / another StartOS server
 - **Visibility:** Hidden (triggered as critical task on install)
 - **Availability:** Stopped only
-- **Inputs:** Select variant: "Start Fresh" (no inputs), "Migrate from Umbrel" (host + password), or "Migrate from StartOS" (host + master password)
-- **Outputs:** For fresh: 24-word Aezeed mnemonic (masked, copyable — shown once in the UI; the seed is persisted in `store.json` as `aezeedCipherSeed`). For migration: success/failure message
+- **Inputs:** Select variant: "Start Fresh" (no inputs), "Migrate from Umbrel" (host + password), "Migrate from myNode" (host + `admin` password), or "Migrate from StartOS" (host + master password)
+- **Outputs:** For fresh: 24-word Aezeed mnemonic (masked, copyable — shown once in the UI; the seed is persisted in `store.json` as `aezeedCipherSeed`). For migration: confirmation that the origin was reached and the migration is scheduled, or — since a failed preflight throws rather than returning — an action error, which leaves the critical task pending so it can be retried
+
+**How a migration works.** The action **schedules** the migration; `main` runs it. StartOS caps an action run at 120 seconds, while handing over a routing node's channel database takes minutes to hours, so the action does only the part that has to be interactive: it opens an SSH session to the origin (`sshpass … ssh -o ConnectTimeout=10 … true`, in a temp subcontainer with no mounts, capped at 30 s) and tells the user immediately whether the address and password work. That login is the whole preflight, because every import script authenticates with exactly those credentials — myNode and StartOS feed the same password to `sudo -S` as well. On success it records `importPending: { source, host, password }` in `startup-flags.json`; nothing on the origin has been touched. Choosing **Start Fresh** clears any scheduled import first, so a migration the user thought better of cannot run over the new wallet.
+
+The copy itself is the `import` phase of main's daemon chain (see [Startup phases](#startup-phases)), so it begins when the user starts LND — that, not running the action, is when the origin node is stopped. Each origin platform gets a script in `assets/`, run in the phase's subcontainer with the `main` volume mounted at `/root/.lnd` and `assets/` at `/scripts`, with a 6-hour exec cap rather than the SDK's 30-second default because a busy routing node's channel database is measured in gigabytes. Every script does the same three things: stop LND (and its neighbours) on the origin over SSH, stream its LND data directory into the volume, and leave the origin's wallet password at `/tmp/old-store.json`, which the phase parses and merges into `store.json` — LND then unlocks the imported wallet with the password it was created under. Progress and failures are reported through the **Wallet Import** health check.
+
+The password is adopted **before** `importPending` is cleared. An interruption between the two only repeats the import; the reverse order could leave imported data behind with no password that opens it, which is exactly what the conversion phase then fails on. Writing `store.json` trips main's `.const` watch and restarts main, but the SDK's teardown awaits the running oneshot rather than killing it, so the flag clear lands too and the restarted main opens on the conversion phase.
+
+| Origin  | Script                     | SSH user | Source path                                      | Wallet password                   |
+| ------- | -------------------------- | -------- | ------------------------------------------------ | --------------------------------- |
+| Umbrel  | `assets/import-umbrel.sh`  | `umbrel` | `~/umbrel/app-data/lightning/data/lnd/data`      | Fixed upstream constant           |
+| myNode  | `assets/import-mynode.sh`  | `admin`  | `/mnt/hdd/mynode/lnd/data`                       | `/mnt/hdd/mynode/settings/.lndpw` |
+| StartOS | `assets/import-startos.sh` | `start9` | the origin's `lnd` `main` volume, `data` subtree | the origin's `store.json`         |
+
+All three scripts share one shape: `sshpass -e` (the password enters via the environment, and reaches the remote `sudo -S` over ssh's stdin — never the command string, so it stays off the remote process list and no character in it can break or inject into a shell), a 10-second connect timeout, `set -e` with `pipefail` so a failed remote `tar` fails the copy, streaming **only `data/`** (`lnd.conf`, the TLS pair, and the StartOS state files are never copied — this server's own remain in place), `tar -xo` to drop the origin's ownership, and a post-copy check that a wallet actually landed (`wallet.db`, or `chain.sqlite` for an already-converted StartOS origin) so a truncated stream is an error rather than an import.
+
+Per-origin specifics: a StartOS origin is vetted before anything is stopped or copied — if its `startup-flags.json` reports `dbSchemaFinalized` without `dbMigrationComplete`, the origin was caught mid bolt → SQLite conversion with a half-converted channel database and the import is refused (no `startup-flags.json` means a pre-conversion release: plain `bolt`, proceeds) — and since `start-cli package stop` returns before the service is down, the script polls the origin until LND has actually stopped before copying. The origin is left stopped, never uninstalled: a stopped StartOS service stays stopped across reboots, and its data remains the fallback until the migrated node has proven itself.
+
+**When the import fails** (origin unreachable at start time, its layout unexpected, a truncated copy), the **Wallet Import** health check pins the failure and the phase retries; after three consecutive failures it re-posts the **Initialize Wallet** critical task — which also stops the service — so there is always a UI route back to correct the address or password. While an import is pending, re-running a migration variant is allowed even though partial data may be on the volume (it re-copies from scratch); **Start Fresh** is refused in that state, because the partial data could be the only copy of a migrated channel state — recovering it means re-running the migration, and truly starting over means uninstall/reinstall.
 
 ### Reset Wallet Transactions
 
@@ -336,7 +377,7 @@ So the action does neither. It sets `rotateMacaroonRootKey` in `startup-flags.js
 
 ## Backups and Restore
 
-**Backed up:** The entire `main` volume, **excluding** files that are rebuilt automatically: `data/graph`, `data/chain/bitcoin/mainnet/channel.db`, `data/chain/bitcoin/mainnet/sphinxreplay.db`, `data/chain/bitcoin/mainnet/neutrino.db`, `data/chain/bitcoin/mainnet/block_headers.bin`, `data/chain/bitcoin/mainnet/reg_filter_headers.bin`, and `logs`.
+**Backed up:** The entire `main` volume, **excluding** files that are rebuilt automatically — `data/graph`, `data/chain/bitcoin/mainnet/channel.db`, `data/chain/bitcoin/mainnet/sphinxreplay.db`, `data/chain/bitcoin/mainnet/neutrino.db`, `data/chain/bitcoin/mainnet/block_headers.bin`, `data/chain/bitcoin/mainnet/reg_filter_headers.bin`, and `logs` — plus `startup-flags.json`, which holds nothing a restore needs (post-restore and init recreate it, and `needsSqliteMigration` decides from files on disk) while a pending import in it would carry the origin's password into the backup.
 
 **Restore behavior:** After restore, LND automatically runs `restorechanbackup` to request force-close of all channels from the Static Channel Backup. A persistent health check warning is displayed advising the user to sweep funds and reinstall LND fresh.
 
@@ -350,6 +391,8 @@ So the action does neither. It sets `rotateMacaroonRootKey` in `startup-flags.js
 | **Network and Graph Sync** | `lncli getinfo` (synced_to_chain + synced_to_graph)        | Default      | Synced / Syncing to chain / Syncing to graph / Starting   |
 | **Node Reachability**      | Config check (conditional)                                 | N/A          | Disabled message if no external IP or hostname configured |
 | **Backup Restoration**     | Conditional (after restore)                                | N/A          | Warning to sweep funds and reinstall                      |
+
+The two startup phases (see [Startup phases](#startup-phases)) publish checks of their own while they run, written directly with `sdk.setHealth` rather than by a `ready` function: **Wallet Import** (`import`) and **Database Conversion** (`db-migration`). Each reports `loading` with the stage it is on — so the service badge reads _Running_ during work that can take hours — then `success`, or `failure` with the error. There is no API to delete a health entry, so a completed phase's entry stays on the page, at its terminal result, until the service is stopped.
 
 The LND Server check calls the REST `/v1/state` endpoint and returns `success` once the server replies with any valid state JSON. It is a stronger readiness signal than a bare port-listening check — the port binds before LND is actually ready to serve RPCs — so dependent services (like Mempool) that gate on this health check will wait until LND can answer API calls.
 
@@ -421,7 +464,7 @@ Build and development workflow follow the StartOS packaging guide: <https://docs
 ```yaml
 package_id: lnd
 upstream_version: see manifest dockerTag
-image: built from ./Dockerfile (lightninglabs/lnd + lndinit binary + sqlite3)
+image: built from ./Dockerfile (lightninglabs/lnd + lndinit binary + curl, sqlite3, ssh, sshpass)
 architectures: [x86_64, aarch64]
 volumes:
   main: /root/.lnd
@@ -462,7 +505,8 @@ health_checks:
   - lncli_getinfo: synced_to_chain, synced_to_graph
   - reachability: conditional (no external address advertised)
   - restored: conditional (set after backup restore)
-  - db_migration: conditional (only on a first start that converts bolt → sqlite)
+  - import: conditional (only on a start that runs a scheduled Initialize Wallet migration)
+  - db-migration: conditional (only on a start that converts imported bolt data → sqlite)
 backup_volumes:
   - main (excluding data/graph, channel.db, sphinxreplay.db, neutrino.db, block_headers.bin, reg_filter_headers.bin, logs)
 ```
