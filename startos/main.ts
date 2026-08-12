@@ -161,21 +161,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
    * password at /tmp/old-store.json for us to adopt. Scheduled by the Initialize
    * Wallet action, which has already verified these credentials work.
    */
-  const importChain = (pending: ImportPending) => {
-    const { label, env } = {
-      umbrel: {
-        label: 'Umbrel',
-        env: { UMBREL_HOST: pending.host, UMBREL_PASS: pending.password },
-      },
-      mynode: {
-        label: 'myNode',
-        env: { MYNODE_HOST: pending.host, MYNODE_PASS: pending.password },
-      },
-      startos: {
-        label: 'StartOS',
-        env: { STARTOS_HOST: pending.host, STARTOS_PASS: pending.password },
-      },
-    }[pending.source]
+  const importChain = (source: ImportPending['source']) => {
     const name = i18n('Wallet Import')
     // Consecutive failures within this chain's lifetime — the oneshot's fn
     // re-runs on retry, but this closure is built once per reconcile.
@@ -186,11 +172,44 @@ export const main = sdk.setupMain(async ({ effects }) => {
         effects,
         { imageId: 'lnd' },
         mainMounts.mountAssets({ subpath: null, mountpoint: '/scripts' }),
-        `import-${pending.source}`,
+        `import-${source}`,
       ),
       exec: {
         fn: async (subcontainer, abort) => {
           try {
+            // Read the pending import here, not in the builder above: the
+            // reconciler's configHash cannot see fn closures, so when only the
+            // credentials change (corrected via a fresh Initialize Wallet run)
+            // the rebuilt chain diffs to "leave alone" and the running daemon
+            // survives — this re-read on each retry is what picks the new
+            // credentials up.
+            const pending = await startupFlagsJson
+              .read((f) => f.importPending)
+              .once()
+            if (!pending) return null
+            const { label, env } = {
+              umbrel: {
+                label: 'Umbrel',
+                env: {
+                  UMBREL_HOST: pending.host,
+                  UMBREL_PASS: pending.password,
+                },
+              },
+              mynode: {
+                label: 'myNode',
+                env: {
+                  MYNODE_HOST: pending.host,
+                  MYNODE_PASS: pending.password,
+                },
+              },
+              startos: {
+                label: 'StartOS',
+                env: {
+                  STARTOS_HOST: pending.host,
+                  STARTOS_PASS: pending.password,
+                },
+              },
+            }[pending.source]
             await sdk.setHealth(effects, {
               id: 'import',
               name,
@@ -714,7 +733,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
     // Order is load-bearing: LND must never open an un-imported or un-converted
     // data directory, so each preparatory phase holds the chain until the flag
     // or the on-disk state that selected it is gone.
-    if (importPending) return importChain(importPending)
+    if (importPending) return importChain(importPending.source)
     if (await needsSqliteMigration()) return conversionChain()
     return lndChain()
   })
