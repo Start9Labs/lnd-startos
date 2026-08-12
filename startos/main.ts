@@ -3,6 +3,7 @@ import { manifest as bitcoinManifest } from 'bitcoin-core-startos/startos/manife
 import { readFile } from 'node:fs/promises'
 import { request } from 'node:https'
 import { base64 } from 'rfc4648'
+import { initializeWallet } from './actions/initializeWallet'
 import { lndConfFile } from './fileModels/lnd.conf'
 import { ImportPending, startupFlagsJson } from './fileModels/startupFlags.json'
 import { shape, storeJson } from './fileModels/store.json'
@@ -176,6 +177,9 @@ export const main = sdk.setupMain(async ({ effects }) => {
       },
     }[pending.source]
     const name = i18n('Wallet Import')
+    // Consecutive failures within this chain's lifetime — the oneshot's fn
+    // re-runs on retry, but this closure is built once per reconcile.
+    let failures = 0
 
     return sdk.Daemons.of(effects).addOneshot('import', {
       subcontainer: sdk.SubContainer.of(
@@ -269,6 +273,29 @@ export const main = sdk.setupMain(async ({ effects }) => {
               result: 'failure',
               message: utils.asError(e).message,
             })
+            // Three straight failures is not a blip. The action is hidden and
+            // its critical task was cleared when the migration was scheduled,
+            // so without this there is no UI route back to correct the address
+            // or password, or to fall back to Start Fresh — the exact dead end
+            // this feature exists to avoid. Re-posting the critical task also
+            // stops the service, which is what ends the retry loop; the
+            // pending flag stays set so the wallet-exists guard knows any
+            // copied data is an incomplete import.
+            failures += 1
+            if (failures >= 3 && !abort.aborted) {
+              await sdk.action
+                .createOwnTask(effects, initializeWallet, 'critical', {
+                  reason: i18n(
+                    'The wallet migration failed and needs attention',
+                  ),
+                })
+                .catch((err) =>
+                  console.error(
+                    'failed to re-post the initialize-wallet task',
+                    err,
+                  ),
+                )
+            }
             throw e
           }
         },
@@ -286,16 +313,32 @@ export const main = sdk.setupMain(async ({ effects }) => {
     sdk.Daemons.of(effects).addOneshot('db-conversion', {
       subcontainer: null,
       exec: {
-        fn: async () => {
+        // The conversion drives nested runUntilSuccess chains that take no
+        // abort signal, and teardown awaits this fn — so without the race a
+        // Stop would wait out the whole conversion. On abort the fn unblocks
+        // and throws; the abandoned run keeps going only until main's context
+        // leaves and reaps its chains. That interruption is the same one a
+        // power cut inflicts, which the conversion is built to resume from.
+        fn: async (_, abort) => {
           try {
-            await migrateOnStart(effects)
+            await Promise.race([
+              migrateOnStart(effects),
+              new Promise<never>((_resolve, reject) => {
+                const stop = () =>
+                  reject(new Error('Stopped during the database conversion'))
+                if (abort.aborted) return stop()
+                abort.addEventListener('abort', stop, { once: true })
+              }),
+            ])
           } catch (e) {
-            await sdk.setHealth(effects, {
-              id: 'db-migration',
-              name: i18n('Database Conversion'),
-              result: 'failure',
-              message: utils.asError(e).message,
-            })
+            if (!abort.aborted) {
+              await sdk.setHealth(effects, {
+                id: 'db-migration',
+                name: i18n('Database Conversion'),
+                result: 'failure',
+                message: utils.asError(e).message,
+              })
+            }
             throw e
           }
           return null
@@ -387,8 +430,14 @@ export const main = sdk.setupMain(async ({ effects }) => {
                       })
                     : JSON.stringify({ wallet_password: pw }),
               ])
-              console.log('wallet-unlock response', res)
               const stdout = res.stdout.toString().trim()
+              // On the rotate path the body carries the new admin_macaroon —
+              // never log it.
+              console.log('wallet-unlock response', {
+                exitCode: res.exitCode,
+                stdout: rotateMacaroonRootKey ? '(redacted)' : stdout,
+                stderr: String(res.stderr).trim(),
+              })
               // `{}` = unlock succeeded. "wallet already unlocked" = wallet is
               // already past the LOCKED state (e.g. because /v1/state raced
               // with the oneshot). Both mean we're done. changepassword answers

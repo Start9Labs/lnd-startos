@@ -1,4 +1,5 @@
 import { VersionInfo } from '@start9labs/start-sdk'
+import { lndConfFile } from '../fileModels/lnd.conf'
 import { writeCerts } from '../init/setupCerts'
 import { sdk } from '../sdk'
 import { needsSqliteMigration, runSqliteMigration } from '../sqliteBackend'
@@ -58,10 +59,14 @@ Après toute migration, ne redémarrez jamais LND sur l'ancien appareil. Deux n�
       // update (an Initialize Wallet import, a restored pre-conversion backup)
       // is converted by main's conversion phase instead (sqliteBackend.ts).
       if (await needsSqliteMigration()) {
-        // Migrations run before the setupCerts init step, and the conversion
-        // verifies its curls against tls.cert on 127.0.0.1 — a SAN the
-        // pre-update cert may lack (pre-0.21 certs did). Reissue it first or
-        // the schema run wedges until its timeout.
+        // Migrations run before the seedFiles and setupCerts init steps, and
+        // the conversion's finalize stage runs LND against both on-disk
+        // artifacts — so bring each current first. The conf re-render strips
+        // what the schema retires (the pre-0.21 onion-message keys crash 0.21
+        // with "feature bit: 39 already set"); the cert reissue covers curls
+        // pinned to 127.0.0.1, a SAN pre-0.21 certs lack, without which the
+        // schema run wedges until its timeout.
+        await lndConfFile.merge(effects, {})
         await writeCerts(effects)
         await runSqliteMigration(effects, progress)
       }

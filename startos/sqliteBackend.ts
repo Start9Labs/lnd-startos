@@ -152,10 +152,10 @@ export async function migrateOnStart(effects: T.Effects): Promise<void> {
 }
 
 /**
- * Convert bolt → SQLite, run before the service starts — from the migrate init
- * step, or from main via {@link migrateOnStart}. Two temporary daemon chains
- * (runUntilSuccess); writes only startup-flags. Resumable, and throws on failure
- * so the caller retries until a run succeeds.
+ * Convert bolt → SQLite, run before LND opens the data — from the update
+ * migration (versions/current.ts), or from main via {@link migrateOnStart}.
+ * Two temporary daemon chains (runUntilSuccess); writes only startup-flags.
+ * Resumable, and throws on failure so the caller retries until a run succeeds.
  *
  *   1. finalizeBoltSchema — run LND once on bolt so it applies pending channeldb
  *      *schema* migrations. lndinit only transfers buckets and refuses a stale

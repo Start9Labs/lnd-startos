@@ -6,6 +6,11 @@ export const { createBackup, restoreInit } = sdk.setupBackups(
     sdk.Backups.ofVolumes('main')
       .setOptions({
         exclude: [
+          // Holds nothing a restore needs — setPostRestore and seedFiles
+          // recreate it with what restore requires, and needsSqliteMigration
+          // decides from files on disk — while importPending can hold an
+          // origin's password in cleartext, which must not ride into backups.
+          'startup-flags.json',
           'data/graph',
           'data/chain/bitcoin/mainnet/channel.db',
           'data/chain/bitcoin/mainnet/sphinxreplay.db',

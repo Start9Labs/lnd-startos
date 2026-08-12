@@ -280,6 +280,7 @@ export default {
     292: 'Importación de billetera',
     293: 'Importando datos de LND desde ${source}. Detener el nodo de origen y copiar sus datos puede tardar horas en un nodo grande.',
     294: 'Datos de LND importados desde ${source}.',
+    295: 'La migración de la billetera falló y requiere atención',
   },
   de_DE: {
     0: 'Starte LND!',
@@ -560,6 +561,7 @@ export default {
     292: 'Wallet-Import',
     293: 'LND-Daten werden von ${source} importiert. Das Stoppen des Ursprungs-Nodes und das Kopieren seiner Daten kann bei einem großen Node Stunden dauern.',
     294: 'LND-Daten von ${source} importiert.',
+    295: 'Die Wallet-Migration ist fehlgeschlagen und erfordert Aufmerksamkeit',
   },
   pl_PL: {
     0: 'Uruchamianie LND!',
@@ -840,6 +842,7 @@ export default {
     292: 'Import portfela',
     293: 'Importowanie danych LND z ${source}. Zatrzymanie węzła źródłowego i skopiowanie jego danych może potrwać wiele godzin na dużym węźle.',
     294: 'Zaimportowano dane LND z ${source}.',
+    295: 'Migracja portfela nie powiodła się i wymaga uwagi',
   },
   fr_FR: {
     0: 'Démarrage de LND !',
@@ -1120,5 +1123,6 @@ export default {
     292: 'Import du portefeuille',
     293: "Importation des données LND depuis ${source}. L'arrêt du nœud d'origine et la copie de ses données peuvent prendre des heures sur un gros nœud.",
     294: 'Données LND importées depuis ${source}.',
+    295: 'La migration du portefeuille a échoué et nécessite votre attention',
   },
 } satisfies Record<string, LangDict>

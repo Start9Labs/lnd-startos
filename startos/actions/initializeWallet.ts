@@ -8,9 +8,12 @@ import { lndDataDir, mainMounts, selfRestUrl, sleep } from '../utils'
 
 const { InputSpec, Value, Variants } = sdk
 
+// The alternation must be grouped: `.matches()` anchors the expression as a
+// whole, so a bare `A|B` becomes `^A|B$` — each alternative anchored on one
+// side only, letting `192.168.1.9; anything` straight through.
 const lanHost: T.inputSpecTypes.Pattern = {
   regex: new utils.regexes.ComposableRegex(
-    `${utils.regexes.ipv4.asExpr()}|${utils.regexes.localHostname.asExpr()}`,
+    `(?:${utils.regexes.ipv4.asExpr()}|${utils.regexes.localHostname.asExpr()})`,
   ).matches(),
   description: 'Must be a valid IPv4 address or .local hostname',
 }
@@ -128,10 +131,18 @@ export const initializeWallet = sdk.Action.withInput(
 
   // execution function
   async ({ effects, input }) => {
-    // Check if a wallet already exists to prevent accidental re-initialization.
+    // A wallet on disk blocks re-initialization — overwriting it loses funds.
     // Two spellings: wallet.db is a bolt-era or imported wallet; chain.sqlite
     // holds the wallet on the SQLite backend (a fresh 0.21 install creates no
     // .db files at all, so testing wallet.db alone misses it).
+    //
+    // One exception: while an import is scheduled or has failed partway
+    // (importPending set), any wallet material on the volume is an incomplete
+    // copy of the origin's, so re-running a *migration* over it is the
+    // recovery path. Start Fresh stays blocked even then — that partial data
+    // could be the only copy of a migrated channel state (a StartOS origin is
+    // left stopped, but its data may since be gone), so discarding it is a
+    // decision for uninstall, not a side effect.
     const chainDir = `${lndDataDir}/data/chain/bitcoin/mainnet`
     const walletExists = await sdk.SubContainer.withTemp(
       effects,
@@ -149,9 +160,18 @@ export const initializeWallet = sdk.Action.withInput(
     )
 
     if (walletExists) {
-      throw new Error(
-        'A wallet already exists. Re-initializing would overwrite your existing wallet and could lead to loss of funds.',
-      )
+      const importPending = (await startupFlagsJson.read().once())
+        ?.importPending
+      if (!importPending) {
+        throw new Error(
+          'A wallet already exists. Re-initializing would overwrite your existing wallet and could lead to loss of funds.',
+        )
+      }
+      if (input.method.selection === 'fresh') {
+        throw new Error(
+          'An interrupted migration left imported data on this server. Re-run the migration to finish it — it picks up where it left off — or uninstall LND and reinstall to truly start fresh.',
+        )
+      }
     }
 
     switch (input.method.selection) {

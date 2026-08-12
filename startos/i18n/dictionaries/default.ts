@@ -20,6 +20,7 @@ const dict = {
   'Wallet Import': 292,
   'Importing LND data from ${source}. Stopping the origin node and copying its data can take hours on a large node.': 293,
   'Imported LND data from ${source}.': 294,
+  'The wallet migration failed and needs attention': 295,
 
   // interfaces.ts
   'REST LND Connect': 14,
