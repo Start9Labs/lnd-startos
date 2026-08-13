@@ -398,6 +398,8 @@ The LND Server check calls the REST `/v1/state` endpoint and returns `success` o
 
 When LND first reaches `synced_to_chain && synced_to_graph` after install, a **Sync Complete** notification is posted to the StartOS notifications panel. The notification fires only once per install — subsequent restarts that re-sync the chain or graph do not re-notify.
 
+LND's own liveness monitor is deliberately off — `healthcheck.chainbackend.attempts` is pinned to `0` in the [enforced section](startos/fileModels/lnd.conf.ts) of `lnd.conf`, against an upstream default of `3`. Exhausting those attempts makes LND request its own shutdown, which duplicates the gating the bitcoind dependency already applies and which the supervisor would only restart. It is also a weaker signal than it sounds: the check issues `uptime` and counts the backend's outbound peers, so it stays green against a backend that answers headers but cannot serve blocks — the failure mode of [bitcoin-core-startos#270](https://github.com/Start9Labs/bitcoin-core-startos/issues/270), which it would not have caught. LND's disk-space and TLS checks report `configured with 0 attempts, skipping it` on every start as well; those two are off by **upstream** default and are not set by this package.
+
 ## Dependencies
 
 | Dependency | Required | Mounted Volume                      | Health Checks Required      | Purpose                                                        |
