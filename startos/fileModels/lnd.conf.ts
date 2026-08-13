@@ -39,12 +39,14 @@ const iniBoolean = z
 
 export const shape = z.object({
   // ──── Enforced (StartOS) ────
-  // Upstream defaults this to 3, where exhausting the attempts makes LND
-  // request its own shutdown — which the bitcoind dependency's health gating
-  // already covers, and which the supervisor would only restart. The check
-  // probes `uptime` and the backend's outbound peer count, never block
-  // retrieval, so it stays green through a backend serving headers but not
-  // blocks. LND's disk and TLS checks are off by upstream default, not here.
+  // Upstream defaults this to 3; pinned off here since an early commit with no
+  // rationale. Two things to know before changing it. The check issues
+  // `uptime` and counts the backend's outbound peers, never retrieving a
+  // block, so it stays green against a backend serving headers but not blocks
+  // — the failure mode of bitcoin-core-startos#270. And exhausting the
+  // attempts only logs at Critical (`Shutdown: srvrLog.Criticalf`, unchanged
+  // since v0.14.3), so re-enabling buys a log line, not a shutdown. LND's disk
+  // and TLS checks are off by upstream default, not here.
   'healthcheck.chainbackend.attempts': z.literal(0).catch(0),
   rpclisten: z.tuple([z.literal('0.0.0.0:10009')]).catch(['0.0.0.0:10009']),
   restlisten: z.tuple([z.literal('0.0.0.0:8080')]).catch(['0.0.0.0:8080']),
