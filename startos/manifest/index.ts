@@ -13,7 +13,7 @@ export const manifest = setupManifest({
   volumes: ['main'],
   images: {
     lnd: {
-      // Built from ./Dockerfile: lnd v0.21.1-beta + the lndinit binary and the
+      // Built from ./Dockerfile: lnd v0.21.2-beta + the lndinit binary and the
       // sqlite3 CLI, both used by the bolt → SQLite migration
       // (startos/versions/current.ts, startos/sqliteBackend.ts).
       source: {
