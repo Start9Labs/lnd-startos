@@ -6,7 +6,7 @@
 # would block future lnd bumps, whereas adding lndinit on top keeps the runtime
 # decoupled from lndinit's publish cadence. lndinit drives the bolt → SQLite
 # database migration in startos/versions/current.ts.
-FROM lightninglabs/lnd:v0.21.1-beta
+FROM lightninglabs/lnd:v0.21.2-beta
 
 # v0.21's image switched base from Debian to Alpine and dropped curl, which the
 # startos layer shells into the container for (wallet init/unlock, the migration's
@@ -16,4 +16,4 @@ FROM lightninglabs/lnd:v0.21.1-beta
 # node (assets/import-*.sh).
 RUN apk add --no-cache curl sqlite openssh-client sshpass
 
-COPY --from=lightninglabs/lndinit:v0.1.36-beta-lnd-v0.21.1-beta /bin/lndinit /bin/lndinit
+COPY --from=lightninglabs/lndinit:v0.1.36-beta-lnd-v0.21.2-beta /bin/lndinit /bin/lndinit

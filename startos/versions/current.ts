@@ -5,43 +5,48 @@ import { sdk } from '../sdk'
 import { needsSqliteMigration, runSqliteMigration } from '../sqliteBackend'
 
 export const current = VersionInfo.of({
-  version: '0.21.1-beta:12',
+  version: '0.21.2-beta:0',
   releaseNotes: {
-    en_US: `**Migrate an existing LND node from myNode.**
+    en_US: `Updated LND to 0.21.2-beta, a bug-fix release.
 
-**Initialize Wallet** now offers **Migrate from myNode** alongside Umbrel and StartOS. It verifies the connection to your old node and schedules the migration; starting LND then stops the old node, copies LND's data directory across your local network, converts the database, and brings LND online — so your channels come with you. On a large node this takes hours, with progress shown under Health Checks.
+- Two startup failures during database upgrades are fixed: a node whose payment history held an incomplete blinded route could fail to start, and a database missing its version key could skip a required upgrade.
+- Memory used while syncing the channel graph is now bounded, so a misbehaving peer can no longer make LND buffer an unpredictable amount of data.
+- Fixes a race condition in cooperative channel closes and several onion message decoding errors.
+- Adds \`lncli wallet submitpackage\`, which submits a zero-fee transaction together with a fee-paying child through Bitcoin.
 
-The Umbrel and StartOS migrations are repaired in the same release; neither could previously complete.
+Full notes: https://github.com/lightningnetwork/lnd/releases/tag/v0.21.2-beta`,
+    es_ES: `Se actualizó LND a 0.21.2-beta, una versión de corrección de errores.
 
-After any migration, never start LND on the old device again. Two nodes running from one seed leads to unpredictable behavior or loss of funds.`,
-    es_ES: `**Migre un nodo LND existente desde myNode.**
+- Se corrigen dos fallos de arranque durante las actualizaciones de la base de datos: un nodo cuyo historial de pagos contenía una ruta ciega incompleta podía no arrancar, y una base de datos sin su clave de versión podía omitir una actualización obligatoria.
+- La memoria utilizada al sincronizar el grafo de canales ahora está limitada, de modo que un par que se comporte mal ya no puede hacer que LND almacene una cantidad impredecible de datos.
+- Se corrige una condición de carrera en el cierre cooperativo de canales y varios errores de decodificación de mensajes onion.
+- Se añade \`lncli wallet submitpackage\`, que envía una transacción sin comisión junto con una transacción hija que sí la paga, a través de Bitcoin.
 
-**Inicializar billetera** ahora ofrece **Migrar desde myNode**, junto a Umbrel y StartOS. Verifica la conexión con su nodo antiguo y programa la migración; al iniciar LND, este detiene el nodo antiguo, copia el directorio de datos de LND a través de su red local, convierte la base de datos y pone LND en línea, de modo que sus canales le acompañan. En un nodo grande esto tarda horas, y su progreso aparece en Comprobaciones de estado.
+Notas completas: https://github.com/lightningnetwork/lnd/releases/tag/v0.21.2-beta`,
+    de_DE: `LND wurde auf 0.21.2-beta aktualisiert, eine Fehlerbehebungsversion.
 
-Las migraciones desde Umbrel y StartOS se reparan en esta misma versión; ninguna de las dos podía completarse antes.
+- Zwei Startfehler bei Datenbank-Aktualisierungen sind behoben: Ein Node, dessen Zahlungsverlauf eine unvollständige blinde Route enthielt, konnte nicht starten, und eine Datenbank ohne Versionsschlüssel konnte eine erforderliche Aktualisierung überspringen.
+- Der beim Synchronisieren des Kanalgraphen verwendete Speicher ist jetzt begrenzt, sodass ein sich fehlverhaltender Peer LND nicht mehr dazu bringen kann, eine unvorhersehbare Datenmenge zu puffern.
+- Behebt eine Race Condition beim kooperativen Kanalschluss sowie mehrere Fehler beim Dekodieren von Onion-Nachrichten.
+- Ergänzt \`lncli wallet submitpackage\`, das eine gebührenfreie Transaktion zusammen mit einer gebührenzahlenden Folgetransaktion über Bitcoin einreicht.
 
-Después de cualquier migración, nunca vuelva a iniciar LND en el dispositivo antiguo. Dos nodos que funcionan con la misma semilla provocan un comportamiento impredecible o la pérdida de fondos.`,
-    de_DE: `**Migrieren Sie einen bestehenden LND-Node von myNode.**
+Vollständige Hinweise: https://github.com/lightningnetwork/lnd/releases/tag/v0.21.2-beta`,
+    pl_PL: `Zaktualizowano LND do 0.21.2-beta — wydanie z poprawkami błędów.
 
-**Wallet initialisieren** bietet jetzt **Von myNode migrieren** neben Umbrel und StartOS. Die Aktion prüft die Verbindung zu Ihrem alten Node und plant die Migration; beim Start von LND wird dann der alte Node gestoppt, das Datenverzeichnis von LND über Ihr lokales Netzwerk kopiert, die Datenbank konvertiert und LND online gebracht — Ihre Kanäle ziehen also mit um. Bei einem großen Node dauert das Stunden; den Fortschritt sehen Sie unter Zustandsprüfungen.
+- Naprawiono dwie awarie uruchamiania podczas aktualizacji bazy danych: węzeł, którego historia płatności zawierała niekompletną ślepą trasę, mógł się nie uruchomić, a baza danych bez klucza wersji mogła pominąć wymaganą aktualizację.
+- Pamięć używana podczas synchronizacji grafu kanałów jest teraz ograniczona, więc niepoprawnie działający peer nie może już zmusić LND do buforowania nieprzewidywalnej ilości danych.
+- Naprawiono sytuację wyścigu przy kooperacyjnym zamykaniu kanału oraz kilka błędów dekodowania wiadomości onion.
+- Dodano \`lncli wallet submitpackage\`, które przesyła transakcję bez opłaty wraz z transakcją potomną pokrywającą opłatę, za pośrednictwem Bitcoina.
 
-Die Migrationen von Umbrel und StartOS werden in derselben Version repariert; keine der beiden konnte bisher abgeschlossen werden.
+Pełne informacje: https://github.com/lightningnetwork/lnd/releases/tag/v0.21.2-beta`,
+    fr_FR: `LND a été mis à jour vers 0.21.2-beta, une version corrective.
 
-Starten Sie LND nach einer Migration nie wieder auf dem alten Gerät. Zwei Nodes mit demselben Seed führen zu unvorhersehbarem Verhalten oder zum Verlust von Geldmitteln.`,
-    pl_PL: `**Migruj istniejący węzeł LND z myNode.**
+- Deux échecs de démarrage lors des mises à niveau de la base de données sont corrigés : un nœud dont l'historique de paiements contenait une route aveugle incomplète pouvait ne pas démarrer, et une base de données dépourvue de sa clé de version pouvait ignorer une mise à niveau obligatoire.
+- La mémoire utilisée lors de la synchronisation du graphe des canaux est désormais bornée, de sorte qu'un pair malveillant ne peut plus amener LND à mettre en mémoire tampon une quantité de données imprévisible.
+- Corrige une situation de compétition lors de la fermeture coopérative d'un canal ainsi que plusieurs erreurs de décodage des messages onion.
+- Ajoute \`lncli wallet submitpackage\`, qui soumet une transaction sans frais accompagnée d'une transaction enfant payant les frais, via Bitcoin.
 
-**Zainicjalizuj portfel** oferuje teraz **Migrację z myNode** obok Umbrel i StartOS. Sprawdza połączenie ze starym węzłem i planuje migrację; po uruchomieniu LND zatrzymuje stary węzeł, kopiuje katalog danych LND przez sieć lokalną, konwertuje bazę danych i uruchamia LND — dzięki czemu Twoje kanały przenoszą się razem z Tobą. Na dużym węźle trwa to wiele godzin; postęp śledź w sekcji Kontrole stanu.
-
-W tym samym wydaniu naprawiono migracje z Umbrel i StartOS; żadna z nich nie mogła się wcześniej zakończyć.
-
-Po każdej migracji nigdy nie uruchamiaj ponownie LND na starym urządzeniu. Dwa węzły działające na tym samym ziarnie prowadzą do nieprzewidywalnego zachowania lub utraty środków.`,
-    fr_FR: `**Migrez un nœud LND existant depuis myNode.**
-
-**Initialiser le portefeuille** propose désormais **Migrer depuis myNode**, aux côtés d'Umbrel et de StartOS. L'action vérifie la connexion à votre ancien nœud et planifie la migration ; au démarrage de LND, celui-ci arrête l'ancien nœud, copie le répertoire de données de LND sur votre réseau local, convertit la base de données puis se met en ligne — vos canaux vous suivent donc. Sur un gros nœud, cela prend des heures ; suivez la progression sous Vérifications d'état.
-
-Les migrations depuis Umbrel et StartOS sont réparées dans la même version ; aucune des deux ne pouvait aboutir auparavant.
-
-Après toute migration, ne redémarrez jamais LND sur l'ancien appareil. Deux nœuds partageant une même graine entraînent un comportement imprévisible ou une perte de fonds.`,
+Notes complètes : https://github.com/lightningnetwork/lnd/releases/tag/v0.21.2-beta`,
   },
   migrations: {
     up: async ({ effects, progress }) => {
