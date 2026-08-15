@@ -5,7 +5,7 @@ import { sdk } from '../sdk'
 import { needsSqliteMigration, runSqliteMigration } from '../sqliteBackend'
 
 export const current = VersionInfo.of({
-  version: '0.21.2-beta:0',
+  version: '0.21.2-beta:1',
   releaseNotes: {
     en_US: `Updated LND to 0.21.2-beta, a bug-fix release.
 
@@ -13,6 +13,8 @@ export const current = VersionInfo.of({
 - Memory used while syncing the channel graph is now bounded, so a misbehaving peer can no longer make LND buffer an unpredictable amount of data.
 - Fixes a race condition in cooperative channel closes and several onion message decoding errors.
 - Adds \`lncli wallet submitpackage\`, which submits a zero-fee transaction together with a fee-paying child through Bitcoin.
+
+The Network and Graph Sync health check now reports how many peers are connected and how long the graph sync has been pending, so a sync that is merely slow can be told apart from one stalled on an unresponsive peer.
 
 Full notes: https://github.com/lightningnetwork/lnd/releases/tag/v0.21.2-beta`,
     es_ES: `Se actualizó LND a 0.21.2-beta, una versión de corrección de errores.
@@ -22,6 +24,8 @@ Full notes: https://github.com/lightningnetwork/lnd/releases/tag/v0.21.2-beta`,
 - Se corrige una condición de carrera en el cierre cooperativo de canales y varios errores de decodificación de mensajes onion.
 - Se añade \`lncli wallet submitpackage\`, que envía una transacción sin comisión junto con una transacción hija que sí la paga, a través de Bitcoin.
 
+La comprobación de estado Progreso de sincronización de red y grafo ahora indica cuántos pares están conectados y cuánto tiempo lleva pendiente la sincronización del grafo, de modo que una sincronización simplemente lenta puede distinguirse de una detenida por un par que no responde.
+
 Notas completas: https://github.com/lightningnetwork/lnd/releases/tag/v0.21.2-beta`,
     de_DE: `LND wurde auf 0.21.2-beta aktualisiert, eine Fehlerbehebungsversion.
 
@@ -29,6 +33,8 @@ Notas completas: https://github.com/lightningnetwork/lnd/releases/tag/v0.21.2-be
 - Der beim Synchronisieren des Kanalgraphen verwendete Speicher ist jetzt begrenzt, sodass ein sich fehlverhaltender Peer LND nicht mehr dazu bringen kann, eine unvorhersehbare Datenmenge zu puffern.
 - Behebt eine Race Condition beim kooperativen Kanalschluss sowie mehrere Fehler beim Dekodieren von Onion-Nachrichten.
 - Ergänzt \`lncli wallet submitpackage\`, das eine gebührenfreie Transaktion zusammen mit einer gebührenzahlenden Folgetransaktion über Bitcoin einreicht.
+
+Die Zustandsprüfung „Netzwerk- und Graph-Synchronisierungsfortschritt“ meldet jetzt, wie viele Peers verbunden sind und wie lange die Graph-Synchronisierung bereits aussteht, sodass eine lediglich langsame Synchronisierung von einer unterscheidbar ist, die an einem nicht antwortenden Peer hängt.
 
 Vollständige Hinweise: https://github.com/lightningnetwork/lnd/releases/tag/v0.21.2-beta`,
     pl_PL: `Zaktualizowano LND do 0.21.2-beta — wydanie z poprawkami błędów.
@@ -38,6 +44,8 @@ Vollständige Hinweise: https://github.com/lightningnetwork/lnd/releases/tag/v0.
 - Naprawiono sytuację wyścigu przy kooperacyjnym zamykaniu kanału oraz kilka błędów dekodowania wiadomości onion.
 - Dodano \`lncli wallet submitpackage\`, które przesyła transakcję bez opłaty wraz z transakcją potomną pokrywającą opłatę, za pośrednictwem Bitcoina.
 
+Kontrola stanu „Postęp synchronizacji sieci i grafu” pokazuje teraz, ilu peerów jest połączonych i jak długo trwa oczekiwanie na synchronizację grafu, dzięki czemu synchronizację jedynie powolną można odróżnić od zatrzymanej na peerze, który nie odpowiada.
+
 Pełne informacje: https://github.com/lightningnetwork/lnd/releases/tag/v0.21.2-beta`,
     fr_FR: `LND a été mis à jour vers 0.21.2-beta, une version corrective.
 
@@ -45,6 +53,8 @@ Pełne informacje: https://github.com/lightningnetwork/lnd/releases/tag/v0.21.2-
 - La mémoire utilisée lors de la synchronisation du graphe des canaux est désormais bornée, de sorte qu'un pair malveillant ne peut plus amener LND à mettre en mémoire tampon une quantité de données imprévisible.
 - Corrige une situation de compétition lors de la fermeture coopérative d'un canal ainsi que plusieurs erreurs de décodage des messages onion.
 - Ajoute \`lncli wallet submitpackage\`, qui soumet une transaction sans frais accompagnée d'une transaction enfant payant les frais, via Bitcoin.
+
+La vérification d'état « Progression de la synchronisation du réseau et du graphe » indique désormais combien de pairs sont connectés et depuis combien de temps la synchronisation du graphe est en attente, ce qui permet de distinguer une synchronisation simplement lente d'une synchronisation bloquée sur un pair qui ne répond pas.
 
 Notes complètes : https://github.com/lightningnetwork/lnd/releases/tag/v0.21.2-beta`,
   },
