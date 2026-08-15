@@ -385,18 +385,20 @@ So the action does neither. It sets `rotateMacaroonRootKey` in `startup-flags.js
 
 ## Health Checks
 
-| Check                      | Method                                                     | Grace Period | Messages                                                  |
-| -------------------------- | ---------------------------------------------------------- | ------------ | --------------------------------------------------------- |
-| **LND Server**             | HTTPS `GET /v1/state` on `127.0.0.1:8080` using `tls.cert` | Default      | Success: "LND is ready" / Starting: (no message, waiting) |
-| **Network and Graph Sync** | `lncli getinfo` (synced_to_chain + synced_to_graph)        | Default      | Synced / Syncing to chain / Syncing to graph / Starting   |
-| **Node Reachability**      | Config check (conditional)                                 | N/A          | Disabled message if no external IP or hostname configured |
-| **Backup Restoration**     | Conditional (after restore)                                | N/A          | Warning to sweep funds and reinstall                      |
+| Check                      | Method                                                          | Grace Period | Messages                                                                                     |
+| -------------------------- | --------------------------------------------------------------- | ------------ | -------------------------------------------------------------------------------------------- |
+| **LND Server**             | HTTPS `GET /v1/state` on `127.0.0.1:8080` using `tls.cert`      | Default      | Success: "LND is ready" / Starting: (no message, waiting)                                    |
+| **Network and Graph Sync** | `lncli getinfo` (synced_to_chain + synced_to_graph + num_peers) | Default      | Synced / Syncing to chain / Syncing to graph (with peer count, elapsed once slow) / Starting |
+| **Node Reachability**      | Config check (conditional)                                      | N/A          | Disabled message if no external IP or hostname configured                                    |
+| **Backup Restoration**     | Conditional (after restore)                                     | N/A          | Warning to sweep funds and reinstall                                                         |
 
 The two startup phases (see [Startup phases](#startup-phases)) publish checks of their own while they run, written directly with `sdk.setHealth` rather than by a `ready` function: **Wallet Import** (`import`) and **Database Conversion** (`db-migration`). Each reports `loading` with the stage it is on — so the service badge reads _Running_ during work that can take hours — then `success`, or `failure` with the error. There is no API to delete a health entry, so a completed phase's entry stays on the page, at its terminal result, until the service is stopped.
 
 The LND Server check calls the REST `/v1/state` endpoint and returns `success` once the server replies with any valid state JSON. It is a stronger readiness signal than a bare port-listening check — the port binds before LND is actually ready to serve RPCs — so dependent services (like Mempool) that gate on this health check will wait until LND can answer API calls.
 
 When LND first reaches `synced_to_chain && synced_to_graph` after install, a **Sync Complete** notification is posted to the StartOS notifications panel. The notification fires only once per install — subsequent restarts that re-sync the chain or graph do not re-notify.
+
+`synced_to_graph` is a per-process latch, and LND only sets it when the one peer it elected as the _initial historical syncer_ finishes reconciling the graph. The first peer to connect after a start gets elected, and until the latch is set every other peer is held in `PassiveSync` — passive syncers never send a `GossipTimestampRange`, so they deliver no gossip at all. One unresponsive elected peer therefore stalls the whole gossip subsystem, not just its own sync, and LND only re-elects when that peer disconnects or `historicalsyncinterval` (default 1h) elapses. A node with no channels is most exposed, because it keeps no persistent peers and re-draws its first peer from bootstrap on every start. This is why the check reports peer count and elapsed time: a large legitimate backfill and a stalled peer are indistinguishable from `getinfo` alone. `lncli disconnect <pubkey>` on the elected peer forces an immediate re-election.
 
 LND's own liveness monitor is off — `healthcheck.chainbackend.attempts` is pinned to `0` in the [enforced section](startos/fileModels/lnd.conf.ts) of `lnd.conf`, against an upstream default of `3`. It is a much weaker signal than its name suggests: the check issues `uptime` and counts the backend's outbound peers, never retrieving a block, so it stays green against a backend that answers headers but cannot serve blocks — the failure mode of [bitcoin-core-startos#270](https://github.com/Start9Labs/bitcoin-core-startos/issues/270), which it would not have caught at any setting. Exhausting the attempts does **not** stop LND either: `Shutdown` is wired to `srvrLog.Criticalf` in `server.go` and has been since v0.14.3, so the consequence is one `[CRT]` log line. Re-enabling it would therefore buy a log line when bitcoind is genuinely unreachable — a defensible thing to want, but not a safety net, and orthogonal to the failure that prompted the question.
 
@@ -506,7 +508,7 @@ actions:
   - autoconfig (hidden; dependent-driven, e.g. onion messages for BOLT12)
 health_checks:
   - lnd_state: https GET /v1/state on 127.0.0.1:8080 (LND's own tls.cert)
-  - lncli_getinfo: synced_to_chain, synced_to_graph
+  - lncli_getinfo: synced_to_chain, synced_to_graph, num_peers
   - reachability: conditional (no external address advertised)
   - restored: conditional (set after backup restore)
   - import: conditional (only on a start that runs a scheduled Initialize Wallet migration)

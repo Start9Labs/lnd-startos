@@ -29,6 +29,32 @@ const certPath = '/media/startos/volumes/main/tls.cert'
 // SIGKILL the copy long before it finished.
 const IMPORT_TIMEOUT_MS = 6 * 60 * 60_000
 
+// Well past the observed 36 s – 2 m 37 s a healthy node takes to reach
+// synced_to_graph, so crossing it means the elected peer is not answering.
+const GRAPH_SYNC_SLOW_MS = 15 * 60_000
+
+// LND gates synced_to_graph on one elected peer, and holds every other peer
+// passive until it finishes — so one unresponsive peer stalls all gossip, and
+// from getinfo alone that looks identical to a large backfill. Elapsed time is
+// what separates them.
+function graphSyncMessage(info: GetInfo, pendingSince: number | null) {
+  if (info.num_peers === 0) {
+    return i18n('Syncing to graph — waiting for peers')
+  }
+
+  const elapsed = pendingSince === null ? 0 : Date.now() - pendingSince
+  if (elapsed < GRAPH_SYNC_SLOW_MS) {
+    return i18n('Syncing to graph (peers: ${peers})', {
+      peers: info.num_peers,
+    })
+  }
+
+  return i18n(
+    'Graph sync has not completed in ${minutes} min (peers: ${peers}). LND retries with another peer every hour.',
+    { minutes: Math.floor(elapsed / 60_000), peers: info.num_peers },
+  )
+}
+
 /** Hit LND's /v1/state REST endpoint on loopback using its TLS cert. */
 async function getLndState(): Promise<string | null> {
   const ca = await readFile(certPath).catch(() => null)
@@ -79,6 +105,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
   const { resetWalletTransactions, restore, rotateMacaroonRootKey } =
     startupFlags
   let notified = startupFlags.notified
+  let graphSyncPendingSince: number | null = null
 
   const conf = await lndConfFile.read().const(effects)
   if (!conf) {
@@ -546,6 +573,12 @@ export const main = sdk.setupMain(async ({ effects }) => {
             ) {
               const info: GetInfo = JSON.parse(res.stdout)
 
+              if (info.synced_to_graph) {
+                graphSyncPendingSince = null
+              } else if (graphSyncPendingSince === null) {
+                graphSyncPendingSince = Date.now()
+              }
+
               if (info.synced_to_chain && info.synced_to_graph) {
                 return {
                   message: i18n('Synced to chain and graph'),
@@ -558,7 +591,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
                 }
               } else if (!info.synced_to_graph && info.synced_to_chain) {
                 return {
-                  message: i18n('Syncing to graph'),
+                  message: graphSyncMessage(info, graphSyncPendingSince),
                   result: 'loading',
                 }
               }
