@@ -81,6 +81,7 @@ export type GetInfo = {
   identity_pubkey: string
   alias: string
   uris: string[]
+  num_peers: number
   synced_to_chain: boolean
   synced_to_graph: boolean
 }
