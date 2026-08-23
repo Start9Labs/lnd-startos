@@ -139,9 +139,14 @@ export const shape = z.object({
   // ──── Performance ────
   'gc-canceled-invoices-on-startup': iniBoolean,
   'gc-canceled-invoices-on-the-fly': iniBoolean,
-  'stagger-initial-reconnect': iniBoolean,
+  'stagger-initial-reconnect': iniBoolean.transform((v) => v ?? true),
   'ignore-historical-gossip-filters': iniBoolean,
   'routing.strictgraphpruning': iniBoolean,
+  // Upstream leaves this at 0 — the DescribeGraph cache disabled.
+  // `DefaultRPCGraphCacheDuration` (1m) exists in lncfg/caches.go but is never
+  // wired into `DefaultConfig`, so dropping this default turns the cache off,
+  // not back to 1m.
+  'caches.rpc-graph-cache-duration': iniString.transform((v) => v ?? '1m'),
 
   // ──── Autopilot ────
   'autopilot.active': iniBoolean,
@@ -457,11 +462,11 @@ export const fullConfigSpec = InputSpec.of({
     ),
     footnote: `${i18n('Default')}: false`,
   }),
-  'stagger-initial-reconnect': Value.triState({
+  'stagger-initial-reconnect': Value.toggle({
     name: i18n('Stagger Initial Reconnect'),
-    default: null,
+    default: true,
     description: i18n(
-      'Randomize the delay between reconnection attempts to peers on startup. Prevents a bandwidth spike when all peers reconnect simultaneously. Recommended for routing nodes',
+      'Spread reconnection attempts to your peers over the first 30 seconds after startup, instead of dialing them all at once. The first 10 peers always reconnect immediately, so this has no effect below 10 channel peers',
     ),
     footnote: `${i18n('Default')}: false`,
   }),
@@ -480,6 +485,19 @@ export const fullConfigSpec = InputSpec.of({
       'Prune a channel from the network graph if even one of its edges (direction announcements) is stale. Results in a smaller, more accurate routing graph',
     ),
     footnote: `${i18n('Default')}: false`,
+  }),
+  'rpc-graph-cache-duration': Value.number({
+    name: i18n('Graph Cache Duration'),
+    description: i18n(
+      'How long to reuse the answer to a full network graph query. Apps that display the Lightning network — Mempool and Ride The Lightning — re-run this query on every refresh, and each run reads the whole graph out of the database. Reusing the answer keeps repeated or simultaneous refreshes from stalling gossip and payments. Set to 0 to read the graph fresh every time.',
+    ),
+    default: 1,
+    required: true,
+    min: 0,
+    max: 1440,
+    integer: true,
+    units: 'minutes',
+    footnote: `${i18n('Default')}: 0`,
   }),
   // ── Autopilot ──
   autopilot: Value.union({
@@ -628,6 +646,11 @@ export const fullConfigSpec = InputSpec.of({
 type FormType = typeof fullConfigSpec._TYPE
 type PartialFormType = T.DeepPartial<FormType>
 
+// LND parses this as a Go duration; the form only ever writes whole minutes. A
+// value hand-edited to another unit reads as 1 until the form is next saved.
+const graphCacheMinutes = (v: string) =>
+  v === '0' ? 0 : Number(v.match(/^(\d+)m$/)?.[1] ?? 1)
+
 export function fileToForm(conf: LndConf): PartialFormType {
   return {
     // General
@@ -668,6 +691,9 @@ export function fileToForm(conf: LndConf): PartialFormType {
     'stagger-initial-reconnect': conf['stagger-initial-reconnect'],
     'ignore-historical-gossip': conf['ignore-historical-gossip-filters'],
     'strict-graph-pruning': conf['routing.strictgraphpruning'],
+    'rpc-graph-cache-duration': graphCacheMinutes(
+      conf['caches.rpc-graph-cache-duration'],
+    ),
 
     // Autopilot
     autopilot: conf['autopilot.active']
@@ -773,14 +799,18 @@ export function formToFile(
     result['gc-canceled-invoices-on-the-fly'] =
       input['gc-canceled-invoices-live'] ?? undefined
   if ('stagger-initial-reconnect' in input)
-    result['stagger-initial-reconnect'] =
-      input['stagger-initial-reconnect'] ?? undefined
+    result['stagger-initial-reconnect'] = input['stagger-initial-reconnect']
   if ('ignore-historical-gossip' in input)
     result['ignore-historical-gossip-filters'] =
       input['ignore-historical-gossip'] ?? undefined
   if ('strict-graph-pruning' in input)
     result['routing.strictgraphpruning'] =
       input['strict-graph-pruning'] ?? undefined
+  if ('rpc-graph-cache-duration' in input)
+    result['caches.rpc-graph-cache-duration'] =
+      input['rpc-graph-cache-duration'] != null
+        ? `${input['rpc-graph-cache-duration']}m`
+        : undefined
 
   // Autopilot
   if (input.autopilot) {

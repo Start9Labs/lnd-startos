@@ -30,6 +30,7 @@ export const performanceConfig = sdk.Action.withInput(
     'stagger-initial-reconnect': true,
     'ignore-historical-gossip': true,
     'strict-graph-pruning': true,
+    'rpc-graph-cache-duration': true,
   }),
 
   // optionally pre-fill the input form
