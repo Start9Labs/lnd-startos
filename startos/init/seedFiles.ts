@@ -9,10 +9,9 @@ export const seedFiles = sdk.setupOnInit(async (effects, kind) => {
   await startupFlagsJson.merge(effects, {})
 
   if (kind === 'install') {
-    // Seed every non-upstream default so a fresh install matches the form
-    // defaults in fullConfigSpec (and "reset defaults"). Any field whose form
-    // default overrides the upstream LND default must be listed here; fields
-    // left at the upstream default stay unset.
+    // Seed the defaults that live only in the form spec. A default the shape
+    // itself supplies (`.catch()` / `.transform()`) is applied by every merge,
+    // install and update alike, so it does not belong here.
     await lndConfFile.merge(effects, {
       'accept-keysend': true,
     })

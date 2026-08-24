@@ -289,7 +289,6 @@ const dict = {
   'Delete Canceled Invoices Immediately': 237,
   'Delete canceled invoices immediately as they are canceled, rather than waiting for startup cleanup': 238,
   'Stagger Initial Reconnect': 239,
-  'Randomize the delay between reconnection attempts to peers on startup. Prevents a bandwidth spike when all peers reconnect simultaneously. Recommended for routing nodes': 240,
   'Ignore Historical Gossip Filters': 241,
   'Do not serve historical gossip data to peers that request it. Saves bandwidth and CPU at the cost of being less helpful to peers bootstrapping their network graph': 242,
   'Strict Graph Pruning': 243,
@@ -350,6 +349,9 @@ const dict = {
   'Info (quiet wallet)': 280,
   'Debug Level': 281,
   'Logging level for all subsystems. Trace is the most verbose, Critical is the least.': 282,
+  'Spread reconnection attempts to your peers over the first 30 seconds after startup, instead of dialing them all at once. The first 10 peers always reconnect immediately, so this has no effect below 10 channel peers': 300,
+  'Graph Cache Duration': 301,
+  'How long to reuse the answer to a full network graph query. Apps that display the Lightning network — Mempool and Ride The Lightning — re-run this query on every refresh, and each run reads the whole graph out of the database. Reusing the answer keeps repeated or simultaneous refreshes from stalling gossip and payments. Set to 0 to read the graph fresh every time.': 302,
 } as const
 
 /**

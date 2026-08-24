@@ -42,8 +42,6 @@ Other nodes connect to you over the **Peer** interface; run **Node Info** for yo
 
 Configure LND through its settings actions — General, Routing Fees, Channel Settings, Autopilot, Performance, Watchtower Server/Client, Bitcoin Backend, Tor, and Custom External Host. You can also edit `lnd.conf` directly: your settings are preserved across restarts, except for a few keys StartOS manages for you (`externalip`/`externalhosts`, `tor.socks`, and the Bitcoin backend connection settings).
 
-By default LND logs at **Info** level with btcwallet's frequent per-block warnings silenced (the **Info (quiet wallet)** option), keeping the log readable without hiding normal activity. Change this with **Debug Level** under General settings — pick plain **Info** to include those wallet warnings, drop to **Warning**/**Error** for less, or raise to **Debug**/**Trace** when troubleshooting.
-
 Two advanced actions worth knowing: **Reset Wallet Transactions** rescans the chain for on-chain transactions LND may have missed; **Revoke Macaroons** revokes every existing macaroon and mints fresh ones, after which you must reconnect wallets with the new `lndconnect://` URI.
 
 Run **Revoke Macaroons** if a macaroon may have been copied or exposed — for example if you run BTCPay Server, which reads LND's admin macaroon and shipped an actively exploited vulnerability in versions before 2.4.2. Every other service connected to LND also loses access until it picks up the new macaroon, so expect to restart them.

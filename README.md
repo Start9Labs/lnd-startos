@@ -77,13 +77,17 @@ Three models, and the split between two of them is load-bearing.
 
 **Enforced** — rewritten whenever the package writes the file: the three listen addresses, `bitcoin.mainnet`, `rpcmiddleware.enable`, and `db.backend`. `bitcoind.rpcuser`, `bitcoind.rpcpass`, and the deprecated `bitcoin.active` and `tor.v3` are modelled as "must be absent" and deleted — Bitcoin authentication is the cookie read through the mount.
 
-Three enforced values are overrides worth naming:
+Five values depart from LND's own defaults. The first two are enforced; the rest are starting points a config action can change:
 
 | Key                                 | Upstream default | Set here          | Why                                                                                          |
 | ----------------------------------- | ---------------- | ----------------- | -------------------------------------------------------------------------------------------- |
 | `db.backend`                        | bolt             | `sqlite`          | New installs are born on SQLite; existing bolt nodes are converted before LND opens the data |
 | `healthcheck.chainbackend.attempts` | 3                | `0`               | LND's own backend monitor is disabled — see below                                            |
 | `debuglevel`                        | `info`           | `info,BTWL=error` | Keeps Info logging while silencing btcwallet's per-block warnings                            |
+| `stagger-initial-reconnect`         | `false`          | `true`            | Spreads the startup reconnect burst over 30 s; the first 10 peers still dial immediately     |
+| `caches.rpc-graph-cache-duration`   | `0` (disabled)   | `1m`              | One graph read answers simultaneous `DescribeGraph` callers instead of one read each         |
+
+**On the graph cache:** LND ships the `DescribeGraph` cache off. `lncfg/caches.go` defines `DefaultRPCGraphCacheDuration = time.Minute`, but nothing wires it into `DefaultConfig`, so the field holds its zero value and `rpcserver.go` reads that as "disabled" — true in every release to date. Uncached, each call walks the whole graph, and concurrent callers each walk it separately. That is expensive here in particular: the graph lives in `lnd.sqlite` under `--db.use-native-sql`, behind a pool of two connections read a hundred rows at a time, so two simultaneous walks hold both connections and the gossiper's graph writes and any invoice query wait behind them. With the cache on, callers serialize on one mutex and only the first walks. Sixteen packages across the two registries depend on this node, and Mempool and Ride The Lightning both fetch `/v1/graph`. The cached response is not keyed on the request's `include_unannounced` flag, so a caller that asks for unannounced channels can leave them in the slot for the next caller that did not; Mempool and RTL both request public-only, and a short duration bounds the window.
 
 **On the disabled backend check:** it is a much weaker signal than its name suggests. It issues `uptime` and counts the backend's outbound peers, never retrieving a block, so it stays green against a node that answers headers but cannot serve blocks. Exhausting its attempts does not stop LND either — the shutdown path is wired to a Critical log line and has been for many releases. Re-enabling it would buy a log line, not a safety net.
 
