@@ -5,7 +5,7 @@ import { sdk } from '../sdk'
 import { needsSqliteMigration, runSqliteMigration } from '../sqliteBackend'
 
 export const current = VersionInfo.of({
-  version: '0.21.2-beta:2',
+  version: '0.21.2-beta:3',
   releaseNotes: {
     en_US: `Updated LND to 0.21.2-beta — bug fixes and performance improvements. Full notes: https://github.com/lightningnetwork/lnd/releases/tag/v0.21.2-beta
 
