@@ -127,9 +127,9 @@ Four interfaces, two of which appear only once a wallet exists.
 | REST LND Connect | `lnd-connect-rest` | api  | 8080  | once the admin macaroon exists |
 | gRPC LND Connect | `grpc`             | api  | 10009 | once the admin macaroon exists |
 
-**The two connect interfaces embed credentials in their address.** Each carries the macaroon — and, for gRPC, the TLS certificate — as query parameters under an `lndconnect` scheme, which is what lets a wallet app pair by scanning one. Both are masked for that reason. They cannot exist before the wallet is created, because the macaroon does not exist until then; the package watches for it and publishes them when it appears.
+**The two connect interfaces embed credentials in their address.** Each carries the macaroon — and, for gRPC, the server's root CA certificate, DER-encoded as the `lndconnect` scheme specifies — as query parameters, which is what lets a wallet app pair by scanning one. Both are masked for that reason. They cannot exist before the wallet is created, because the macaroon does not exist until then; the package watches for it and publishes them when it appears.
 
-**REST and gRPC are terminated differently, and not interchangeably.** REST goes through the reverse proxy. gRPC does not: a proxy rewrap negotiates no ALPN, and gRPC clients reject the connection outright for it — so its binding passes TLS through and the client validates LND's own certificate.
+**REST and gRPC are terminated differently, and not interchangeably.** REST goes through the reverse proxy. gRPC does not: a proxy rewrap negotiates no ALPN, and gRPC clients reject the connection outright for it — so its binding passes TLS through and the client validates the certificate LND itself serves, anchored on the root CA its connect URI carries.
 
 **The watchtower interface is always exported**, even when the server is off. LND simply does not listen on it until the server is enabled.
 
@@ -145,7 +145,7 @@ Wallet setup is the substantial one, and [Initialize Wallet](#actions) offers th
 
 An import changes what happens next. The copy runs as the only thing in the service, bounded at six hours because a busy routing node's channel database is multi-gigabyte over LAN. If the imported node was on bolt, a **conversion phase** then runs before LND is allowed to open the data, reporting its own progress as a separate health check. Only after that does LND itself start.
 
-The TLS pair is issued at init for the container's current addresses and **reissued whenever they change** — the proxy dials the container by IP, so a new container address without a new certificate would take REST offline.
+The TLS pair is issued at init for every address LND answers on — the container and bridge addresses, plus every address the gRPC interface is served at — and **reissued whenever that set changes**. The internal half is what REST needs, since the proxy dials the container by IP; the external half is what a gRPC client validates against, since nothing terminates that binding's TLS but LND.
 
 ## Actions
 
