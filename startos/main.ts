@@ -39,14 +39,12 @@ const GRAPH_SYNC_SLOW_MS = 15 * 60_000
 // what separates them.
 function graphSyncMessage(info: GetInfo, pendingSince: number | null) {
   if (info.num_peers === 0) {
-    return i18n('Syncing to graph — waiting for peers')
+    return i18n('Waiting for peers')
   }
 
   const elapsed = pendingSince === null ? 0 : Date.now() - pendingSince
   if (elapsed < GRAPH_SYNC_SLOW_MS) {
-    return i18n('Syncing to graph (peers: ${peers})', {
-      peers: info.num_peers,
-    })
+    return i18n('Syncing to graph')
   }
 
   return i18n(
