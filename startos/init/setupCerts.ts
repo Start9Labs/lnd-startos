@@ -15,8 +15,8 @@ import { sdk } from '../sdk'
  */
 export async function writeCerts(effects: T.Effects): Promise<void> {
   // gRPC is TLS passthrough, so a client validates this certificate against
-  // the address it dialed — each one has to be a SAN. The WAN IPv4 is dropped
-  // because getSslCertificate signs a LAN address and refuses a routable one.
+  // the address it dialed — each one has to be a SAN. Everything but the WAN
+  // IPv4, which getSslCertificate refuses to sign.
   const served = await sdk.host
     .getOwn(effects, gRPCHostId, (host) => {
       const iface =
@@ -26,9 +26,10 @@ export async function writeCerts(effects: T.Effects): Promise<void> {
           .find((i) => i.id === gRPCInterfaceId)
       return iface
         ? iface.addressInfo
-            .filter({
-              predicate: (h) => !(h.public && h.metadata.kind === 'ipv4'),
-            })
+            .matchesAny([
+              { visibility: 'private' },
+              { exclude: { kind: 'ipv4' } },
+            ])
             .hostnames.map((h) => h.hostname)
         : []
     })
