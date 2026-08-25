@@ -159,6 +159,13 @@ export const main = sdk.setupMain(async ({ effects }) => {
       .const(effects)
   }
 
+  // LND reads its TLS pair once at startup, so re-running main is what carries
+  // a reissued certificate — a new address on the gRPC interface — to a client.
+  // Not armed ahead of a preparatory phase, which a re-run would abandon.
+  if (!startupFlags.importPending && !(await needsSqliteMigration())) {
+    await FileHelper.string(certPath).read().const(effects)
+  }
+
   // Native SQL lives on the CLI, not the conf (see lnd.conf.ts).
   const lndArgs: string[] = ['--db.use-native-sql']
 

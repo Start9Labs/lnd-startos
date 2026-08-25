@@ -28,7 +28,7 @@ Open the **REST** or **gRPC LND Connect** interface and copy the `lndconnect://`
 
 For **REST**, StartOS serves the connection with your server's own certificate, so leave certificate validation **on** in your wallet. Wallets such as Zeus verify it the same way your browser does — over your local network that means having the [StartOS Root CA](https://docs.start9.com/start-os/trust-ca) installed on the device, exactly as for the StartOS dashboard. If you have set up a custom domain with an ACME certificate, wallets trust it with no extra step.
 
-For **gRPC**, LND serves its own certificate, which the `lndconnect://` URI carries so your client can verify it. That makes the gRPC URI much longer, so prefer copying it over scanning the QR.
+For **gRPC**, LND serves the certificate your server issued it, and the `lndconnect://` URI carries your server's Root CA so your wallet can verify it — nothing to install on the device. The gRPC QR is denser than the REST one; copy the URI instead if your camera can't read it.
 
 ### Reachability and networking
 

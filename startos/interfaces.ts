@@ -44,12 +44,22 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
       const macaroon = await readFile(macHostPath).then((buf) =>
         buf.toString('base64url'),
       )
-      const cert = await readFile(certHostPath).then((buf) =>
-        buf.toString('base64url'),
-      )
+      // lndconnect carries one DER-encoded certificate, so send the root CA
+      // that anchors the chain LND serves rather than the chain itself: the
+      // leaf is reissued whenever an address changes, the root never is.
+      const cert = await readFile(certHostPath, 'utf8').then((pem) => {
+        const chain = pem.match(
+          /-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFICATE-----/g,
+        )
+        if (!chain) throw new Error(`${certHostPath} holds no certificate`)
+        return Buffer.from(
+          chain[chain.length - 1].replace(/-----[^-]+-----|\s/g, ''),
+          'base64',
+        ).toString('base64url')
+      })
 
       // `protocol: 'https'` alone would not put the proxy in front; the addSsl
-      // block is what does. See README § TLS on REST and gRPC.
+      // block is what does. See README § Network Access and Interfaces.
       const restMulti = sdk.MultiHost.of(effects, controlHostId)
       const restMultiOrigin = await restMulti.bindPort(restPort, {
         protocol: 'https',
