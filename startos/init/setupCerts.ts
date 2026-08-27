@@ -14,13 +14,10 @@ import { sdk } from '../sdk'
  * update until the conversion's timeout.
  */
 export async function writeCerts(effects: T.Effects): Promise<void> {
-  // gRPC is TLS passthrough, so a client validates this certificate against
-  // the address it dialed — each one has to be a SAN. Read off the binding,
-  // which owns the addresses; an exported interface carries only a view of
-  // them that vanishes with it. getSslCertificate signs only an IP the box
-  // itself holds, which is what drops the WAN IPv4: that address is the
-  // router's, not ours. Sorted — the OS guarantees no order, and a reshuffle
-  // would reissue the certificate and restart LND.
+  // gRPC is TLS passthrough, so every address a client dials has to be a SAN.
+  // Read off the binding: an exported interface is only a view of its
+  // addresses and vanishes with it. getSslCertificate signs only an IP the box
+  // itself holds, which is what drops the WAN IPv4 — the router's, not ours.
   const served = await sdk.host
     .getOwn(effects, gRPCHostId, (host) =>
       host
@@ -39,7 +36,6 @@ export async function writeCerts(effects: T.Effects): Promise<void> {
             ])
             .filter({ exclude: { kind: ['localhost', 'link-local'] } })
             .hostnames.map((h) => h.hostname)
-            .sort()
         : [],
     )
     .const()
