@@ -1,6 +1,6 @@
-import { T } from '@start9labs/start-sdk'
+import { T, utils } from '@start9labs/start-sdk'
 import { writeFile } from 'fs/promises'
-import { gRPCHostId, gRPCInterfaceId } from '../interfaces'
+import { gRPCHostId, gRPCPort } from '../interfaces'
 import { sdk } from '../sdk'
 
 /**
@@ -15,24 +15,33 @@ import { sdk } from '../sdk'
  */
 export async function writeCerts(effects: T.Effects): Promise<void> {
   // gRPC is TLS passthrough, so a client validates this certificate against
-  // the address it dialed — each one has to be a SAN. Everything but the WAN
-  // IPv4, which getSslCertificate refuses to sign.
+  // the address it dialed — each one has to be a SAN. Read off the binding,
+  // which owns the addresses; an exported interface carries only a view of
+  // them that vanishes with it. getSslCertificate signs only an IP the box
+  // itself holds, which is what drops the WAN IPv4: that address is the
+  // router's, not ours. Sorted — the OS guarantees no order, and a reshuffle
+  // would reissue the certificate and restart LND.
   const served = await sdk.host
-    .getOwn(effects, gRPCHostId, (host) => {
-      const iface =
-        host &&
-        Object.values(host.bindings)
-          .flatMap((b) => Object.values(b.interfaces))
-          .find((i) => i.id === gRPCInterfaceId)
-      return iface
-        ? iface.addressInfo
+    .getOwn(effects, gRPCHostId, (host) =>
+      host
+        ? utils
+            .filledAddress(host, {
+              hostId: gRPCHostId,
+              internalPort: gRPCPort,
+              username: null,
+              scheme: null,
+              sslScheme: null,
+              suffix: '',
+            })
             .matchesAny([
               { visibility: 'private' },
               { exclude: { kind: 'ipv4' } },
             ])
+            .filter({ exclude: { kind: ['localhost', 'link-local'] } })
             .hostnames.map((h) => h.hostname)
-        : []
-    })
+            .sort()
+        : [],
+    )
     .const()
 
   const hostnames = [

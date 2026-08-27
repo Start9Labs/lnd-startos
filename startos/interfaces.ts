@@ -33,10 +33,15 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
     '/media/startos/volumes/main/data/chain/bitcoin/mainnet/admin.macaroon'
   const certHostPath = '/media/startos/volumes/main/tls.cert'
 
-  // Register reactive dependencies on stable paths: triggers setInterfaces re-run
-  // when the macaroon appears (e.g. after wallet unlock on first install).
+  // A macaroon root-key rotation deletes the file before re-baking it, so react
+  // to a replacement and never to the gap.
   const macExists =
-    (await FileHelper.string(macHostPath).read().const(effects)) !== null
+    (await FileHelper.string(macHostPath)
+      .read(
+        (macaroon) => macaroon,
+        (prev, next) => next === null || prev === next,
+      )
+      .const(effects)) !== null
 
   // REST and gRPC
   if (macExists) {
