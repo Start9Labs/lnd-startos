@@ -101,7 +101,7 @@ Two further keys are forced absent for correctness rather than preference: **`db
 
 `store.json` holds the wallet password, the seed if the package generated one, the registered watchtower clients, and any custom external hosts.
 
-`startup-flags.json` holds one-time requests: a pending wallet import (**including the origin node's password**, since nothing else persists it), a wallet-transaction reset, a macaroon rotation, a restore marker, and whether the sync notification has fired. Each is consumed by `main` and cleared by a oneshot afterwards.
+`startup-flags.json` holds one-time requests: a pending wallet import (**including the origin node's password**, since nothing else persists it), a wallet-transaction reset, a macaroon rotation, a restore marker, and whether the sync notification has fired. Each is consumed by `main` and cleared once the work it asked for has run.
 
 ## Dependencies
 

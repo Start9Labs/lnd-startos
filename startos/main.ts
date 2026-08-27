@@ -425,7 +425,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
             while (true) {
               if (abort.aborted) {
                 console.log('wallet-unlock aborted')
-                break
+                return null
               }
 
               // Skip the unlock call (and its noisy LND error log) only when
@@ -503,52 +503,18 @@ export const main = sdk.setupMain(async ({ effects }) => {
               }
               await sleep(10_000)
             }
+            // Cleared here, not from a dependent oneshot: a restart lands in
+            // the window between the two and arms the flag for every start after.
+            await startupFlagsJson.merge(effects, {
+              resetWalletTransactions: false,
+              rotateMacaroonRootKey: false,
+            })
             return null
           },
         },
         subcontainer: lndSub,
         requires: ['lnd'],
       })
-      .addOneshot('clear-macaroon-rotation-flag', () =>
-        // Gated on unlock-wallet succeeding, so a failed rotation is retried on
-        // the next start rather than silently dropped.
-        rotateMacaroonRootKey
-          ? {
-              subcontainer: null,
-              exec: {
-                fn: async () => {
-                  await startupFlagsJson.merge(effects, {
-                    rotateMacaroonRootKey: false,
-                  })
-                  return null
-                },
-              },
-              requires: ['unlock-wallet'],
-            }
-          : null,
-      )
-      .addOneshot('clear-reset-flag', () =>
-        // `--reset-wallet-transactions` is consumed once, when LND opens the
-        // wallet at unlock. Now that unlock-wallet has completed the reset has
-        // been applied, so clear the flag — otherwise it stays true and re-adds
-        // the flag on every subsequent restart. The flag lives outside store.json
-        // (read with `.once`), so this write does NOT trip a const watch and
-        // restart main.
-        resetWalletTransactions
-          ? {
-              subcontainer: null,
-              exec: {
-                fn: async () => {
-                  await startupFlagsJson.merge(effects, {
-                    resetWalletTransactions: false,
-                  })
-                  return null
-                },
-              },
-              requires: ['unlock-wallet'],
-            }
-          : null,
-      )
       .addHealthCheck('sync-progress', {
         ready: {
           display: i18n('Network and Graph Sync Progress'),
