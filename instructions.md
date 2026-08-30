@@ -2,7 +2,7 @@
 
 ## Documentation
 
-- [Start9 Lightning wallets guide](https://docs.start9.com/bitcoin-guides/lightning-wallets) — connecting popular Lightning wallets to a StartOS node.
+- [Start9 Bitcoin Guides](https://docs.start9.com/bitcoin-guides/) — connecting wallets and dashboards to a Lightning node on StartOS, and migrating an existing LND node onto one.
 - [LND operator documentation](https://docs.lightning.engineering/lightning-network-tools/lnd) — the upstream guide to running and configuring LND.
 
 ## What you get on StartOS
