@@ -53,7 +53,7 @@ const dict = {
   'Error fetching node info': 35,
 
   // actions/towerInfo.ts
-  'Watchtower Server Info': 36,
+  'Watchtower - Server Info': 36,
   'Get your Tower Server URL': 37,
   'Watchtower Server must be enabled': 38,
   'Tower Info': 39,
@@ -220,7 +220,7 @@ const dict = {
   'The ratio of the value in a non-time-sensitive (second-level) HTLC to allocate as the budget to pay fees when sweeping it.': 186,
 
   // actions/config/watchtowerServer.ts
-  'Watchtower Server': 65,
+  'Watchtower - Server': 65,
   'Enable Watchtower Server in lnd.conf': 66,
   "Setting the address to 'none' disables the watchtower server and permanently deletes the backup data it holds for the client nodes that rely on it. This cannot be undone.": 283,
   'External Address': 187,
@@ -228,7 +228,7 @@ const dict = {
   "Address at which your node can be reached by peers. Select 'none' to disable the watchtower server.": 189,
 
   // actions/config/watchtowerClient.ts
-  'Watchtower Client Settings': 67,
+  'Watchtower - Client': 67,
   'Edit the Watchtower Client settings in lnd.conf': 68,
   'Enable Watchtower Client': 190,
   'Enable or disable Watchtower Client': 191,
@@ -352,6 +352,20 @@ const dict = {
   'Spread reconnection attempts to your peers over the first 30 seconds after startup, instead of dialing them all at once. The first 10 peers always reconnect immediately, so this has no effect below 10 channel peers': 300,
   'Graph Cache Duration': 301,
   'How long to reuse the answer to a full network graph query. Apps that display the Lightning network — Mempool and Ride The Lightning — re-run this query on every refresh, and each run reads the whole graph out of the database. Reusing the answer keeps repeated or simultaneous refreshes from stalling gossip and payments. Set to 0 to read the graph fresh every time.': 302,
+
+  // Security group
+  Security: 1000,
+  'Wallet not initialized': 1001,
+  UNLOCKED: 1002,
+  'Display your Aezeed Cipher Seed.': 1003,
+  'Aezeed Cipher Seed - Backup': 1004,
+  'Confirm you have backed up your Aezeed Cipher Seed.': 1005,
+  CONFIRMED: 1006,
+  'Aezeed Seed Backup Status': 1007,
+  'Seed backup not confirmed': 1008,
+  DELETED: 1009,
+  'Aezeed Cipher Seed - Delete': 1010,
+  'Status: Confirmed': 1011,
 } as const
 
 /**

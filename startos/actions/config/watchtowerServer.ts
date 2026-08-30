@@ -17,13 +17,13 @@ export const watchtowerServerConfig = sdk.Action.withInput(
 
   // metadata
   async ({ effects }) => ({
-    name: i18n('Watchtower Server'),
+    name: i18n('Watchtower - Server'),
     description: i18n('Enable Watchtower Server in lnd.conf'),
     warning: i18n(
       "Setting the address to 'none' disables the watchtower server and permanently deletes the backup data it holds for the client nodes that rely on it. This cannot be undone.",
     ),
     allowedStatuses: 'any',
-    group: i18n('Watchtower'),
+    group: i18n('Security'),
     visibility: 'enabled',
   }),
 

@@ -14,6 +14,6 @@ FROM lightninglabs/lnd:v0.21.2-beta
 # migration's zombie-index scrub (startos/sqliteBackend.ts); ssh and sshpass are
 # how the Initialize Wallet migrations pull an LND data directory off the origin
 # node (assets/import-*.sh).
-RUN apk add --no-cache curl sqlite openssh-client sshpass
+RUN apk add --no-cache curl sqlite openssh-client sshpass rclone mutt inotify-tools jq
 
 COPY --from=lightninglabs/lndinit:v0.1.36-beta-lnd-v0.21.2-beta /bin/lndinit /bin/lndinit
