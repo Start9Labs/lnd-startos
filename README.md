@@ -153,11 +153,16 @@ Sixteen actions. Ten configure the node, three are wallet and credential operati
 
 ### Configuration
 
-Nine actions grouped under Configuration, each writing its own part of `lnd.conf`: **General Settings** (alias, colour, keysend and AMP), **Routing Fees**, **Channel Settings**, **Autopilot Settings**, **Tor Settings**, **Custom External Host**, **Performance**, **Watchtower Server**, and **Watchtower Client Settings**. Each costs seconds plus a restart, is pre-filled from the current file, and is safe to re-run.
+Nine actions grouped under Configuration, each writing its own part of `lnd.conf`: **General Settings** (alias, colour, keysend and AMP), **Routing Fees**, **Channel Settings** (acceptance policy plus the forwarding switch), **Autopilot Settings**, **Tor Settings**, **Custom External Host**, **Performance**, **Watchtower Server**, and **Watchtower Client Settings**. Each costs seconds plus a restart, is pre-filled from the current file, and is safe to re-run.
 
 **Bitcoin Backend** is in the same group but `visibility: 'hidden'` — it is reached through the install task rather than browsed to. It chooses bitcoind or Neutrino, and with it the dependency set, the mount, and the whole backend section of the config.
 
 **Watchtower Server** additionally deletes the watchtower server's database when the server is switched off, so a disabled tower does not keep client session state it can no longer serve.
+
+**Channel Settings** carries `reject-htlc` ("Reject Routing Requests"), the node-wide forwarding switch. When on, LND fails every onward HTLC with `FailChannelDisabled` and logs `node configured to disallow forwards`; sending and receiving are unaffected, since locally-sourced and final-hop HTLCs never reach the switch's forwarding path. The channels stay announced and enabled in gossip, so peers keep attempting routes and keep failing — it rejects forwards, it does not remove the node from the graph. Restart-only; there is no runtime toggle.
+
+> [!NOTE]
+> This key was absent from the file model between the 0.4.0 config rewrite and 0.21.2-beta:5, while remaining present in `lnd.conf` — the 0.3.5.x package wrote `rejecthtlc` on every config save, and the 0.4.0 migration merges into that file rather than regenerating it. Because the SDK's `z.object` is loose (extra keys are preserved, never stripped), any node that had it set to `true` kept refusing forwards throughout, with no action able to read or clear it. If a node reports no forwards at all, `node configured to disallow forwards` in the logs is the definitive signal — it has exactly one source, the `RejectHTLC` branch in LND's `htlcswitch`. The same loose-object behavior means dropping any other key from the model would strand it the same way; retire keys with `z.undefined().catch(undefined)` so the merge deletes them, as is done for `bitcoin.active` and `tor.v3`.
 
 ### Initialize Wallet — hidden
 

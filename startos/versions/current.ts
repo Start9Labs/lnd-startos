@@ -5,38 +5,33 @@ import { sdk } from '../sdk'
 import { needsSqliteMigration, runSqliteMigration } from '../sqliteBackend'
 
 export const current = VersionInfo.of({
-  version: '0.21.2-beta:4',
+  version: '0.21.2-beta:5',
   releaseNotes: {
-    en_US: `Updated LND to 0.21.2-beta — bug fixes and performance improvements. Full notes: https://github.com/lightningnetwork/lnd/releases/tag/v0.21.2-beta
+    en_US: `Restores the "Reject Routing Requests" toggle, which was dropped when this package's configuration was rewritten for StartOS 0.4.0.
 
-- Fixes LND restarting continuously after Revoke Macaroons is run. If your node was affected, re-pair everything connected to it.
-- gRPC LND Connect now works with wallets that pair over gRPC, and its QR code renders. Re-pair any wallet already connected over gRPC.
-- Network and Graph Sync Progress reports how many peers are connected and how long a pending sync has been waiting.
-- Performance settings add Graph Cache Duration; Stagger Initial Reconnect is now on by default.`,
-    es_ES: `Se actualizó LND a 0.21.2-beta: correcciones de errores y mejoras de rendimiento. Notas completas: https://github.com/lightningnetwork/lnd/releases/tag/v0.21.2-beta
+The setting itself never went away — only the control did. If you had switched it on, your node has been refusing to forward payments ever since, with no way to turn it back off, and its log shows \`node configured to disallow forwards\` each time it turns one away. This is most likely to affect nodes carried over from StartOS 0.3.5.x, where the toggle was a standard configuration option. Open Channel Settings to see its current value and change it.
 
-- Corrige que LND se reiniciara continuamente después de ejecutar Revocar macaroons. Si tu nodo se vio afectado, vuelve a emparejar todo lo que esté conectado a él.
-- gRPC LND Connect ya funciona con las carteras que se emparejan por gRPC, y su código QR se muestra. Vuelve a emparejar cualquier cartera ya conectada por gRPC.
-- Progreso de sincronización de red y grafo indica cuántos pares están conectados y cuánto tiempo lleva esperando una sincronización pendiente.
-- Los ajustes de Rendimiento añaden Duración de la caché del grafo; Escalonar Reconexión Inicial ahora está activado de forma predeterminada.`,
-    de_DE: `LND wurde auf 0.21.2-beta aktualisiert — Fehlerbehebungen und Leistungsverbesserungen. Vollständige Hinweise: https://github.com/lightningnetwork/lnd/releases/tag/v0.21.2-beta
+Nodes that never enabled it are unaffected — the setting stays off by default.`,
+    es_ES: `Se restaura la opción "Rechazar solicitudes de enrutamiento", que se perdió cuando se reescribió la configuración de este paquete para StartOS 0.4.0.
 
-- Behebt, dass LND nach dem Ausführen von „Macaroons widerrufen“ fortlaufend neu startete. War Ihr Knoten betroffen, koppeln Sie alles neu, was mit ihm verbunden ist.
-- gRPC LND Connect funktioniert jetzt mit Wallets, die sich über gRPC koppeln, und sein QR-Code wird angezeigt. Koppeln Sie jede bereits über gRPC verbundene Wallet neu.
-- „Netzwerk- und Graph-Synchronisierungsfortschritt“ meldet, wie viele Peers verbunden sind und wie lange eine ausstehende Synchronisierung bereits wartet.
-- Die Leistungseinstellungen erhalten „Graph-Cache-Dauer“; „Anfängliche Wiederverbindung staffeln“ ist jetzt standardmäßig aktiv.`,
-    pl_PL: `Zaktualizowano LND do 0.21.2-beta — poprawki błędów i usprawnienia wydajności. Pełne informacje: https://github.com/lightningnetwork/lnd/releases/tag/v0.21.2-beta
+La opción nunca desapareció, solo el control. Si la habías activado, tu nodo ha estado rechazando el reenvío de pagos desde entonces, sin forma de desactivarla, y su registro muestra \`node configured to disallow forwards\` cada vez que rechaza uno. Esto afecta sobre todo a los nodos migrados desde StartOS 0.3.5.x, donde la opción era una configuración habitual. Abre Configuración de Canales para ver su valor actual y cambiarlo.
 
-- Naprawiono ciągłe restartowanie się LND po uruchomieniu „Unieważnij macaroons”. Jeśli dotyczyło to Twojego węzła, połącz ponownie wszystko, co jest z nim połączone.
-- gRPC LND Connect działa teraz z portfelami łączącymi się przez gRPC, a jego kod QR jest wyświetlany. Połącz ponownie każdy portfel już podłączony przez gRPC.
-- „Postęp synchronizacji sieci i grafu” pokazuje, ilu peerów jest połączonych i jak długo oczekuje trwająca synchronizacja.
-- Ustawienia wydajności zyskują „Czas pamięci podręcznej grafu”; „Rozłóż początkowe ponowne połączenia” jest teraz domyślnie włączone.`,
-    fr_FR: `LND a été mis à jour vers 0.21.2-beta — corrections de bogues et améliorations des performances. Notes complètes : https://github.com/lightningnetwork/lnd/releases/tag/v0.21.2-beta
+Los nodos que nunca la activaron no se ven afectados: la opción sigue desactivada de forma predeterminada.`,
+    de_DE: `Stellt den Schalter „Routing-Anfragen ablehnen“ wieder her, der beim Umschreiben der Konfiguration dieses Pakets für StartOS 0.4.0 entfernt wurde.
 
-- Corrige le redémarrage continu de LND après l'exécution de « Révoquer les macaroons ». Si votre nœud a été touché, ré-appairez tout ce qui y est connecté.
-- gRPC LND Connect fonctionne désormais avec les portefeuilles qui s'appairent en gRPC, et son QR code s'affiche. Ré-appairez tout portefeuille déjà connecté en gRPC.
-- « Progression de la synchronisation du réseau et du graphe » indique combien de pairs sont connectés et depuis combien de temps une synchronisation est en attente.
-- Les paramètres de Performance ajoutent « Durée du cache du graphe » ; « Échelonner la reconnexion initiale » est désormais activé par défaut.`,
+Die Einstellung selbst verschwand nie – nur das Bedienelement. Wenn Sie sie aktiviert hatten, verweigert Ihr Knoten seitdem die Weiterleitung von Zahlungen, ohne Möglichkeit, sie wieder abzuschalten, und sein Protokoll zeigt bei jeder abgewiesenen Zahlung \`node configured to disallow forwards\`. Betroffen sind vor allem Knoten, die von StartOS 0.3.5.x übernommen wurden, wo der Schalter eine übliche Konfigurationsoption war. Öffnen Sie „Kanaleinstellungen“, um den aktuellen Wert zu sehen und zu ändern.
+
+Knoten, die ihn nie aktiviert haben, sind nicht betroffen – die Einstellung bleibt standardmäßig deaktiviert.`,
+    pl_PL: `Przywraca przełącznik „Odrzuć żądania routingu”, który został usunięty podczas przepisywania konfiguracji tego pakietu dla StartOS 0.4.0.
+
+Samo ustawienie nigdy nie zniknęło — zniknął tylko przełącznik. Jeśli był włączony, twój węzeł od tego czasu odmawia przekazywania płatności i nie było sposobu, aby to wyłączyć, a w dzienniku przy każdej odrzuconej płatności pojawia się \`node configured to disallow forwards\`. Dotyczy to przede wszystkim węzłów przeniesionych ze StartOS 0.3.5.x, gdzie przełącznik był standardową opcją konfiguracji. Otwórz Ustawienia kanałów, aby zobaczyć bieżącą wartość i ją zmienić.
+
+Węzły, które nigdy go nie włączyły, nie są objęte zmianą — ustawienie domyślnie pozostaje wyłączone.`,
+    fr_FR: `Restaure l'option « Rejeter les demandes de routage », supprimée lors de la réécriture de la configuration de ce paquet pour StartOS 0.4.0.
+
+Le paramètre lui-même n'a jamais disparu, seule la commande l'a été. Si vous l'aviez activé, votre nœud refuse depuis lors de transmettre les paiements, sans moyen de le désactiver, et son journal affiche \`node configured to disallow forwards\` à chaque paiement refusé. Sont surtout concernés les nœuds repris de StartOS 0.3.5.x, où l'option faisait partie de la configuration courante. Ouvrez Paramètres des canaux pour voir sa valeur actuelle et la modifier.
+
+Les nœuds qui ne l'ont jamais activée ne sont pas concernés : le paramètre reste désactivé par défaut.`,
   },
   migrations: {
     up: async ({ effects, progress }) => {

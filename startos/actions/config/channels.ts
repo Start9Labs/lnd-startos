@@ -35,6 +35,7 @@ export const channelsConfig = sdk.Action.withInput(
     'simple-taproot-overlay-chans': true,
     'max-pending-channels': true,
     'allow-circular-route': true,
+    'reject-htlc': true,
     'reject-push': true,
     'coop-close-target': true,
   }),

@@ -98,6 +98,7 @@ export const shape = z.object({
   'protocol.simple-taproot-overlay-chans': iniBoolean,
   maxpendingchannels: iniNumber,
   'allow-circular-route': iniBoolean,
+  rejecthtlc: iniBoolean,
   rejectpush: iniBoolean,
   'coop-close-target-confs': iniNumber,
 
@@ -425,6 +426,14 @@ export const fullConfigSpec = InputSpec.of({
     ),
     footnote: `${i18n('Default')}: false`,
   }),
+  'reject-htlc': Value.triState({
+    name: i18n('Reject Routing Requests'),
+    default: null,
+    description: i18n(
+      "If true, LND will not forward any HTLCs that are meant as onward payments. This option will still allow LND to send HTLCs and receive HTLCs but lnd won't be used as a hop.",
+    ),
+    footnote: `${i18n('Default')}: false`,
+  }),
   'reject-push': Value.triState({
     name: i18n('Reject Push'),
     default: null,
@@ -683,6 +692,7 @@ export function fileToForm(conf: LndConf): PartialFormType {
       conf['protocol.simple-taproot-overlay-chans'],
     'max-pending-channels': conf.maxpendingchannels,
     'allow-circular-route': conf['allow-circular-route'],
+    'reject-htlc': conf.rejecthtlc,
     'reject-push': conf.rejectpush,
     'coop-close-target': conf['coop-close-target-confs'],
     // Performance
@@ -786,6 +796,8 @@ export function formToFile(
     result.maxpendingchannels = input['max-pending-channels'] ?? undefined
   if ('allow-circular-route' in input)
     result['allow-circular-route'] = input['allow-circular-route'] ?? undefined
+  if ('reject-htlc' in input)
+    result.rejecthtlc = input['reject-htlc'] ?? undefined
   if ('reject-push' in input)
     result.rejectpush = input['reject-push'] ?? undefined
   if ('coop-close-target' in input)
