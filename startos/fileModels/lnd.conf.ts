@@ -37,6 +37,8 @@ const iniBoolean = z
   .optional()
   .catch(undefined)
 
+// This shape is loose, so a key deleted from it stays in the file, live and
+// unreachable — retire one with z.undefined().catch(undefined).
 export const shape = z.object({
   // ──── Enforced (StartOS) ────
   // Upstream defaults this to 3; pinned off here since an early commit with no
