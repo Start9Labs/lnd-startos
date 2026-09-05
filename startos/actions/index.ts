@@ -10,11 +10,23 @@ import { routingFeesConfig } from './config/routing-fees'
 import { torConfig } from './config/tor'
 import { wtClientConfig } from './config/watchtowerClient'
 import { watchtowerServerConfig } from './config/watchtowerServer'
+import { towerInfo } from './towerInfo'
+import { addBackupTarget } from './addBackupTarget'
+import {
+  aezeedCipherSeed,
+  confirmSeedBackup,
+  deleteCipherSeed,
+} from './aezeedCipherSeed'
+import {
+  confirmPasswordBackup,
+} from './confirmPasswordBackup'
+import { disableAutoUnlock } from './disableAutoUnlock'
 import { initializeWallet } from './initializeWallet'
+import { manualBackup } from './manualBackup'
 import { nodeInfo } from './nodeInfo'
 import { revokeMacaroons } from './revoke-macaroons'
 import { resetWalletTransactions } from './resetTxns'
-import { towerInfo } from './towerInfo'
+import { manualWalletUnlock, walletPassword } from './walletPassword'
 
 export const actions = sdk.Actions.of()
   .addAction(general)
@@ -26,10 +38,19 @@ export const actions = sdk.Actions.of()
   .addAction(backendConfig)
   .addAction(performanceConfig)
   .addAction(watchtowerServerConfig)
+  .addAction(towerInfo)
   .addAction(wtClientConfig)
   .addAction(resetWalletTransactions)
-  .addAction(towerInfo)
   .addAction(nodeInfo)
   .addAction(initializeWallet)
   .addAction(revokeMacaroons)
   .addAction(autoconfig)
+  .addAction(aezeedCipherSeed)
+  .addAction(confirmSeedBackup)
+  .addAction(deleteCipherSeed)
+  .addAction(addBackupTarget)
+  .addAction(manualBackup)
+  .addAction(disableAutoUnlock)
+  .addAction(manualWalletUnlock)
+  .addAction(walletPassword)
+  .addAction(confirmPasswordBackup)

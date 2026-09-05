@@ -4,6 +4,8 @@ import { readFile } from 'node:fs/promises'
 import { request } from 'node:https'
 import { base64 } from 'rfc4648'
 import { initializeWallet } from './actions/initializeWallet'
+import { manualWalletUnlock } from './actions/walletPassword'
+import { customConfigJson } from './fileModels/custom-config.json'
 import { lndConfFile } from './fileModels/lnd.conf'
 import { ImportPending, startupFlagsJson } from './fileModels/startupFlags.json'
 import { shape, storeJson } from './fileModels/store.json'
@@ -32,6 +34,11 @@ const IMPORT_TIMEOUT_MS = 6 * 60 * 60_000
 // Well past the observed 36 s – 2 m 37 s a healthy node takes to reach
 // synced_to_graph, so crossing it means the elected peer is not answering.
 const GRAPH_SYNC_SLOW_MS = 15 * 60_000
+
+// How long the wallet must stay LOCKED before wallet-status reports it as a
+// genuinely locked wallet rather than the brief stopping point on the way to a
+// correct auto-unlock password. Well past the couple of seconds that takes.
+const WALLET_LOCKED_GRACE_MS = 10_000
 
 // LND gates synced_to_graph on one elected peer, and holds every other peer
 // passive until it finishes — so one unresponsive peer stalls all gossip, and
@@ -104,6 +111,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
     startupFlags
   let notified = startupFlags.notified
   let graphSyncPendingSince: number | null = null
+  let walletLockedSince: number | null = null
 
   const conf = await lndConfFile.read().const(effects)
   if (!conf) {
@@ -125,7 +133,30 @@ export const main = sdk.setupMain(async ({ effects }) => {
     allowWriteAfterConst: true,
   })
 
-  const { walletPassword, watchtowerClients } = store
+  const {
+    walletPassword,
+    watchtowerClients,
+    autoUnlockEnabled,
+    pendingPasswordChange,
+  } = store
+
+  // With auto-unlock disabled the wallet stays locked after a restart, so
+  // surface a task that leads the user to the manual unlock action. Important
+  // (like the initialize-wallet task) because a locked wallet means no channel
+  // operations until it is unlocked.
+  if (!autoUnlockEnabled && store.walletInitialized) {
+    await sdk.action
+      .createOwnTask(effects, manualWalletUnlock, 'important', {
+        reason:
+          'LND wallet is locked and auto-unlock is disabled. Use the "Wallet - Manual Unlock" action to provide your password.',
+      })
+      .catch((err) =>
+        console.error(
+          'failed to create the manual-unlock task',
+          utils.asError(err).message,
+        ),
+      )
+  }
 
   let mounts = mainMounts
 
@@ -297,7 +328,10 @@ export const main = sdk.setupMain(async ({ effects }) => {
             // still land and the restarted main opens on the conversion phase.
             await storeJson.merge(
               effects,
-              { walletPassword: oldStore.data.walletPassword },
+              {
+                walletPassword: oldStore.data.walletPassword,
+                walletInitialized: true,
+              },
               { allowWriteAfterConst: true },
             )
 
@@ -422,6 +456,143 @@ export const main = sdk.setupMain(async ({ effects }) => {
       .addOneshot('unlock-wallet', {
         exec: {
           fn: async (subcontainer, abort) => {
+            // Auto-unlock off means a freshly started LND starts LOCKED, so
+            // clear the "already unlocked" flag the manual-unlock action sets
+            // — its metadata `.const` read picks this up and re-enables the
+            // action for the next manual unlock.
+            if (!autoUnlockEnabled) {
+              await customConfigJson.merge(effects, { walletUnlocked: false })
+            }
+            // A password change requested by the Wallet - Password action must
+            // run at the very top of this oneshot, while the wallet is still
+            // LOCKED: LND's ChangePassword API is only served by the
+            // WalletUnlocker, which disappears the moment the wallet is
+            // unlocked. changepassword both changes the password AND unlocks,
+            // so it fully replaces the unlock call — running it *after* this
+            // oneshot unlocks (the old design's separate password-change
+            // oneshot) always fails with "wallet already unlocked".
+            //
+            // The action staged current_password and autoUnlockEnabled:true
+            // into the store before restarting main, so the change can be
+            // applied even when auto-unlock was off (the password is
+            // deliberately absent from the store in that state). On success
+            // the new password is adopted and the wallet is already unlocked;
+            // auto-unlock stays on so the new password remains available for
+            // re-confirming Wallet - Password Backup, and the action's result
+            // message tells the user they may disable it again afterwards.
+            if (pendingPasswordChange) {
+              console.log(
+                'Pending password change detected. Performing change while wallet is LOCKED...',
+              )
+              const newPassword = Buffer.from(
+                pendingPasswordChange,
+                'base64',
+              ).toString('utf8')
+              const currentPassword = walletPassword || ''
+              let attempts = 0
+              while (attempts < 60) {
+                if (abort.aborted) return null
+                const state = await getLndState()
+                if (state === 'LOCKED') break
+                await sleep(1_000)
+                attempts++
+              }
+              const currentBase64 = base64.stringify(
+                Buffer.from(currentPassword, 'latin1'),
+              )
+              const newBase64 = base64.stringify(
+                Buffer.from(newPassword, 'latin1'),
+              )
+              let res
+              try {
+                res = await subcontainer.exec([
+                  'curl',
+                  '--no-progress-meter',
+                  '--fail-with-body',
+                  '-X',
+                  'POST',
+                  '--cacert',
+                  `${lndDataDir}/tls.cert`,
+                  `${selfRestUrl}/v1/changepassword`,
+                  '-d',
+                  JSON.stringify({
+                    current_password: currentBase64,
+                    new_password: newBase64,
+                  }),
+                ])
+              } catch (err) {
+                // A transient exec failure (subcontainer torn down mid-
+                // restart) must not strand the flag, or the Wallet - Password
+                // action stays disabled forever. Clear it so the change can be
+                // retried by the user.
+                const body = utils.asError(err).message
+                await storeJson.merge(
+                  effects,
+                  {
+                    pendingPasswordChange: null,
+                    passwordChangeError: body.substring(0, 300),
+                  },
+                  { allowWriteAfterConst: true },
+                )
+                throw new Error(
+                  `Password change failed: ${body.substring(0, 300)}`,
+                )
+              }
+              const stdout = res.stdout.toString().trim()
+              // changepassword returns HTTP 200 with an error field in the
+              // body on failure (old password wrong, etc.), and a non-zero
+              // exit code when curl gets an actual HTTP error from `-f`.
+              if (
+                res.exitCode !== 0 ||
+                stdout.includes('"error"') ||
+                stdout.trim() === ''
+              ) {
+                const body = stdout || String(res.stderr).trim()
+                // Surface the failure back to the action and clear the flag so
+                // we do not retry a doomed change on every restart. This store
+                // write restarts main; the staged auto-unlock state acts like
+                // a regular unlock from here, so the node keeps working with
+                // the current password.
+                await storeJson.merge(
+                  effects,
+                  {
+                    pendingPasswordChange: null,
+                    passwordChangeError: body.substring(0, 300),
+                  },
+                  { allowWriteAfterConst: true },
+                )
+                throw new Error(
+                  `Password change failed: ${body.substring(0, 300)}`,
+                )
+              }
+              // Success: changepassword also unlocks. Adopt the new password
+              // and clear the flag. ⚠️ main reads store with a `.const` watch,
+              // so this write next restarts main — but only AFTER the wallet
+              // is already unlocked with the new password, so LND restarts
+              // straight into normal operation with it.
+              console.log('Password changed successfully and wallet unlocked.')
+              await storeJson.merge(
+                effects,
+                {
+                  walletPassword: newPassword,
+                  pendingPasswordChange: null,
+                  passwordChangeError: null,
+                  autoUnlockEnabled: true,
+                  passwordBackupConfirmed: false,
+                },
+                { allowWriteAfterConst: true },
+              )
+              return null
+            }
+
+            // Auto-unlock disabled ⇒ the wallet must be unlocked manually via
+            // the Wallet - Manual Unlock action. Never auto-unlock here.
+            if (!autoUnlockEnabled && !walletPassword) {
+              console.log(
+                'wallet-unlock skipped, auto-unlock disabled and no password present',
+              )
+              return null
+            }
             while (true) {
               if (abort.aborted) {
                 console.log('wallet-unlock aborted')
@@ -453,10 +624,11 @@ export const main = sdk.setupMain(async ({ effects }) => {
                 throw new Error('Wallet Password is undefined!')
 
               const pw = base64.stringify(Buffer.from(walletPassword, 'latin1'))
-              // changepassword also unlocks, so it replaces the unlock call
-              // rather than joining it. Passing the same password back is what
-              // keeps this a macaroon rotation and not a password change; LND
-              // regenerates the root key and rewrites every macaroon file.
+
+              // Regular unlock (no pending password change — that runs at the
+              // top of this oneshot). changepassword is used for macaroon
+              // rotation (/v1/changepassword with the same password), which
+              // also unlocks, replacing the unlock call.
               const res = await subcontainer.exec([
                 'curl',
                 '--no-progress-meter',
@@ -723,6 +895,295 @@ export const main = sdk.setupMain(async ({ effects }) => {
             } as const)
           : null,
       )
+      .addDaemon('channel-backup-watcher', {
+        exec: {
+          command: [
+            'sh',
+            '-c',
+            [
+              'SHOULD_EXIT=0',
+              'cleanup() { SHOULD_EXIT=1; pkill -P $$ -f inotifywait 2>/dev/null; exit 0; }',
+              'trap cleanup TERM INT',
+              `backup_file="${lndDataDir}/data/chain/bitcoin/mainnet/channel.backup"`,
+              `config_file="${lndDataDir}/custom-config.json"`,
+              '',
+              '# Wait for config file to exist',
+              'while [ ! -f "$config_file" ]; do',
+              ' if [ "$SHOULD_EXIT" = "1" ]; then exit 0; fi',
+              ' sleep 2',
+              'done',
+              '',
+              'start_time=$(date +%s)',
+              'while :; do',
+              ' if [ "$SHOULD_EXIT" = "1" ]; then exit 0; fi',
+              ' enabled=$(jq -r \'.channelAutoBackupEnabled // false\' "$config_file" 2>/dev/null || echo "false")',
+              ' if [ "$enabled" != "true" ]; then',
+              ' # Auto-backup disabled: wait for config change with short timeout',
+              ' inotifywait -q -t 2 -e modify "$config_file" 2>/dev/null',
+              ' continue',
+              ' fi',
+              ' if [ ! -s "$backup_file" ]; then',
+              ' lncli --rpcserver=${selfGrpcHost} exportchanbackup --all --output_file "$backup_file" 2>/dev/null || sleep 5',
+              ' continue',
+              ' fi',
+              ' # Wait for channel.backup change with short timeout',
+              ' if ! inotifywait -q -t 2 -e modify,move,create,delete_self,move_self "$backup_file" 2>/dev/null; then',
+              ' continue # timeout → loop and check SHOULD_EXIT',
+              ' fi',
+              '',
+              ' current_time=$(date +%s)',
+              ' elapsed=$((current_time - start_time))',
+              ' grace_enabled=$(jq -r \'.backupStartupGracePeriod // false\' "$config_file" 2>/dev/null)',
+              ' if [ "$grace_enabled" = "true" ] && [ "$elapsed" -lt 15 ]; then',
+              ' echo "[$(date -Iseconds)] Startup backup suppression is enabled by user. Skipping initial channel.backup upload." >&2',
+              ' continue',
+              ' fi',
+              '',
+              ' echo "[$(date -Iseconds)] 🔄 Channel backup file changed. Triggering backup..." >&2',
+              '',
+              ' # Load config',
+              ' rclone_b64=$(jq -r \'.rcloneConfig // empty\' "$config_file" 2>/dev/null)',
+              ' [ -n "$rclone_b64" ] && echo "$rclone_b64" | base64 -d > /tmp/rclone.conf 2>/dev/null',
+              ' remotes=$(jq -r \'.selectedRcloneRemotes // empty | .[]\' "$config_file" 2>/dev/null)',
+              '',
+              ' # Define normal and onion-specific timings',
+              ' normal_overall_timeout=12',
+              ' normal_contimeout=5s',
+              ' normal_timeout=10s',
+              ' onion_overall_timeout=60',
+              ' onion_contimeout=30s',
+              ' onion_timeout=50s',
+              '',
+              ' # Rclone',
+              ' for remote in $remotes; do',
+              ' echo "[$(date -Iseconds)] [RCLONE] Starting backup to $remote..." >&2',
+              ' remote_name=$(echo "$remote" | cut -d: -f1)',
+              '',
+              ' # Check if this remote is SFTP and uses .onion',
+              ' if [ "$remote_name" = "sftp" ]; then',
+              '   sftp_host=$(jq -r --arg rname "$remote_name" \'.rcloneConfig // empty\' "$config_file" | base64 -d 2>/dev/null | grep -A 10 "\\[$remote_name\\]" | grep -i "host.*\\.onion" || echo "")',
+              '   if [ -n "$sftp_host" ]; then',
+              '     echo "[$(date -Iseconds)] [RCLONE] Detected SFTP .onion address, using Tor proxy (timeout=60s)..." >&2',
+              '     overall_timeout=$onion_overall_timeout',
+              '     contimeout=$onion_contimeout',
+              '     timeout_opt=$onion_timeout',
+              '     if RCLONE_CONFIG=/tmp/rclone.conf timeout ${overall_timeout}s rclone copy "$backup_file" "$remote" \\',
+              '       --log-level=INFO \\',
+              '       --contimeout=${contimeout} \\',
+              '       --timeout=${timeout_opt} \\',
+              '       --retries=1; then',
+              '       echo "[$(date -Iseconds)] [RCLONE: $remote] ✅ Success" >&2',
+              '     else',
+              '       echo "[$(date -Iseconds)] [RCLONE: $remote] ❌ Failed" >&2',
+              '     fi',
+              '     continue',
+              '   fi',
+              ' fi',
+              '',
+              ' # Check if this remote is Nextcloud and uses .onion',
+              ' if [ "$remote_name" = "nextcloud" ]; then',
+              '   uses_onion=$(jq -r --arg rname "$remote_name" \'.rcloneConfig // empty\' "$config_file" | base64 -d 2>/dev/null | grep -A 10 "\\[$remote_name\\]" | grep -i "url.*\\.onion" || echo "")',
+              '   if [ -n "$uses_onion" ]; then',
+              '     echo "[$(date -Iseconds)] [RCLONE] Detected Nextcloud .onion address, using Tor proxy (timeout=60s)..." >&2',
+              '     overall_timeout=$onion_overall_timeout',
+              '     contimeout=$onion_contimeout',
+              '     timeout_opt=$onion_timeout',
+              '     if HTTP_PROXY=socks5://10.0.3.1:9050 HTTPS_PROXY=socks5://10.0.3.1:9050 ALL_PROXY=socks5://10.0.3.1:9050 RCLONE_CONFIG=/tmp/rclone.conf timeout ${overall_timeout}s rclone copy "$backup_file" "$remote" \\',
+              '       --log-level=INFO \\',
+              '       --contimeout=${contimeout} \\',
+              '       --timeout=${timeout_opt} \\',
+              '       --retries=1 \\',
+              '       --no-check-certificate; then',
+              '       echo "[$(date -Iseconds)] [RCLONE: $remote] ✅ Success" >&2',
+              '     else',
+              '       echo "[$(date -Iseconds)] [RCLONE: $remote] ❌ Failed" >&2',
+              '     fi',
+              '     continue',
+              '   fi',
+              ' fi',
+              '',
+              ' # Normal clearnet remote (Dropbox, GDrive, non-onion SFTP/Nextcloud, etc.)',
+              ' overall_timeout=$normal_overall_timeout',
+              ' contimeout=$normal_contimeout',
+              ' timeout_opt=$normal_timeout',
+              ' if RCLONE_CONFIG=/tmp/rclone.conf timeout ${overall_timeout}s rclone copy "$backup_file" "$remote" \\',
+              '   --log-level=INFO \\',
+              '   --contimeout=${contimeout} \\',
+              '   --timeout=${timeout_opt} \\',
+              '   --retries=1; then',
+              '   echo "[$(date -Iseconds)] [RCLONE: $remote] ✅ Success" >&2',
+              ' else',
+              '   echo "[$(date -Iseconds)] [RCLONE: $remote] ❌ Failed" >&2',
+              ' fi',
+              ' done',
+              '',
+              ' # Email',
+              ' email_enabled=$(jq -r \'.emailEnabled // false\' "$config_file" 2>/dev/null)',
+              ' if [ "$email_enabled" = "true" ]; then',
+              ' email_to=$(jq -r \'.emailBackup.to // empty\' "$config_file" 2>/dev/null)',
+              ' if [ -z "$email_to" ] || [ "$email_to" = "empty" ]; then',
+              ' echo "[$(date -Iseconds)] [EMAIL] ⚠️ Skipped: email_to not configured" >&2',
+              ' else',
+              ' email_from=$(jq -r \'.emailBackup.from // empty\' "$config_file" 2>/dev/null)',
+              ' email_smtp_server=$(jq -r \'.emailBackup.smtp_server // "smtp.gmail.com"\' "$config_file" 2>/dev/null)',
+              ' email_smtp_port=$(jq -r \'.emailBackup.smtp_port // 465\' "$config_file" 2>/dev/null)',
+              ' email_smtp_user=$(jq -r \'.emailBackup.smtp_user // empty\' "$config_file" 2>/dev/null)',
+              ' email_smtp_pass=$(jq -r \'.emailBackup.smtp_pass // empty\' "$config_file" 2>/dev/null)',
+              ' if [ -z "$email_smtp_pass" ] || [ "$email_smtp_pass" = "empty" ]; then',
+              ' echo "[$(date -Iseconds)] [EMAIL] ❌ Skipped: missing password" >&2',
+              ' else',
+              ' echo "[$(date -Iseconds)] [EMAIL] Starting backup to $email_to..." >&2',
+              ' protocol="smtps"; starttls="no"',
+              ' [ "$email_smtp_port" = "587" ] && { protocol="smtp"; starttls="yes"; }',
+              ' cat > /tmp/muttrc <<EOF',
+              'set from = "$email_from"',
+              'set realname = "LND Backup"',
+              'set smtp_url = "$protocol://$email_smtp_user@$email_smtp_server:$email_smtp_port/"',
+              'set smtp_pass = "$email_smtp_pass"',
+              'set ssl_starttls = $starttls',
+              'set ssl_force_tls = yes',
+              'EOF',
+              ' attempt=1',
+              ' max_attempts=5',
+              ' while [ $attempt -le $max_attempts ]; do',
+              ' if nslookup "$email_smtp_server" >/dev/null 2>&1; then',
+              ' break',
+              ' fi',
+              ' echo "[$(date -Iseconds)] [EMAIL] DNS lookup failed for \'$email_smtp_server\' (attempt $attempt/$max_attempts). Retrying in 2s..." >&2',
+              ' sleep 2',
+              ' attempt=$((attempt + 1))',
+              ' done',
+              ' if [ $attempt -gt $max_attempts ]; then',
+              ' echo "[$(date -Iseconds)] [EMAIL] ❌ Failed: Could not resolve host \'$email_smtp_server\' after $max_attempts retries" >&2',
+              ' else',
+              " recipients=$(echo \"$email_to\" | tr -d ' ' | tr ',' ' ')",
+              ' body_template=$(jq -r \'.emailBackup.body // empty\' "$config_file" 2>/dev/null)',
+              ' if [ -z "$body_template" ]; then',
+              '   body_template="Your LND channel.backup file is attached.\\n\\nThis file is encrypted with your Aezeed seed and safe to store anywhere."',
+              ' fi',
+              ' if printf "%b" "$body_template" | mutt -F /tmp/muttrc -s "LND Channel Backup $(date -Iseconds)" -a "$backup_file" -- $recipients; then',
+              ' echo "[$(date -Iseconds)] [EMAIL] ✅ Success" >&2',
+              ' else',
+              ' echo "[$(date -Iseconds)] [EMAIL] ❌ Failed" >&2',
+              ' fi',
+              ' fi',
+              ' fi',
+              ' fi',
+              ' fi',
+              'done',
+            ].join('\n'),
+          ],
+        },
+        subcontainer: lndSub,
+        ready: {
+          display: null,
+          fn: async () => {
+            const config = await customConfigJson
+              .read()
+              .once()
+              .catch(() => null)
+            return config?.channelAutoBackupEnabled
+              ? { result: 'success', message: '✅ Active' }
+              : { result: 'disabled', message: '❌ Disabled' }
+          },
+        },
+        requires: ['lnd', 'unlock-wallet'],
+      })
+
+      .addHealthCheck('wallet-status', {
+        ready: {
+          display: 'Wallet Status',
+          fn: async () => {
+            const store = await storeJson.read().once()
+            const walletInitialized = store?.walletInitialized ?? false
+            const autoUnlock = store?.autoUnlockEnabled ?? false
+            if (!walletInitialized) {
+              return {
+                message: 'Wallet not initialized',
+                result: 'loading',
+              }
+            }
+            const state = await getLndState()
+            if (
+              state === 'UNLOCKED' ||
+              state === 'RPC_ACTIVE' ||
+              state === 'SERVER_ACTIVE'
+            ) {
+              walletLockedSince = null
+              return {
+                message: 'Wallet is unlocked',
+                result: 'success',
+              }
+            }
+            // `lncli getinfo` cannot tell a locked wallet from a genuine
+            // startup: the RPC server reports "in the process of starting up"
+            // until the wallet is unlocked, on every LND version. /v1/state is
+            // the only endpoint that says LOCKED outright — so read it instead.
+            if (state === 'LOCKED') {
+              if (walletLockedSince === null) walletLockedSince = Date.now()
+              if (Date.now() - walletLockedSince < WALLET_LOCKED_GRACE_MS) {
+                return {
+                  message: i18n('LND is starting…'),
+                  result: 'starting',
+                }
+              }
+              return autoUnlock
+                ? {
+                    message: `Wallet is locked, but auto-unlock is enabled. 🔑 Password is not correct! Go to "Actions ⇢ Security ⇢ Wallet - Auto-Unlock" and enter correct password.`,
+                    result: 'loading',
+                  }
+                : {
+                    message:
+                      'Wallet is locked as auto-unlock is disabled. Go to ⇓ Tasks or "Actions ⇢ Security ⇢ Wallet - Manual Unlock" and enter correct password.',
+                    result: 'loading',
+                  }
+            }
+            return {
+              message: i18n('LND is starting…'),
+              result: 'starting',
+            }
+          },
+        },
+        requires: ['lnd'],
+      })
+      .addHealthCheck('security-status', {
+        ready: {
+          display: 'Security Status',
+          fn: async () => {
+            const store = await storeJson.read().once()
+            // Read defensively: a stale/fork volume may have saved a literal
+            // control byte that makes JSON.parse throw before zod's `.catch()`
+            // can apply defaults. Guard it so a transient corrupt file shows a
+            // disabled banner instead of crash-looping the health check.
+            const config = await customConfigJson
+              .read()
+              .once()
+              .catch(() => null)
+            const backupEnabled = config?.channelAutoBackupEnabled ?? false
+            const backupIcon = backupEnabled ? '\u{1F7E2}' : '\u{1F534}'
+            const backupText = backupEnabled ? 'ENABLED' : 'DISABLED'
+            const autoUnlock = store?.autoUnlockEnabled ?? false
+            const unlockIcon = autoUnlock ? '\u{1F7E1}' : '\u{1F7E2}'
+            const unlockText = autoUnlock ? 'AUTO' : 'MANUAL'
+            const seedOnServer = (store?.aezeedCipherSeed || []).length > 0
+            const seedIcon = seedOnServer ? '\u{1F7E1}' : '\u{1F7E2}'
+            const seedText = seedOnServer ? 'ON\u00A0SERVER' : 'DELETED'
+            const wtClientEnabled = (store?.watchtowerClients || []).length > 0
+            const wtIcon = wtClientEnabled ? '\u{1F7E2}' : '\u{1F534}'
+            const wtText = wtClientEnabled ? 'ENABLED' : 'DISABLED'
+            const allGood =
+              backupEnabled && !autoUnlock && !seedOnServer && wtClientEnabled
+            const result = allGood ? 'success' : 'disabled'
+            const block1 = `\u3010${backupIcon}\u00A0${backupText} Channels Backup\u3011`
+            const block2 = `\u3010${unlockIcon}\u00A0${unlockText} Wallet Unlock\u3011`
+            const block3 = `\u3010${seedIcon}\u00A0${seedText} Aezeed Seed\u3011`
+            const block4 = `\u3010${wtIcon}\u00A0${wtText} Watchtower Client\u3011`
+            const message = `${block1}${block2}${block3}${block4}`
+            return { message, result }
+          },
+        },
+        requires: ['lnd'],
+      })
 
   return sdk.Daemons.dynamic(effects, async ({ effects: dynEffects }) => {
     const importPending = await startupFlagsJson

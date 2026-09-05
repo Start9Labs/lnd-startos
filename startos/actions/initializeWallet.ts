@@ -288,7 +288,10 @@ async function initFresh(
         console.log(`Error running initwallet: ${status.stderr}`)
       }
 
-      await storeJson.merge(effects, { aezeedCipherSeed: cipherSeed })
+      await storeJson.merge(effects, {
+        aezeedCipherSeed: cipherSeed,
+        walletInitialized: true,
+      })
 
       child.kill(T.SIGTERM)
       await new Promise<void>((resolve) => {

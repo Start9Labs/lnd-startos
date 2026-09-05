@@ -5,15 +5,15 @@ import { mainMounts, selfGrpcHost } from '../utils'
 
 export const towerInfo = sdk.Action.withoutInput(
   // id
-  'tower-info',
+  'watchtower-server-info',
 
   // metadata
   async ({ effects }) => ({
-    name: i18n('Watchtower Server Info'),
+    name: i18n('Watchtower - Server Info'),
     description: i18n('Get your Tower Server URL'),
     warning: null,
     allowedStatuses: 'only-running',
-    group: i18n('Watchtower'),
+    group: i18n('Security'),
     visibility: (await lndConfFile
       .read((c) => c['watchtower.active'])
       .const(effects))
