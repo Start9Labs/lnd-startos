@@ -1,65 +1,35 @@
 import { VersionInfo } from '@start9labs/start-sdk'
-import { lndConfFile } from '../fileModels/lnd.conf'
-import { writeCerts } from '../init/setupCerts'
-import { sdk } from '../sdk'
-import { needsSqliteMigration, runSqliteMigration } from '../sqliteBackend'
 
 export const current = VersionInfo.of({
-  version: '0.21.2-beta:5',
+  version: '0.21.3-beta:0',
   releaseNotes: {
-    en_US: `Restores the "Reject Routing Requests" toggle, which was dropped when this package's configuration was rewritten for StartOS 0.4.0.
+    en_US: `Updated LND to 0.21.3-beta.
 
-The setting itself never went away — only the control did. If you had switched it on, your node has been refusing to forward payments ever since, with no way to turn it back off, and its log shows \`node configured to disallow forwards\` each time it turns one away. This is most likely to affect nodes carried over from StartOS 0.3.5.x, where the toggle was a standard configuration option. Open Channel Settings to see its current value and change it.
+Fixes native SQLite migration for AMP invoices, peer-triggered resource exhaustion, a wallet-wide channel-funding deadlock, stuck forwarded HTLCs, cooperative-close failures, and REST WebSocket and transaction-pagination panics.
 
-Nodes that never enabled it are unaffected — the setting stays off by default.`,
-    es_ES: `Se restaura la opción "Rechazar solicitudes de enrutamiento", que se perdió cuando se reescribió la configuración de este paquete para StartOS 0.4.0.
+[Full upstream release notes](https://github.com/lightningnetwork/lnd/releases/tag/v0.21.3-beta)`,
+    es_ES: `LND se ha actualizado a 0.21.3-beta.
 
-La opción nunca desapareció, solo el control. Si la habías activado, tu nodo ha estado rechazando el reenvío de pagos desde entonces, sin forma de desactivarla, y su registro muestra \`node configured to disallow forwards\` cada vez que rechaza uno. Esto afecta sobre todo a los nodos migrados desde StartOS 0.3.5.x, donde la opción era una configuración habitual. Abre Configuración de Canales para ver su valor actual y cambiarlo.
+Corrige la migración nativa a SQLite de facturas AMP, el agotamiento de recursos provocado por pares, un bloqueo de la financiación de canales que afectaba a todo el monedero, HTLC reenviados atascados, fallos en cierres cooperativos y errores críticos en WebSocket REST y en la paginación de transacciones.
 
-Los nodos que nunca la activaron no se ven afectados: la opción sigue desactivada de forma predeterminada.`,
-    de_DE: `Stellt den Schalter „Routing-Anfragen ablehnen“ wieder her, der beim Umschreiben der Konfiguration dieses Pakets für StartOS 0.4.0 entfernt wurde.
+[Notas completas de la versión upstream](https://github.com/lightningnetwork/lnd/releases/tag/v0.21.3-beta)`,
+    de_DE: `LND wurde auf 0.21.3-beta aktualisiert.
 
-Die Einstellung selbst verschwand nie – nur das Bedienelement. Wenn Sie sie aktiviert hatten, verweigert Ihr Knoten seitdem die Weiterleitung von Zahlungen, ohne Möglichkeit, sie wieder abzuschalten, und sein Protokoll zeigt bei jeder abgewiesenen Zahlung \`node configured to disallow forwards\`. Betroffen sind vor allem Knoten, die von StartOS 0.3.5.x übernommen wurden, wo der Schalter eine übliche Konfigurationsoption war. Öffnen Sie „Kanaleinstellungen“, um den aktuellen Wert zu sehen und zu ändern.
+Behebt die native SQLite-Migration für AMP-Rechnungen, durch Peers ausgelöste Ressourcenerschöpfung, eine walletweite Blockade der Kanalfinanzierung, festhängende weitergeleitete HTLCs, Fehler beim kooperativen Schließen sowie Abstürze bei REST-WebSockets und der Transaktionspaginierung.
 
-Knoten, die ihn nie aktiviert haben, sind nicht betroffen – die Einstellung bleibt standardmäßig deaktiviert.`,
-    pl_PL: `Przywraca przełącznik „Odrzuć żądania routingu”, który został usunięty podczas przepisywania konfiguracji tego pakietu dla StartOS 0.4.0.
+[Vollständige Upstream-Versionshinweise](https://github.com/lightningnetwork/lnd/releases/tag/v0.21.3-beta)`,
+    pl_PL: `Zaktualizowano LND do wersji 0.21.3-beta.
 
-Samo ustawienie nigdy nie zniknęło — zniknął tylko przełącznik. Jeśli był włączony, twój węzeł od tego czasu odmawia przekazywania płatności i nie było sposobu, aby to wyłączyć, a w dzienniku przy każdej odrzuconej płatności pojawia się \`node configured to disallow forwards\`. Dotyczy to przede wszystkim węzłów przeniesionych ze StartOS 0.3.5.x, gdzie przełącznik był standardową opcją konfiguracji. Otwórz Ustawienia kanałów, aby zobaczyć bieżącą wartość i ją zmienić.
+Naprawiono natywną migrację SQLite dla faktur AMP, wyczerpywanie zasobów wywoływane przez peery, blokadę finansowania kanałów obejmującą cały portfel, zablokowane przekazywane HTLC, błędy przy kooperacyjnym zamykaniu kanałów oraz awarie WebSocket REST i stronicowania transakcji.
 
-Węzły, które nigdy go nie włączyły, nie są objęte zmianą — ustawienie domyślnie pozostaje wyłączone.`,
-    fr_FR: `Restaure l'option « Rejeter les demandes de routage », supprimée lors de la réécriture de la configuration de ce paquet pour StartOS 0.4.0.
+[Pełne informacje o wydaniu upstream](https://github.com/lightningnetwork/lnd/releases/tag/v0.21.3-beta)`,
+    fr_FR: `LND a été mis à jour vers la version 0.21.3-beta.
 
-Le paramètre lui-même n'a jamais disparu, seule la commande l'a été. Si vous l'aviez activé, votre nœud refuse depuis lors de transmettre les paiements, sans moyen de le désactiver, et son journal affiche \`node configured to disallow forwards\` à chaque paiement refusé. Sont surtout concernés les nœuds repris de StartOS 0.3.5.x, où l'option faisait partie de la configuration courante. Ouvrez Paramètres des canaux pour voir sa valeur actuelle et la modifier.
+Corrige la migration SQLite native des factures AMP, l'épuisement des ressources provoqué par des pairs, un blocage du financement des canaux affectant tout le portefeuille, des HTLC transférés bloqués, des échecs de fermeture coopérative ainsi que des plantages liés aux WebSockets REST et à la pagination des transactions.
 
-Les nœuds qui ne l'ont jamais activée ne sont pas concernés : le paramètre reste désactivé par défaut.`,
+[Notes de version upstream complètes](https://github.com/lightningnetwork/lnd/releases/tag/v0.21.3-beta)`,
   },
   migrations: {
-    up: async ({ effects, progress }) => {
-      // Replay keys abandoned when bitcoind renamed its config action. Nothing
-      // reaps them, and they keep demanding whatever they last asked for.
-      await sdk.action.clearTask(
-        effects,
-        'bitcoind:config',
-        'bitcoind:other-config',
-      )
-      // The bolt → SQLite conversion, for nodes updating from a pre-0.21
-      // release — as a migration so it runs on updates only, reporting its two
-      // phases to the update progress UI. Gated on data state, not version: an
-      // already-converted node no-ops, and bolt data that arrives outside an
-      // update (an Initialize Wallet import, a restored pre-conversion backup)
-      // is converted by main's conversion phase instead (sqliteBackend.ts).
-      if (await needsSqliteMigration()) {
-        // Migrations run before the seedFiles and setupCerts init steps, and
-        // the conversion's finalize stage runs LND against both on-disk
-        // artifacts — so bring each current first. The conf re-render strips
-        // what the schema retires (the pre-0.21 onion-message keys crash 0.21
-        // with "feature bit: 39 already set"); the cert reissue covers curls
-        // pinned to 127.0.0.1, a SAN pre-0.21 certs lack, without which the
-        // schema run wedges until its timeout.
-        await lndConfFile.merge(effects, {})
-        await writeCerts(effects)
-        await runSqliteMigration(effects, progress)
-      }
-    },
+    up: async () => {},
   },
 })
