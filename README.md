@@ -210,11 +210,14 @@ Which checks exist depends on what the service is doing.
 | `import`        | Wallet Import progress            | While a wallet import is running         |
 | `db-migration`  | "Database Conversion"             | While a bolt database is being converted |
 | `lnd`           | "LND Server"                      | Normal operation                         |
+| `wallet-unlock` | "Wallet Unlock"                   | Normal operation                         |
 | `sync-progress` | "Network and Graph Sync Progress" | Normal operation                         |
 | `reachability`  | "Node Reachability"               | Normal operation                         |
 | `restored`      | Restore notice                    | After a seed restore                     |
 
 **`sync-progress` covers two different syncs** — the chain and the network graph — and a node can be caught up on one while still working through the other. It is the check to read while a node is coming up for the first time.
+
+**`wallet-unlock` fails when LND refuses the stored wallet password**, carrying LND's own reason. The `unlock-wallet` oneshot retries a refused password every 10 seconds indefinitely, and `sync-progress` waits on that oneshot, so this is the only check that distinguishes a bad stored password from a slow start.
 
 **The graph half can stall on one bad peer, and the check is written to show it.** `synced_to_graph` is a per-process latch that LND sets only when the single peer it elected as the _initial historical syncer_ finishes reconciling the graph. The first peer to connect after a start gets elected, and until the latch is set every other peer is held in `PassiveSync` — passive syncers never send a `GossipTimestampRange`, so they deliver no gossip at all. One unresponsive elected peer therefore stalls the whole gossip subsystem rather than just its own sync, and LND re-elects only when that peer disconnects or `historicalsyncinterval` (default one hour) elapses. A node with no channels is the most exposed, because it keeps no persistent peers and re-draws its first peer from bootstrap on every start.
 
@@ -300,6 +303,7 @@ tasks:
   - { action: autoconfig, severity: critical } # on bitcoind, for ZeroMQ
 health_checks:
   - lnd # displayed "LND Server"
+  - wallet-unlock # displayed "Wallet Unlock"; fails when LND refuses the stored password
   - sync-progress # displayed "Network and Graph Sync Progress"; synced_to_chain, synced_to_graph, num_peers
   - reachability # displayed "Node Reachability"
   - import # only while a wallet import runs
