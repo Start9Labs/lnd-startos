@@ -36,7 +36,7 @@ export const backupChannelsNow = sdk.Action.withoutInput(
               .trim()
               .split('\n')
               .slice(-3)
-              .join(' ') || i18n('LND gave no reason'),
+              .join(' ') || i18n('The target gave no reason'),
         }),
       )
     }

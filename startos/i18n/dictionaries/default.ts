@@ -429,7 +429,7 @@ const dict = {
   'No off-server target. channel.backup travels only inside the StartOS backups you take yourself, so channels opened since your last one are not covered.': 381,
   'Last copied ${ago} ago': 382,
   'Waiting for the first channel to back up': 383,
-  'LND gave no reason': 384,
+  'The target gave no reason': 384,
 } as const
 
 /**
