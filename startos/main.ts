@@ -1,6 +1,6 @@
 import { FileHelper, utils } from '@start9labs/start-sdk'
 import { manifest as bitcoinManifest } from 'bitcoin-core-startos/startos/manifest'
-import { readFile } from 'node:fs/promises'
+import { access, readFile } from 'node:fs/promises'
 import { request } from 'node:https'
 import { base64 } from 'rfc4648'
 import { initializeWallet } from './actions/initializeWallet'
@@ -10,8 +10,14 @@ import { shape, storeJson } from './fileModels/store.json'
 import { i18n } from './i18n'
 import { sdk } from './sdk'
 import { migrateOnStart, needsSqliteMigration } from './sqliteBackend'
+import { channelBackupStateJson } from './fileModels/channel-backup-state.json'
+import { channelBackupJson } from './fileModels/channel-backup.json'
 import {
+  backupAgentScript,
   bitcoindMnt,
+  channelBackupPath,
+  channelBackupRestoredHostPath,
+  channelBackupRestoredPath,
   getBitcoindBundle,
   GetInfo,
   lndDataDir,
@@ -51,6 +57,14 @@ function graphSyncMessage(info: GetInfo, pendingSince: number | null) {
     'Graph sync has not completed in ${minutes} min (peers: ${peers}). LND retries with another peer every hour.',
     { minutes: Math.floor(elapsed / 60_000), peers: info.num_peers },
   )
+}
+
+/** Coarse age for a health message: seconds -> "3m" / "5h" / "2d". */
+function ago(seconds: number): string {
+  if (seconds < 90) return `${seconds}s`
+  if (seconds < 5400) return `${Math.round(seconds / 60)}m`
+  if (seconds < 172800) return `${Math.round(seconds / 3600)}h`
+  return `${Math.round(seconds / 86400)}d`
 }
 
 /** Hit LND's /v1/state REST endpoint on loopback using its TLS cert. */
@@ -613,6 +627,20 @@ export const main = sdk.setupMain(async ({ effects }) => {
         },
         requires: ['sync-progress'],
       })
+      .addOneshot('restore-pull', () =>
+        restore
+          ? {
+              // Fetch a channel.backup newer than the one the StartOS backup
+              // carried, before restorechanbackup reads it. Runs after the
+              // unlock because LND rewrites its own channel.backup shortly
+              // after unlocking; the agent writes to a separate path so that
+              // rewrite cannot race the pull.
+              subcontainer: lndSub,
+              exec: { command: ['sh', backupAgentScript, '--restore'] },
+              requires: ['lnd', 'unlock-wallet'],
+            }
+          : null,
+      )
       .addOneshot('restore', () =>
         restore
           ? {
@@ -627,18 +655,23 @@ export const main = sdk.setupMain(async ({ effects }) => {
                     ),
                     result: 'failure',
                   })
+                  // restore-pull leaves a file here only when a target held one
+                  // newer than the backup's own copy.
+                  const pulled = await access(channelBackupRestoredHostPath)
+                    .then(() => true)
+                    .catch(() => false)
                   return {
                     command: [
                       'lncli',
                       `--rpcserver=${selfGrpcHost}`,
                       'restorechanbackup',
                       '--multi_file',
-                      `${lndDataDir}/data/chain/bitcoin/mainnet/channel.backup`,
+                      pulled ? channelBackupRestoredPath : channelBackupPath,
                     ],
                   }
                 },
               },
-              requires: ['lnd', 'unlock-wallet'],
+              requires: ['lnd', 'unlock-wallet', 'restore-pull'],
             }
           : null,
       )
@@ -723,6 +756,63 @@ export const main = sdk.setupMain(async ({ effects }) => {
             } as const)
           : null,
       )
+      .addDaemon('channel-backup-agent', {
+        subcontainer: sdk.SubContainer.of(
+          effects,
+          { imageId: 'lnd' },
+          mounts,
+          'channel-backup-sub',
+        ),
+        exec: { command: ['sh', backupAgentScript] },
+        ready: {
+          display: null,
+          fn: async () => ({ result: 'success', message: null }),
+        },
+        requires: ['lnd', 'unlock-wallet'],
+      })
+      .addHealthCheck('channel-backup', {
+        ready: {
+          display: i18n('Channel Backup'),
+          fn: async () => {
+            const cfg = await channelBackupJson
+              .read()
+              .once()
+              .catch(() => null)
+            if (
+              ![cfg?.gdrive, cfg?.dropbox, cfg?.nextcloud, cfg?.sftp].some(
+                (t) => t?.enabled,
+              )
+            ) {
+              return {
+                result: 'disabled',
+                message: i18n(
+                  'No off-server target. channel.backup travels only inside the StartOS backups you take yourself, so channels opened since your last one are not covered.',
+                ),
+              }
+            }
+            const state = await channelBackupStateJson
+              .read()
+              .once()
+              .catch(() => null)
+            if (state?.lastError) {
+              return { result: 'failure', message: state.lastError }
+            }
+            if (state?.lastSuccess) {
+              return {
+                result: 'success',
+                message: i18n('Last copied ${ago} ago', {
+                  ago: ago(Math.floor(Date.now() / 1000) - state.lastSuccess),
+                }),
+              }
+            }
+            return {
+              result: 'starting',
+              message: i18n('Waiting for the first channel to back up'),
+            }
+          },
+        },
+        requires: ['channel-backup-agent'],
+      })
 
   return sdk.Daemons.dynamic(effects, async ({ effects: dynEffects }) => {
     const importPending = await startupFlagsJson

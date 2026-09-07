@@ -63,13 +63,17 @@ Bitcoin's data directory is mounted **read-only** at `/mnt/bitcoin` when bitcoin
 
 ## File Models
 
-Three models, and the split between two of them is load-bearing.
+Five models, and the split between two of them is load-bearing.
 
-| File                 | Format | Modelled                | Written by                                                |
-| -------------------- | ------ | ----------------------- | --------------------------------------------------------- |
-| `lnd.conf`           | INI    | Yes — `FileHelper.ini`  | Every init, every start, and the config actions           |
-| `store.json`         | JSON   | Yes — `FileHelper.json` | Install, and the wallet and watchtower actions            |
-| `startup-flags.json` | JSON   | Yes — `FileHelper.json` | Actions, the restore hook, and `main` as it consumes them |
+| File                         | Format | Modelled                | Written by                                                |
+| ---------------------------- | ------ | ----------------------- | --------------------------------------------------------- |
+| `lnd.conf`                   | INI    | Yes — `FileHelper.ini`  | Every init, every start, and the config actions           |
+| `store.json`                 | JSON   | Yes — `FileHelper.json` | Install, and the wallet and watchtower actions            |
+| `startup-flags.json`         | JSON   | Yes — `FileHelper.json` | Actions, the restore hook, and `main` as it consumes them |
+| `channel-backup.json`        | JSON   | Yes — `FileHelper.json` | The Configure Channel Backups action                      |
+| `.channel-backup-state.json` | JSON   | Yes — `FileHelper.json` | `backup-agent.sh`, on every backup attempt                |
+
+**`channel-backup.json` holds the credentials for each backup target** — an app password, an OAuth refresh token, or an SSH private key, depending on the target. It is included in the StartOS backup because a restore needs it to find the current `channel.backup` again. `.channel-backup-state.json` is excluded, so a restored node reports its own backup health rather than the health of the machine it came from.
 
 **`startup-flags.json` is deliberately not part of `store.json`.** `main` reads the store under a watch that restarts the service on any change, so clearing a consumed flag there would restart the service in a loop — the bug that once made Reset Wallet Transactions re-run on every start. The flags file is read once instead, and cleared without triggering anything.
 
@@ -149,7 +153,7 @@ The TLS pair is issued at init for every address LND answers on — the containe
 
 ## Actions
 
-Sixteen actions. Ten configure the node, three are wallet and credential operations, and three are hidden.
+Eighteen actions. Ten configure the node, three are wallet and credential operations, two cover channel backups, and three are hidden.
 
 ### Configuration
 
@@ -185,19 +189,33 @@ Rotates the macaroon root key, invalidating **every** macaroon this node has iss
 
 Read-only, running only. The first reports the node's identity, URIs, and sync state; the second reports the watchtower server's identity, and is hidden unless that server is enabled.
 
+### Configure Channel Backups, Back Up Channels Now
+
+Grouped under Backups. `channel.backup` is LND's static channel backup: the file a restore needs to ask your peers to close your channels and return your funds. LND rewrites it whenever your channel set changes, and encrypts it under a key derived from the wallet seed, so a storage provider only ever holds ciphertext.
+
+**Configure Channel Backups** takes any combination of Google Drive, Dropbox, Nextcloud and SFTP. Each target has its own enable toggle, so turning one off keeps its saved credentials. Google and Dropbox use an authorization-code exchange: submit once with the client credentials to get a link, approve it, then paste the code back and submit again. Targets on this same server, and Tor `.onion` targets, are rejected.
+
+- **What it changes:** writes `channel-backup.json`. No restart.
+- **Repeat safety:** safe; secrets left blank keep their stored value.
+
+**Back Up Channels Now** runs one copy immediately and fails with whatever each target said, so a freshly configured target can be checked without waiting for a channel to open.
+
+- **Cost:** seconds; running only.
+
 ### Auto-Configure — hidden
 
 `visibility: 'hidden'`; how a dependent service requests configuration of this node.
 
 ## Tasks
 
-Two at install, plus one raised on Bitcoin.
+Three at install, plus one raised on Bitcoin.
 
-| Task              | Raised on | Severity   | Raised when                                        | Cleared when                                          |
-| ----------------- | --------- | ---------- | -------------------------------------------------- | ----------------------------------------------------- |
-| Initialize Wallet | this      | `critical` | At install                                         | The action runs                                       |
-| Bitcoin Backend   | this      | `critical` | At install                                         | The action runs                                       |
-| Auto-Configure    | Bitcoin   | `critical` | The backend is bitcoind and its ZeroMQ is disabled | Bitcoin's config matches; it returns if changed again |
+| Task                      | Raised on | Severity    | Raised when                                        | Cleared when                                          |
+| ------------------------- | --------- | ----------- | -------------------------------------------------- | ----------------------------------------------------- |
+| Initialize Wallet         | this      | `critical`  | At install                                         | The action runs                                       |
+| Bitcoin Backend           | this      | `critical`  | At install                                         | The action runs                                       |
+| Configure Channel Backups | this      | `important` | At install                                         | The action runs                                       |
+| Auto-Configure            | Bitcoin   | `critical`  | The backend is bitcoind and its ZeroMQ is disabled | Bitcoin's config matches; it returns if changed again |
 
 The Bitcoin task appears on **Bitcoin's** page with nothing there explaining which service asked for it. LND needs ZeroMQ to be told about new blocks and transactions; polling is not a substitute.
 
@@ -230,12 +248,24 @@ That state is indistinguishable from a large legitimate backfill through `getinf
 
 The `main` volume is copied wholesale — `sdk.Backups.ofVolumes('main')` — with a substantial exclude list, and the exclusions are the substance.
 
-- **Excluded:** the network graph, the channel database, the sphinx replay database, the Neutrino chain data and header files, the logs, and `startup-flags.json`.
-- **Included:** `lnd.conf`, `store.json` with the wallet password and seed, the TLS pair, the macaroons, and the wallet database.
+- **Excluded:** the network graph, the channel database, the sphinx replay database, the Neutrino chain data and header files, the logs, `startup-flags.json`, `.channel-backup-state.json`, and `channel.backup.restored`.
+- **Included:** `lnd.conf`, `store.json` with the wallet password and seed, the TLS pair, the macaroons, the wallet database, `channel.backup`, and `channel-backup.json`.
 
-**The channel database is deliberately not backed up.** Restoring a stale one claims channel states the network has moved past, which is how funds are lost — so a restore recovers the wallet and relies on static channel backups to close channels cooperatively, rather than resuming them.
+**The channel database is deliberately not backed up.** Restoring a stale one claims channel states the network has moved past, which is how funds are lost — so a restore recovers the wallet and relies on the static channel backup, which asks each peer to force-close and return the funds, rather than resuming the channels.
 
 `startup-flags.json` is excluded for a second reason: a pending import carries the origin node's password in clear text, which must not ride into a backup. On restore the package sets the restore marker and clears any pending import outright — re-running Initialize Wallet is the way to migrate again.
+
+### Where the static channel backup comes from
+
+A StartOS backup carries the `channel.backup` that existed when it was taken, so a channel opened since then is not in it and its funds are not recovered. Configure Channel Backups keeps a copy off the server that is updated whenever the channel set changes, which closes that window.
+
+On a restore the `restore-pull` oneshot asks every configured target for its copy and the generation marker shipped beside it, and compares the newest against the watermark that travelled inside the StartOS backup:
+
+- **A target is newer** — its copy is written to `channel.backup.restored` and `restorechanbackup` reads that instead.
+- **No target is newer, or none is reachable** — the `channel.backup` from the StartOS backup is used, exactly as before.
+- **The newest target is older than the watermark** — the target has been rolled back. Nothing is pulled, the backup's own copy is used, and the Channel Backup health check says so.
+
+`restore-pull` runs after the wallet unlocks, because LND rewrites its own `channel.backup` shortly after unlocking; writing to a separate path is what keeps that rewrite from racing the pull. The backup agent also stops uploading while a restore is pending, so the stale file LND writes on the way through is never shipped over a good copy.
 
 ## Limitations and Differences
 
@@ -294,13 +324,17 @@ actions:
   - node-info # only-running
   - tower-info # only-running; hidden unless the tower is enabled
   - autoconfig # hidden; driven by dependents
+  - configure-channel-backup
+  - backup-channels-now # only-running
 tasks:
   - { action: initialize-wallet, severity: critical }
   - { action: backend-config, severity: critical }
   - { action: autoconfig, severity: critical } # on bitcoind, for ZeroMQ
+  - { action: configure-channel-backup, severity: important }
 health_checks:
   - lnd # displayed "LND Server"
   - sync-progress # displayed "Network and Graph Sync Progress"; synced_to_chain, synced_to_graph, num_peers
+  - channel-backup # displayed "Channel Backup"; disabled until a target is configured
   - reachability # displayed "Node Reachability"
   - import # only while a wallet import runs
   - db-migration # only while a bolt database is converted
