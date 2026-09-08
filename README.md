@@ -71,7 +71,7 @@ Three models, and the split between two of them is load-bearing.
 | `store.json`         | JSON   | Yes — `FileHelper.json` | Install, and the wallet and watchtower actions            |
 | `startup-flags.json` | JSON   | Yes — `FileHelper.json` | Actions, the restore hook, and `main` as it consumes them |
 
-**`startup-flags.json` is deliberately not part of `store.json`.** `main` reads the store under a watch that restarts the service on any change, so clearing a consumed flag there would restart the service in a loop — the bug that once made Reset Wallet Transactions re-run on every start. The flags file is read once instead, and cleared without triggering anything. Every write to it goes through one lock, and a Reset or Revoke request carries an id, so a lifecycle clears only the request it consumed and never one armed after it started.
+**`startup-flags.json` is deliberately not part of `store.json`.** `main` reads the store under a watch that restarts the service on any change, so clearing a consumed flag there would restart the service in a loop — the bug that once made Reset Wallet Transactions re-run on every start. The flags file is read once instead, and cleared without triggering anything. Every write to it goes through one serialized writer, and a Reset or Revoke request carries an id, so a lifecycle clears only the request it consumed and never one armed after it started.
 
 ### lnd.conf
 

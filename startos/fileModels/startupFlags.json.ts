@@ -1,7 +1,5 @@
 import { FileHelper, T, z } from '@start9labs/start-sdk'
-import { mkdir, rmdir, stat } from 'node:fs/promises'
 import { sdk } from '../sdk'
-import { mainVolumeHost, sleep } from '../utils'
 
 // A migration scheduled by the Initialize Wallet action: set once the action has
 // verified it can reach the origin, consumed by main's import phase, and cleared
@@ -69,45 +67,22 @@ export const startupFlagsJson = FileHelper.json(
   shape,
 )
 
-const lockDir = `${mainVolumeHost}/.startup-flags.lock`
+let pending: Promise<unknown> = Promise.resolve()
 
 /**
- * The one way to write this file. FileHelper.merge is a read-modify-write, so
- * two writers racing would lose one update; main and the actions all
- * serialize here. `change` sees the current flags and returns the patch to
- * apply, or null to leave them alone.
+ * The one way to write this file. Every writer runs in the one runtime process,
+ * so a promise chain is what keeps merge's read-modify-write from losing an
+ * update. `change` sees the current flags and returns the patch, or null.
  */
-export async function updateStartupFlags(
+export function updateStartupFlags(
   effects: T.Effects,
   change: (current: StartupFlags) => Partial<StartupFlags> | null,
 ): Promise<void> {
-  const deadline = Date.now() + 10_000
-  while (true) {
-    try {
-      await mkdir(lockDir)
-      break
-    } catch (e) {
-      if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e
-      // A holder that died left the directory behind; no write takes 5 s.
-      const held = await stat(lockDir).then(
-        (s) => Date.now() - s.mtimeMs,
-        () => 0,
-      )
-      if (held > 5_000) {
-        await rmdir(lockDir).catch(() => {})
-        continue
-      }
-      if (Date.now() > deadline) {
-        throw new Error('startup-flags.json stayed locked')
-      }
-      await sleep(25)
-    }
-  }
-  try {
+  const next = pending.then(async () => {
     const current = await startupFlagsJson.read().once()
     const patch = change(current ?? shape.parse({}))
     if (patch) await startupFlagsJson.merge(effects, patch)
-  } finally {
-    await rmdir(lockDir).catch(() => {})
-  }
+  })
+  pending = next.catch(() => {})
+  return next
 }
