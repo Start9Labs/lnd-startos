@@ -288,6 +288,8 @@ export default {
     306: 'El monedero está desbloqueado',
     307: 'LND rechazó la contraseña del monedero almacenada: ${error}',
     470: 'LND no pudo desbloquear el monedero: ${error}',
+    472: 'LND no rotó la clave raíz de los macaroons: ${error}. Vuelve a ejecutar Revocar macaroons.',
+    473: 'LND no confirmó la rotación de los macaroons. Vuelve a ejecutar Revocar macaroons para asegurarte de que todos los macaroons emitidos antes queden revocados.',
   },
   de_DE: {
     0: 'Starte LND!',
@@ -576,6 +578,8 @@ export default {
     306: 'Die Wallet ist entsperrt',
     307: 'LND hat das gespeicherte Wallet-Passwort abgelehnt: ${error}',
     470: 'LND konnte die Wallet nicht entsperren: ${error}',
+    472: 'LND hat den Macaroon-Root-Key nicht rotiert: ${error}. Führe „Macaroons widerrufen“ erneut aus.',
+    473: 'LND hat die Rotation der Macaroons nicht bestätigt. Führe „Macaroons widerrufen“ erneut aus, damit jeder zuvor ausgestellte Macaroon sicher widerrufen ist.',
   },
   pl_PL: {
     0: 'Uruchamianie LND!',
@@ -864,6 +868,8 @@ export default {
     306: 'Portfel jest odblokowany',
     307: 'LND odrzucił zapisane hasło portfela: ${error}',
     470: 'LND nie mógł odblokować portfela: ${error}',
+    472: 'LND nie zrotował klucza głównego macaroons: ${error}. Uruchom ponownie „Unieważnij macaroons”.',
+    473: 'LND nie potwierdził rotacji macaroons. Uruchom ponownie „Unieważnij macaroons”, aby mieć pewność, że każdy wcześniej wydany macaroon został unieważniony.',
   },
   fr_FR: {
     0: 'Démarrage de LND !',
@@ -1152,5 +1158,7 @@ export default {
     306: 'Le portefeuille est déverrouillé',
     307: 'LND a refusé le mot de passe du portefeuille enregistré : ${error}',
     470: "LND n'a pas pu déverrouiller le portefeuille : ${error}",
+    472: "LND n'a pas renouvelé la clé racine des macaroons : ${error}. Relancez « Révoquer les macaroons ».",
+    473: "LND n'a pas confirmé le renouvellement des macaroons. Relancez « Révoquer les macaroons » pour être sûr que chaque macaroon émis auparavant est révoqué.",
   },
 } satisfies Record<string, LangDict>

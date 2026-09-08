@@ -73,8 +73,12 @@ export const main = sdk.setupMain(async ({ effects }) => {
   if (!startupFlags) {
     throw new Error('No startup-flags.json')
   }
-  const { resetWalletTransactions, restore, rotateMacaroonRootKey } =
-    startupFlags
+  const {
+    resetWalletTransactions,
+    restore,
+    rotateMacaroonRootKey,
+    rotationSent,
+  } = startupFlags
   let notified = startupFlags.notified
   let graphSyncPendingSince: number | null = null
   // LND's own reason the stored password did not open the wallet, published by
@@ -402,7 +406,21 @@ export const main = sdk.setupMain(async ({ effects }) => {
         subcontainer: null,
         exec: {
           fn: async (_, abort) => {
+            // A changepassword that reached LND is never repeated: LND deletes
+            // the macaroon files before rotating, and a second one fails on
+            // their absence. Once one is out, only plain unlocks follow, and
+            // the rotation counts as done only if nothing else could have
+            // opened the wallet.
+            let sent = rotationSent
+            let sentHere = false
+            let confirmable = true
             let rotated = false
+            let unconfirmed = false
+            let rotationError: string | null = null
+            const walletOpened = () => {
+              if (sentHere && confirmable) rotated = true
+              else if (sent) unconfirmed = true
+            }
             while (true) {
               if (abort.aborted) {
                 console.log('wallet-unlock aborted')
@@ -415,6 +433,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
               const state = await getLndState(abort)
               if (isPastUnlock(state)) {
                 console.log(`wallet-unlock skipped, state=${state}`)
+                walletOpened()
                 break
               }
               if (state !== 'LOCKED') {
@@ -427,7 +446,16 @@ export const main = sdk.setupMain(async ({ effects }) => {
               if (!walletPassword)
                 throw new Error('Wallet Password is undefined!')
 
-              const rotate = !!rotateMacaroonRootKey && !rotateDeferred
+              const rotate = !!rotateMacaroonRootKey && !rotateDeferred && !sent
+              if (rotate) {
+                await updateStartupFlags(effects, () => ({
+                  rotationSent: rotateMacaroonRootKey,
+                }))
+                sent = rotateMacaroonRootKey
+                sentHere = true
+              } else if (sent) {
+                confirmable = false
+              }
               const res = await unlockWallet(
                 walletPassword,
                 {
@@ -438,11 +466,24 @@ export const main = sdk.setupMain(async ({ effects }) => {
               )
               if (res.ok) {
                 console.log('wallet-unlock succeeded')
-                rotated = rotate
                 unlockError = null
+                if (rotate) rotated = true
+                else if (sent) unconfirmed = true
                 break
               }
               console.log('wallet-unlock failed', res)
+              if (rotate && res.kind === 'passphrase') {
+                // Refused before anything changed: the request is still whole.
+                await updateStartupFlags(effects, (flags) =>
+                  flags.rotationSent === sent ? { rotationSent: false } : null,
+                )
+                sent = false
+                sentHere = false
+              } else if (rotate && res.kind === 'lnd') {
+                rotationError = res.message
+                if (/wallet already unlocked/i.test(res.message))
+                  confirmable = false
+              }
               // Only LND's own answer is reported: a request that got none says
               // nothing about the password.
               if (res.kind !== 'transport') {
@@ -450,24 +491,36 @@ export const main = sdk.setupMain(async ({ effects }) => {
               }
               await sleep(10_000, abort)
             }
-            // Cleared here, not from a dependent oneshot: a restart lands in
-            // the window between the two and arms the flag for every start
-            // after. Each flag is cleared only while it still holds the very
-            // request this run consumed — the reset applied when LND started,
-            // the rotation only if this oneshot performed it — so a request
-            // armed since is left to the lifecycle that will consume it. A
-            // rotation LND performed but never answered stays armed and runs
-            // again: at-least-once, which a rotation tolerates.
+            // Each flag is cleared only while it still holds the very request
+            // this run consumed, so one armed since is left to the lifecycle
+            // that will consume it.
+            const settled = rotated || unconfirmed
             await updateStartupFlags(effects, (flags) => ({
               ...(resetWalletTransactions &&
               flags.resetWalletTransactions === resetWalletTransactions
                 ? { resetWalletTransactions: false }
                 : {}),
-              ...(rotated &&
-              flags.rotateMacaroonRootKey === rotateMacaroonRootKey
+              ...(settled && flags.rotationSent === sent
+                ? { rotationSent: false }
+                : {}),
+              ...(settled && flags.rotateMacaroonRootKey === sent
                 ? { rotateMacaroonRootKey: false }
                 : {}),
             }))
+            if (unconfirmed) {
+              await sdk.notification.create(effects, {
+                level: 'warning',
+                title: i18n('Revoke Macaroons'),
+                message: rotationError
+                  ? i18n(
+                      'LND did not rotate the macaroon root key: ${error}. Run Revoke Macaroons again.',
+                      { error: literal(rotationError) },
+                    )
+                  : i18n(
+                      'LND did not confirm the macaroon rotation. Run Revoke Macaroons again to be sure every macaroon issued before it is revoked.',
+                    ),
+              })
+            }
             return null
           },
         },

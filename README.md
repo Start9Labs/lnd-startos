@@ -101,7 +101,7 @@ Two further keys are forced absent for correctness rather than preference: **`db
 
 `store.json` holds the wallet password, the seed if the package generated one, the registered watchtower clients, and any custom external hosts.
 
-`startup-flags.json` holds one-time requests: a pending wallet import (**including the origin node's password**, since nothing else persists it), a wallet-transaction reset, a macaroon rotation, a restore marker, and whether the sync notification has fired. Each is consumed by `main` and cleared once the work it asked for has run.
+`startup-flags.json` holds one-time requests: a pending wallet import (**including the origin node's password**, since nothing else persists it), a wallet-transaction reset, a macaroon rotation and the marker that its request has reached LND, a restore marker, and whether the sync notification has fired. Each is consumed by `main` and cleared once the work it asked for has run.
 
 ## Dependencies
 
@@ -177,7 +177,7 @@ Rescans the chain, rebuilding the wallet's transaction history. Run it when on-c
 
 Rotates the macaroon root key, invalidating **every** macaroon this node has issued.
 
-- **What it changes:** sets a one-time flag; the rotation happens at the next start.
+- **What it changes:** sets a one-time flag; the rotation happens at the next start, through `changepassword` with the unchanged password. LND deletes the macaroon files before it rotates the key, and a second request fails on their absence, so a request that has reached LND is never repeated: if LND does not confirm it, the next unlock is a plain one that regenerates the files, the request is dropped, and a notification asks you to run the action again. A password LND refuses leaves nothing changed and is retried.
 - **Repeat safety:** safe, but every application connected to this node must be re-paired afterwards — including through the connect interfaces above, which are regenerated with the new macaroon.
 - **When to run it:** if a macaroon may have been exposed. Note that a service reading LND's admin macaroon through a mount has full control of the node, which is why other packages' security fixes sometimes ask you to run this.
 

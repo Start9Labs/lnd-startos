@@ -379,7 +379,7 @@ async function waitForState(
   abort: AbortSignal,
 ): Promise<void> {
   while (!abort.aborted) {
-    if (predicate(await getLndState())) return
+    if (predicate(await getLndState(abort))) return
     await sleep(2_000, abort)
   }
   throw new Error('Migration aborted before LND reached the expected state')

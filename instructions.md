@@ -20,6 +20,8 @@ Then start LND.
 
 On every start, **Network and Graph Sync** goes through _Syncing to graph_ before it reaches _Synced_ — usually well under three minutes. If it reads _Waiting for peers_, LND has not connected to any yet. LND depends on a single peer it picks at startup to hand over the channel graph, and if that peer stops responding the sync waits on it; the check then tells you how long it has been pending. LND retries with a different peer within the hour on its own, so this normally clears itself. If you would rather not wait, restart LND — it picks a different peer. A node with no channels sees this most often, because it has no regular peers to reconnect to.
 
+**Wallet Unlock** shows whether LND accepted the wallet password StartOS stores for it. StartOS retries the unlock on its own, so a failure here means LND is refusing the stored password, or failing the unlock for another reason the message carries. A refused password means the wallet files and the stored password do not belong together, which can happen after an interrupted migration; restoring LND from a backup taken when they matched resolves it.
+
 ## Using LND
 
 ### Connecting wallets and apps
@@ -46,7 +48,7 @@ Configure LND through its settings actions — General, Routing Fees, Channel Se
 
 Two advanced actions worth knowing: **Reset Wallet Transactions** rescans the chain for on-chain transactions LND may have missed; **Revoke Macaroons** revokes every existing macaroon and mints fresh ones, after which you must reconnect wallets with the new `lndconnect://` URI.
 
-Run **Revoke Macaroons** if a macaroon may have been copied or exposed — for example if you run BTCPay Server, which reads LND's admin macaroon and shipped an actively exploited vulnerability in versions before 2.4.2. Every other service connected to LND also loses access until it picks up the new macaroon, so expect to restart them.
+Run **Revoke Macaroons** if a macaroon may have been copied or exposed — for example if you run BTCPay Server, which reads LND's admin macaroon and shipped an actively exploited vulnerability in versions before 2.4.2. Every other service connected to LND also loses access until it picks up the new macaroon, so expect to restart them. If LND cannot confirm that the rotation happened, a notification asks you to run **Revoke Macaroons** again.
 
 ## Backups
 

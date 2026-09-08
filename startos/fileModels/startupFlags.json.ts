@@ -44,6 +44,11 @@ const shape = z.object({
   // instead of /v1/unlockwallet — the only supported way to rotate the root
   // key, which is what actually revokes (see the action).
   rotateMacaroonRootKey: request,
+  // The request whose changepassword reached LND without a confirmed outcome.
+  // LND deletes the macaroon files before rotating and a second changepassword
+  // fails on their absence, so while this is set the unlocker sends a plain
+  // unlock, which regenerates them, and the user is told to ask again.
+  rotationSent: request,
   // bolt → SQLite migration progress (persistent, like `notified`).
   //   dbSchemaFinalized — LND has been run on bolt to apply pending schema
   //     migrations, so a resumed conversion skips that step.
