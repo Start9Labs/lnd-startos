@@ -1,17 +1,16 @@
 import { SubContainer, T } from '@start9labs/start-sdk'
 import { rm, stat } from 'fs/promises'
-import { base64 } from 'rfc4648'
 import { lndConfFile } from './fileModels/lnd.conf'
 import { startupFlagsJson } from './fileModels/startupFlags.json'
 import { storeJson } from './fileModels/store.json'
 import { i18n } from './i18n'
+import { getLndState, isPastUnlock, LndState, unlockWallet } from './lndRest'
 import { manifest } from './manifest'
 import { sdk } from './sdk'
 import {
   lndDataDir,
   mainMounts,
   mainVolumeHost,
-  selfRestUrl,
   sleep,
   watchtowerServerDir,
 } from './utils'
@@ -53,7 +52,6 @@ const lndinitDataDir = `${lndDataDir}/data`
 // The SQLite graph db lndinit produces, as seen inside the migration
 // subcontainer (main volume mounted at lndDataDir).
 const channelSqliteInner = `${lndinitDataDir}/graph/mainnet/channel.sqlite`
-const tlsCert = `${lndDataDir}/tls.cert`
 
 // Both are backstops: on success the chain resolves the instant it's ready, so
 // neither cap slows a healthy migration. They differ because the work does. The
@@ -65,14 +63,6 @@ const SCHEMA_TIMEOUT_MS = 60 * 60_000
 // Copying every bucket to SQLite is bounded by db size; a multi-GB channel.db
 // on a busy routing node can take hours. Sized to outlast the largest nodes.
 const MIGRATE_TIMEOUT_MS = 6 * 60 * 60_000
-
-type LndState =
-  | 'NON_EXISTING'
-  | 'LOCKED'
-  | 'UNLOCKED'
-  | 'RPC_ACTIVE'
-  | 'SERVER_ACTIVE'
-  | 'WAITING_TO_START'
 
 /**
  * Whether the bolt → SQLite conversion still needs to run. Checked by the
@@ -258,7 +248,7 @@ async function finalizeBoltSchema(
         // Ready once the wallet unlocker is serving (LOCKED) or the wallet is
         // already unlocked — the gate for the finalize oneshot to run.
         fn: async () => {
-          const state = await getState(schemaSub)
+          const state = await getLndState()
           return state === 'LOCKED' || isPastUnlock(state)
             ? { result: 'success', message: null }
             : { result: 'starting', message: null }
@@ -269,14 +259,19 @@ async function finalizeBoltSchema(
     .addOneshot('finalize-schema', {
       subcontainer: schemaSub,
       exec: {
-        fn: async (sub, abort) => {
-          if (!isPastUnlock(await getState(sub))) {
-            await unlockWallet(sub, walletPassword)
+        fn: async (_, abort) => {
+          if (!isPastUnlock(await getLndState())) {
+            const res = await unlockWallet(walletPassword)
+            if (!res.ok) {
+              throw new Error(
+                `Failed to unlock wallet for schema migration: ${res.refused ?? res.detail}`,
+              )
+            }
           }
           // Schema migrations run in BuildDatabase, before SetWalletUnlocked, so
           // observing UNLOCKED guarantees they are applied — no need to wait for
           // RPC_ACTIVE/SERVER_ACTIVE or for the node to sync.
-          await waitForState(sub, isPastUnlock, abort)
+          await waitForState(isPastUnlock, abort)
           return null
         },
       },
@@ -380,63 +375,12 @@ function lndinitArgs(watchtowerActive: boolean): [string, ...string[]] {
   return args
 }
 
-async function unlockWallet(sub: Sub, walletPassword: string): Promise<void> {
-  const res = await sub.exec(
-    [
-      'curl',
-      '--no-progress-meter',
-      '-X',
-      'POST',
-      '--cacert',
-      tlsCert,
-      `${selfRestUrl}/v1/unlockwallet`,
-      '-d',
-      // Body on stdin: an argv copy is readable in /proc for the life of the
-      // request.
-      '@-',
-    ],
-    {
-      input: JSON.stringify({
-        wallet_password: base64.stringify(
-          Buffer.from(walletPassword, 'latin1'),
-        ),
-      }),
-    },
-  )
-  const stdout = res.stdout.toString().trim()
-  if (stdout !== '{}' && !stdout.includes('wallet already unlocked')) {
-    throw new Error(`Failed to unlock wallet for schema migration: ${stdout}`)
-  }
-}
-
-function isPastUnlock(s: LndState | null): boolean {
-  return s === 'UNLOCKED' || s === 'RPC_ACTIVE' || s === 'SERVER_ACTIVE'
-}
-
-async function getState(sub: Sub): Promise<LndState | null> {
-  const res = await sub.exec([
-    'curl',
-    '--no-progress-meter',
-    '-s',
-    '--cacert',
-    tlsCert,
-    `${selfRestUrl}/v1/state`,
-  ])
-  if (res.exitCode !== 0 || typeof res.stdout !== 'string') return null
-  try {
-    return (JSON.parse(res.stdout) as { state: LndState }).state
-  } catch {
-    return null
-  }
-}
-
 async function waitForState(
-  sub: Sub,
   predicate: (s: LndState | null) => boolean,
   abort: AbortSignal,
 ): Promise<void> {
   while (!abort.aborted) {
-    if (predicate(await getState(sub))) return
+    if (predicate(await getLndState())) return
     await sleep(2_000)
   }
   throw new Error('Migration aborted before LND reached the expected state')

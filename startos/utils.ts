@@ -12,6 +12,12 @@ import { sdk } from './sdk'
 export const lndDataDir = '/root/.lnd'
 export const bitcoindMnt = '/mnt/bitcoin'
 export const mainVolumeHost = '/media/startos/volumes/main'
+// LND's TLS certificate as seen from the JS process, not the container.
+export const certPathHost = `${mainVolumeHost}/tls.cert`
+
+// For untrusted text passed as an i18n parameter: the SDK substitutes with
+// String.replace, which reads `$&`, `$'` and `` $` `` in the value as patterns.
+export const literal = (text: string) => text.replace(/\$/g, '$$$$')
 // The watchtower *server* database (client sessions + their state-update
 // backups), distinct from the wtclient db under data/graph. Deleted whenever
 // the server is disabled — by the action and, as a backstop, by the migration.

@@ -1,28 +1,25 @@
 import { FileHelper, utils } from '@start9labs/start-sdk'
 import { manifest as bitcoinManifest } from 'bitcoin-core-startos/startos/manifest'
-import { readFile } from 'node:fs/promises'
-import { request } from 'node:https'
-import { base64 } from 'rfc4648'
 import { initializeWallet } from './actions/initializeWallet'
 import { lndConfFile } from './fileModels/lnd.conf'
 import { ImportPending, startupFlagsJson } from './fileModels/startupFlags.json'
 import { shape, storeJson } from './fileModels/store.json'
 import { i18n } from './i18n'
+import { getLndState, isPastUnlock, unlockWallet } from './lndRest'
 import { sdk } from './sdk'
 import { migrateOnStart, needsSqliteMigration } from './sqliteBackend'
 import {
   bitcoindMnt,
+  certPathHost,
   getBitcoindBundle,
   GetInfo,
+  literal,
   lndDataDir,
   mainMounts,
   neutrinoBundle,
   selfGrpcHost,
-  selfRestUrl,
   sleep,
 } from './utils'
-
-const certPath = '/media/startos/volumes/main/tls.cert'
 
 // Bounded by the channel db an origin node hands over — multi-GB on a busy
 // routing node, off a USB disk, over LAN. The SDK's 30 s exec default would
@@ -51,34 +48,6 @@ function graphSyncMessage(info: GetInfo, pendingSince: number | null) {
     'Graph sync has not completed in ${minutes} min (peers: ${peers}). LND retries with another peer every hour.',
     { minutes: Math.floor(elapsed / 60_000), peers: info.num_peers },
   )
-}
-
-/** Hit LND's /v1/state REST endpoint on loopback using its TLS cert. */
-async function getLndState(): Promise<string | null> {
-  const ca = await readFile(certPath).catch(() => null)
-  return new Promise((resolve) => {
-    const req = request(
-      `${selfRestUrl}/v1/state`,
-      { ca: ca ?? undefined, rejectUnauthorized: !!ca, timeout: 5000 },
-      (res) => {
-        let data = ''
-        res.on('data', (c) => (data += c))
-        res.on('end', () => {
-          try {
-            resolve((JSON.parse(data) as { state: string }).state)
-          } catch {
-            resolve(null)
-          }
-        })
-      },
-    )
-    req.on('error', () => resolve(null))
-    req.on('timeout', () => {
-      req.destroy()
-      resolve(null)
-    })
-    req.end()
-  })
 }
 
 export const main = sdk.setupMain(async ({ effects }) => {
@@ -164,7 +133,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
   // a reissued certificate — a new address on the gRPC interface — to a client.
   // Not armed ahead of a preparatory phase, which a re-run would abandon.
   if (!startupFlags.importPending && !(await needsSqliteMigration())) {
-    await FileHelper.string(certPath).read().const(effects)
+    await FileHelper.string(certPathHost).read().const(effects)
   }
 
   // Native SQL lives on the CLI, not the conf (see lnd.conf.ts).
@@ -423,8 +392,9 @@ export const main = sdk.setupMain(async ({ effects }) => {
         requires: [],
       })
       .addOneshot('unlock-wallet', {
+        subcontainer: null,
         exec: {
-          fn: async (subcontainer, abort) => {
+          fn: async (_, abort) => {
             while (true) {
               if (abort.aborted) {
                 console.log('wallet-unlock aborted')
@@ -432,16 +402,10 @@ export const main = sdk.setupMain(async ({ effects }) => {
               }
 
               // Skip the unlock call (and its noisy LND error log) only when
-              // the wallet is strictly past LOCKED. Per stateservice.proto:
-              //   NON_EXISTING=0, LOCKED=1, UNLOCKED=2, RPC_ACTIVE=3,
-              //   SERVER_ACTIVE=4, WAITING_TO_START=255.
-              // WAITING_TO_START means "not started yet" — keep polling.
+              // the wallet is strictly past LOCKED. WAITING_TO_START means
+              // "not started yet" — keep polling.
               const state = await getLndState()
-              if (
-                state === 'UNLOCKED' ||
-                state === 'RPC_ACTIVE' ||
-                state === 'SERVER_ACTIVE'
-              ) {
+              if (isPastUnlock(state)) {
                 console.log(`wallet-unlock skipped, state=${state}`)
                 break
               }
@@ -455,72 +419,21 @@ export const main = sdk.setupMain(async ({ effects }) => {
               if (!walletPassword)
                 throw new Error('Wallet Password is undefined!')
 
-              const pw = base64.stringify(Buffer.from(walletPassword, 'latin1'))
-              // changepassword also unlocks, so it replaces the unlock call
-              // rather than joining it. Passing the same password back is what
-              // keeps this a macaroon rotation and not a password change; LND
-              // regenerates the root key and rewrites every macaroon file.
-              const res = await subcontainer.exec(
-                [
-                  'curl',
-                  '--no-progress-meter',
-                  '-X',
-                  'POST',
-                  '--cacert',
-                  `${lndDataDir}/tls.cert`,
-                  rotateMacaroonRootKey
-                    ? `${selfRestUrl}/v1/changepassword`
-                    : `${selfRestUrl}/v1/unlockwallet`,
-                  '-d',
-                  // Body on stdin: an argv copy is readable in /proc for the
-                  // life of the request.
-                  '@-',
-                ],
-                {
-                  input: rotateMacaroonRootKey
-                    ? JSON.stringify({
-                        current_password: pw,
-                        new_password: pw,
-                        new_macaroon_root_key: true,
-                      })
-                    : restore
-                      ? JSON.stringify({
-                          wallet_password: pw,
-                          recovery_window: 2_500,
-                        })
-                      : JSON.stringify({ wallet_password: pw }),
-                },
-              )
-              const stdout = res.stdout.toString().trim()
-              // On the rotate path the body carries the new admin_macaroon —
-              // never log it.
-              console.log('wallet-unlock response', {
-                exitCode: res.exitCode,
-                stdout: rotateMacaroonRootKey ? '(redacted)' : stdout,
-                stderr: String(res.stderr).trim(),
+              const res = await unlockWallet(walletPassword, {
+                recoveryWindow: restore ? 2_500 : null,
+                rotateMacaroonRootKey,
               })
-              // `{}` = unlock succeeded. "wallet already unlocked" = wallet is
-              // already past the LOCKED state (e.g. because /v1/state raced
-              // with the oneshot). Both mean we're done. changepassword answers
-              // with an admin_macaroon field instead of `{}`; a refusal is a
-              // grpc-gateway error body, `{"code":…,"message":…}`.
-              if (
-                stdout === '{}' ||
-                stdout.includes('wallet already unlocked') ||
-                (rotateMacaroonRootKey && stdout.includes('admin_macaroon'))
-              ) {
+              if (res.ok) {
+                console.log('wallet-unlock succeeded')
                 unlockError = null
                 break
               }
-              // Only the message field: a rotate response carries the new
-              // admin_macaroon, which must not reach a health message. A body
-              // without one is a transport failure, not a refusal.
-              try {
-                const message = JSON.parse(stdout).message
-                if (typeof message === 'string') {
-                  unlockError = message.trim() || i18n('LND gave no reason')
-                }
-              } catch {}
+              console.log('wallet-unlock failed', res)
+              // Only LND's own refusal is reported: a request that got no
+              // grpc-gateway answer says nothing about the password.
+              if (res.refused !== null) {
+                unlockError = res.refused || i18n('LND gave no reason')
+              }
               await sleep(10_000)
             }
             // Cleared here, not from a dependent oneshot: a restart lands in
@@ -532,16 +445,20 @@ export const main = sdk.setupMain(async ({ effects }) => {
             return null
           },
         },
-        subcontainer: lndSub,
         requires: ['lnd'],
       })
       .addHealthCheck('wallet-unlock', {
         ready: {
           display: i18n('Wallet Unlock'),
           // The unlock oneshot retries a refused password every 10 s forever,
-          // and everything that reports on LND waits on it, so without this
-          // check a wrong stored password shows only as a service that never
-          // finishes starting.
+          // and sync-progress and everything behind it wait on it, so without
+          // this check a wrong stored password shows only as a service that
+          // never finishes starting.
+          trigger: sdk.trigger.statusTrigger(30_000, {
+            starting: 1_000,
+            waiting: 1_000,
+            failure: 10_000,
+          }),
           fn: async () => {
             const state = await getLndState()
             if (state === 'LOCKED' && unlockError) {
@@ -549,17 +466,11 @@ export const main = sdk.setupMain(async ({ effects }) => {
                 result: 'failure',
                 message: i18n(
                   'LND refused the stored wallet password: ${error}',
-                  {
-                    error: unlockError,
-                  },
+                  { error: literal(unlockError) },
                 ),
               }
             }
-            if (
-              state === 'UNLOCKED' ||
-              state === 'RPC_ACTIVE' ||
-              state === 'SERVER_ACTIVE'
-            ) {
+            if (isPastUnlock(state)) {
               return { result: 'success', message: i18n('Wallet is unlocked') }
             }
             return { result: 'starting', message: null }
