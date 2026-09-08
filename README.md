@@ -229,6 +229,7 @@ Which checks exist depends on what the service is doing.
 | `db-migration`  | "Database Conversion"             | While a bolt database is being converted |
 | `lnd`           | "LND Server"                      | Normal operation                         |
 | `sync-progress` | "Network and Graph Sync Progress" | Normal operation                         |
+| `channel-backup` | "Channel Backup"                 | Normal operation; `disabled` until a target is enabled |
 | `reachability`  | "Node Reachability"               | Normal operation                         |
 | `restored`      | Restore notice                    | After a seed restore                     |
 
@@ -261,11 +262,13 @@ A StartOS backup carries the `channel.backup` that existed when it was taken, so
 
 On a restore the `restore-pull` oneshot asks every configured target for its copy and the generation marker shipped beside it, and compares the newest against the watermark that travelled inside the StartOS backup:
 
-- **A target is newer** — its copy is written to `channel.backup.restored` and `restorechanbackup` reads that instead.
+- **A target is newer** — its copy is written to `channel.backup.restored`, `restorechanbackup` reads that instead, and the watermark moves up to the pulled generation.
 - **No target is newer, or none is reachable** — the `channel.backup` from the StartOS backup is used, exactly as before.
-- **The newest target is older than the watermark** — the target has been rolled back. Nothing is pulled, the backup's own copy is used, and the Channel Backup health check says so.
+- **The newest target is older than the watermark** — the target has been rolled back. Nothing is pulled, the backup's own copy is used, and the Channel Backup health check says so until the next successful copy replaces the rolled-back one.
 
 `restore-pull` runs after the wallet unlocks, because LND rewrites its own `channel.backup` shortly after unlocking; writing to a separate path is what keeps that rewrite from racing the pull. The backup agent also stops uploading while a restore is pending, so the stale file LND writes on the way through is never shipped over a good copy.
+
+**A target is never overwritten while it holds a copy newer than the watermark.** Before every upload the agent reads the target's marker; a generation above anything this node has shipped means the restore could not reach that target and it still holds channels this node does not know about. The upload is skipped, the health check names the target and says to restore again with it reachable, and every other target is still served. The same rule stops two nodes pointed at one folder from clobbering each other.
 
 ## Limitations and Differences
 

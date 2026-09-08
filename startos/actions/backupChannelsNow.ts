@@ -25,6 +25,17 @@ export const backupChannelsNow = sdk.Action.withoutInput(
       async (sub) => sub.exec(['sh', backupAgentScript, '--once'], {}, 180_000),
     )
 
+    if (res.exitCode === 3) {
+      return {
+        version: '1' as const,
+        title: i18n('Channel Backups'),
+        message: i18n(
+          'There is no channel.backup to copy yet. LND writes it when your first channel opens.',
+        ),
+        result: null,
+      }
+    }
+
     // The agent reports each target's outcome on stderr and exits non-zero if
     // any of them failed, so the action fails with the same detail the health
     // check shows rather than a generic message.

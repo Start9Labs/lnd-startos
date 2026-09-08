@@ -430,6 +430,7 @@ const dict = {
   'Last copied ${ago} ago': 382,
   'Waiting for the first channel to back up': 383,
   'The target gave no reason': 384,
+  'There is no channel.backup to copy yet. LND writes it when your first channel opens.': 429,
 } as const
 
 /**

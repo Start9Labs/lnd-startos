@@ -11,7 +11,8 @@
 #
 # Modes:
 #   (default)   long-running watcher (the channel-backup daemon)
-#   --once      ship immediately and exit (the Back Up Channels Now action)
+#   --once      ship immediately and exit (the Back Up Channels Now action);
+#               exits 3 when there is no channel.backup to copy yet
 #   --restore   pull the freshest copy to $RESTORED and exit (restore-pull)
 #
 # Paths below MUST match startos/utils.ts.
@@ -57,7 +58,8 @@ state_get() { jq -r ".$1 // empty" "$STATE" 2>/dev/null || true; }
 
 cfg() { jq -r "$1" "$CONFIG" 2>/dev/null; }
 
-# "provider:path" for each enabled target.
+# One "provider:path" line per enabled target. Always consumed line by line: a
+# folder name can contain spaces.
 remotes() {
   for _p in gdrive dropbox nextcloud sftp; do
     [ "$(cfg ".$_p.enabled // false")" = true ] || continue
@@ -72,6 +74,13 @@ remotes() {
 # ciphertext. Echoes the rclone flag to add, or nothing.
 tls_flag() {
   [ "$(cfg ".$1.insecureTls // false")" = true ] && printf '%s' '--no-check-certificate'
+}
+
+# Sets $_name, $_path and $_extra for a "provider:path" line.
+target() {
+  _name=${1%%:*}
+  _path=${1#*:}
+  _extra=$(tls_flag "$_name")
 }
 
 # A restore is in flight: LND rewrites channel.backup from the restored (stale)
@@ -117,20 +126,47 @@ build_conf() {
   fi
 }
 
+# Newest generation this node has shipped to any target; 0 before the first.
+# Rides inside the StartOS backup, so a restore can compare targets against it.
+watermark_gen() { numor0 "$(jq -r '.gen // 0' "$WATERMARK" 2>/dev/null || echo 0)"; }
+
+# Generation of the marker on the current target; 0 when it is unreachable or
+# holds no marker.
+remote_gen() {
+  rm -f "$WORK/m.json"
+  # shellcheck disable=SC2086
+  if rclone --config "$RCONF" copyto "$_name:$_path/$META" "$WORK/m.json" $RCLONE_FLAGS $_extra 2>/dev/null; then
+    numor0 "$(jq -r '.gen // 0' "$WORK/m.json" 2>/dev/null || echo 0)"
+  else
+    echo 0
+  fi
+}
+
 # Upload channel.backup and its freshness marker to every enabled target.
 # Returns 0 only if all of them succeeded, so a failing target keeps being
 # retried. Each failure reason goes to $WORK/failures as "<name>: <reason>" so
 # the health check can name the target instead of saying "one or more failed".
 ship() {
   _gen=$1
+  _floor=$(watermark_gen)
   _all_ok=0
   : > "$WORK/failures"
-  for _remote in $(remotes); do
-    _name=$(echo "$_remote" | cut -d: -f1)
-    _path=$(echo "$_remote" | cut -d: -f2-)
-    _extra=$(tls_flag "$_name")
+  remotes > "$WORK/remotes"
+  while IFS= read -r _remote; do
+    target "$_remote"
+    # A copy newer than anything this node shipped holds channels this node
+    # does not know about — a restore that could not reach the target left it
+    # behind. Never overwrite it.
+    _have=$(remote_gen)
+    if [ "$_have" -gt "$_floor" ]; then
+      printf '%s: holds a channel.backup (gen=%s) newer than any this node shipped (gen=%s), so it was left untouched. Restore again with this target reachable to recover the channels it holds\n' \
+        "$_name" "$_have" "$_floor" >> "$WORK/failures"
+      _all_ok=1
+      continue
+    fi
     # shellcheck disable=SC2086
     if _out=$(rclone --config "$RCONF" copyto "$BACKUP" "$_name:$_path/$OBJECT" $RCLONE_FLAGS $_extra --log-level NOTICE 2>&1); then
+      printf '{"gen":%s}\n' "$_gen" > "$WATERMARK"
       # shellcheck disable=SC2086
       rclone --config "$RCONF" copyto "$WORK/$META" "$_name:$_path/$META" $RCLONE_FLAGS $_extra 2>/dev/null \
         || log "[$_name] backup shipped but the freshness marker failed"
@@ -138,26 +174,26 @@ ship() {
       # rclone logs several timestamped lines and this ends up as a health
       # message, so keep the last one without its timestamp and level, and cap
       # it.
-      _reason=$(echo "$_out" | grep -v '^[[:space:]]*$' | tail -n 1 \
+      _reason=$(printf '%s\n' "$_out" | grep -v '^[[:space:]]*$' | tail -n 1 \
         | sed 's|^[0-9/]* [0-9:]* [A-Z]*: ||; s|^Failed to create file system for destination "[^"]*": ||' \
         | cut -c1-120)
       [ -n "$_reason" ] || _reason='upload failed'
       printf '%s: %s\n' "$_name" "$_reason" >> "$WORK/failures"
       _all_ok=1
     fi
-  done
+  done < "$WORK/remotes"
   return $_all_ok
 }
 
 # One cycle. Pass "force" to log the outcome even when nothing changed.
+# Returns 3 when there is no channel.backup yet, 1 when a target failed.
 do_backup() {
   mkdir -p "$WORK"
   if [ ! -s "$BACKUP" ]; then
-    log "no channel.backup yet (no channels)"
-    return 0
+    [ "$1" = force ] && log "no channel.backup yet: LND writes it when the first channel opens"
+    return 3
   fi
   if [ -z "$(remotes)" ]; then
-    state_set_str lastError "No backup target is configured"
     [ "$1" = force ] && log "no backup target is configured"
     return 1
   fi
@@ -169,7 +205,6 @@ do_backup() {
   if ship "$_gen"; then
     state_set_num lastSuccess "$_gen"
     state_clear lastError
-    printf '{"gen":%s}\n' "$_gen" > "$WATERMARK"
     if [ "$1" = force ] || [ -n "$_prev_error" ]; then
       log "channel.backup shipped to every target (gen=$_gen)"
     fi
@@ -201,30 +236,23 @@ do_restore() {
     exit 0
   fi
   build_conf
-  _floor=$(numor0 "$(jq -r '.gen // 0' "$WATERMARK" 2>/dev/null || echo 0)")
+  _floor=$(watermark_gen)
   log "looking for a channel.backup newer than gen=$_floor"
 
   : > "$WORK/gens"
-  for _remote in $(remotes); do
-    _name=$(echo "$_remote" | cut -d: -f1)
-    _path=$(echo "$_remote" | cut -d: -f2-)
-    _extra=$(tls_flag "$_name")
-    rm -f "$WORK/m.json"
-    # shellcheck disable=SC2086
-    if rclone --config "$RCONF" copyto "$_name:$_path/$META" "$WORK/m.json" $RCLONE_FLAGS $_extra 2>/dev/null; then
-      _g=$(numor0 "$(jq -r '.gen // 0' "$WORK/m.json" 2>/dev/null || echo 0)")
+  remotes > "$WORK/remotes"
+  while IFS= read -r _remote; do
+    target "$_remote"
+    _g=$(remote_gen)
+    if [ "$_g" -gt 0 ]; then
+      log "[$_name] available copy gen=$_g"
     else
-      _g=0 # unreachable, or shipped before markers existed
+      log "[$_name] unreachable or no marker; its copy cannot be compared and is never overwritten"
     fi
-    log "[$_name] available copy gen=$_g"
-    echo "$_g $_remote" >> "$WORK/gens"
-  done
-  if [ ! -s "$WORK/gens" ]; then
-    log "no reachable target; using the channel.backup from the StartOS backup"
-    exit 0
-  fi
+    printf '%s %s\n' "$_g" "$_remote" >> "$WORK/gens"
+  done < "$WORK/remotes"
   sort -rn "$WORK/gens" > "$WORK/gens.sorted"
-  _best=$(numor0 "$(head -n1 "$WORK/gens.sorted" | awk '{print $1}')")
+  _best=$(numor0 "$(head -n1 "$WORK/gens.sorted" | cut -d' ' -f1)")
 
   if [ "$_best" -le "$_floor" ]; then
     log "newest target copy (gen=$_best) is not newer than the one in the StartOS backup (gen=$_floor); using the backup's copy"
@@ -236,20 +264,21 @@ do_restore() {
 
   while read -r _g _remote; do
     [ "$_g" -gt "$_floor" ] || continue
-    _name=$(echo "$_remote" | cut -d: -f1)
-    _path=$(echo "$_remote" | cut -d: -f2-)
-    _extra=$(tls_flag "$_name")
+    target "$_remote"
     log "[$_name] pulling channel.backup (gen=$_g)"
     # shellcheck disable=SC2086
     if _out=$(rclone --config "$RCONF" copyto "$_name:$_path/$OBJECT" "$RESTORED" $RCLONE_FLAGS $_extra 2>&1); then
       if [ -s "$RESTORED" ]; then
+        # The pulled generation is now the newest this node holds, so a later
+        # ship may overwrite every target at or below it.
+        printf '{"gen":%s}\n' "$_g" > "$WATERMARK"
         log "[$_name] restored channel.backup (gen=$_g); it will be used instead of the copy from the StartOS backup"
         exit 0
       fi
       log "[$_name] pulled an empty file"
       rm -f "$RESTORED"
     else
-      log "[$_name] pull failed: $(echo "$_out" | tail -n 2 | tr '\n' ' ')"
+      log "[$_name] pull failed: $(printf '%s\n' "$_out" | tail -n 2 | tr '\n' ' ')"
       rm -f "$RESTORED"
     fi
   done < "$WORK/gens.sorted"
@@ -259,7 +288,10 @@ do_restore() {
 }
 
 # ---- watcher loop ----------------------------------------------------------
-fingerprint() { stat -c '%i:%s:%Y' "$BACKUP" 2>/dev/null || echo none; }
+# The config is part of the identity, so a newly saved target ships at once.
+fingerprint() {
+  printf '%s|%s' "$(stat -c '%i:%s:%Y' "$BACKUP" 2>/dev/null)" "$(stat -c '%i:%s:%Y' "$CONFIG" 2>/dev/null)"
+}
 
 watch_loop() {
   trap 'exit 0' TERM INT
@@ -291,7 +323,13 @@ watch_loop() {
 }
 
 case "${1:-}" in
-  --once) do_backup force ;;
+  --once)
+    if restore_pending; then
+      log "a restore is in progress; channel.backup is not sent until it completes"
+      exit 1
+    fi
+    do_backup force
+    ;;
   --restore) do_restore ;;
   *) watch_loop ;;
 esac

@@ -20,12 +20,17 @@ function rejectOnion(addr: string, label: string): void {
 // A backup that lives on this same server does not survive losing it, which is
 // the case these backups exist for.
 function rejectLoopback(addr: string, label: string): void {
-  const a = addr.toLowerCase()
+  let host = addr.trim().toLowerCase()
+  try {
+    host = new URL(host.includes('://') ? host : `sftp://${host}`).hostname
+  } catch {}
+  host = host.replace(/^\[|\]$/g, '')
   if (
-    a.includes('localhost') ||
-    a.includes('127.0.0.1') ||
-    a.includes('::1') ||
-    a.includes('0.0.0.0')
+    host === 'localhost' ||
+    host === '::1' ||
+    host === '::' ||
+    host === '0.0.0.0' ||
+    host.startsWith('127.')
   )
     throw new Error(
       i18n(

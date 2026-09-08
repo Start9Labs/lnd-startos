@@ -64,7 +64,7 @@ After saving, run **Back Up Channels Now** — it reports what each target said,
 
 ### Restoring from backup
 
-Restoring asks each peer to force-close from the Static Channel Backup, and shows a persistent warning. If you configured channel backups, the restore uses the copy from your storage target whenever it is newer than the one inside the StartOS backup, so channels opened since that backup are recovered too. **Lightning Labs strongly recommends against continued use of a restored node:** once funds are back on-chain, sweep them to another wallet, then uninstall and reinstall LND fresh.
+Restoring asks each peer to force-close from the Static Channel Backup, and shows a persistent warning. If you configured channel backups, the restore uses the copy from your storage target whenever it is newer than the one inside the StartOS backup, so channels opened since that backup are recovered too. A target that could not be reached during the restore is left untouched if it turns out to hold a newer copy; the **Channel Backup** health check tells you, and restoring again once it is reachable recovers those channels. **Lightning Labs strongly recommends against continued use of a restored node:** once funds are back on-chain, sweep them to another wallet, then uninstall and reinstall LND fresh.
 
 ## Limitations
 
