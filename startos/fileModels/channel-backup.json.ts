@@ -41,8 +41,11 @@ const sftpTarget = z.object({
   pass: z.string().nullable().catch(null),
   keyPem: z.string().nullable().catch(null),
   // ssh-keyscan output recorded when the target was saved; rclone verifies the
-  // server against it on every connection.
+  // server against it on every connection, once the user has confirmed the
+  // fingerprints it was shown.
   knownHosts: z.string().nullable().catch(null),
+  hostKeyFingerprints: z.string().catch(''),
+  hostKeyVerified: z.boolean().catch(false),
   path: z.string().catch(backupFolderDefault),
 })
 

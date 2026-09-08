@@ -1,3 +1,4 @@
+import { T } from '@start9labs/start-sdk'
 import * as https from 'https'
 import { URLSearchParams } from 'url'
 import { channelBackupJson } from '../fileModels/channel-backup.json'
@@ -34,6 +35,24 @@ function secret(value: unknown, label: string): string {
     )
   }
   return s
+}
+
+// A folder under the target's root: never an absolute path, never a step up.
+function folder(value: unknown, label: string, previous: string): string {
+  const path = clean(value, label) || previous || backupFolderDefault
+  if (
+    path.startsWith('/') ||
+    path.startsWith('\\') ||
+    path.split(/[\\/]/).some((segment) => segment === '..')
+  ) {
+    throw new Error(
+      i18n(
+        '${label}: the folder path must be relative, without a leading slash or ".." segments.',
+        { label },
+      ),
+    )
+  }
+  return path
 }
 
 function hostOf(addr: string): string {
@@ -222,11 +241,14 @@ function tokenFromRefresh(refreshToken: string, google: boolean): string {
 }
 
 // openssh-key-v1 names its cipher up front; "none" is the only one rclone can
-// open without a passphrase it has no way to ask for.
+// open without a passphrase it has no way to ask for. Anything that is not a
+// well-formed openssh-key-v1 body is rejected outright.
 function opensshKeyIsEncrypted(body: string): boolean {
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(body)) throw new Error('not base64')
   const raw = Buffer.from(body, 'base64')
   const magic = 'openssh-key-v1\0'
-  if (raw.subarray(0, magic.length).toString('latin1') !== magic) return false
+  if (raw.subarray(0, magic.length).toString('latin1') !== magic)
+    throw new Error('not openssh-key-v1')
   const len = raw.readUInt32BE(magic.length)
   return (
     raw.subarray(magic.length + 4, magic.length + 4 + len).toString() !== 'none'
@@ -262,10 +284,10 @@ function normalizeKeyPem(keyInput: string): string {
   return out.join('\n').replace(/\n/g, '\\n')
 }
 
-// Record the server's host keys, so rclone verifies the server on every
-// connection afterwards. Returns their fingerprints for the user to compare.
+// Record the server's host keys. They are used only once the user has
+// confirmed the fingerprints returned here.
 async function scanHostKeys(
-  effects: any,
+  effects: T.Effects,
   host: string,
   port: string,
 ): Promise<{ knownHosts: string; fingerprints: string }> {
@@ -455,6 +477,13 @@ const sftpCommon = {
     default: backupFolderDefault,
     required: false,
   }),
+  'sftp-host-key-verified': sdk.Value.toggle({
+    name: i18n('Host key verified'),
+    description: i18n(
+      'Turn on once the fingerprint shown after saving matches the one your server reports. Nothing is sent to the server until then.',
+    ),
+    default: false,
+  }),
   'sftp-trust-new-host-key': sdk.Value.toggle({
     name: i18n('Record a new host key'),
     description: i18n(
@@ -605,6 +634,7 @@ export const configureChannelBackup = sdk.Action.withInput(
             'sftp-user': s?.user || '',
             'sftp-port': s?.port || '22',
             'sftp-path': s?.path || backupFolderDefault,
+            'sftp-host-key-verified': !!s?.hostKeyVerified,
             'sftp-trust-new-host-key': false,
             ...(s?.authType === 'key'
               ? { 'sftp-key': '' }
@@ -636,10 +666,7 @@ export const configureChannelBackup = sdk.Action.withInput(
           ''
         const authCodeRaw = clean(o[`${provider}-auth-code`], label)
         const refreshToken = clean(o[`${provider}-refresh-token`], label)
-        const path =
-          clean(o[`${provider}-path`], label) ||
-          prev.path ||
-          backupFolderDefault
+        const path = folder(o[`${provider}-path`], label, prev.path)
         if ((enabled || authCodeRaw) && (!clientId || !clientSecret))
           throw new Error(
             google
@@ -675,10 +702,7 @@ export const configureChannelBackup = sdk.Action.withInput(
         const user = clean(o['nextcloud-user'], 'Nextcloud') || prev.user || ''
         const pass =
           secret(o['nextcloud-pass'], 'Nextcloud') || prev.pass || null
-        const path =
-          clean(o['nextcloud-path'], 'Nextcloud') ||
-          prev.path ||
-          backupFolderDefault
+        const path = folder(o['nextcloud-path'], 'Nextcloud', prev.path)
         if (enabled) {
           if (!url || !user || !pass)
             throw new Error(
@@ -706,14 +730,20 @@ export const configureChannelBackup = sdk.Action.withInput(
         const host = clean(v['sftp-host'], 'SFTP') || prev.host || ''
         const user = clean(v['sftp-user'], 'SFTP') || prev.user || ''
         const port = clean(v['sftp-port'], 'SFTP') || prev.port || '22'
-        const path =
-          clean(v['sftp-path'], 'SFTP') || prev.path || backupFolderDefault
+        const path = folder(v['sftp-path'], 'SFTP', prev.path)
         const authType = auth.selection === 'key' ? 'key' : 'password'
+        if (
+          !/^\d{1,5}$/.test(port) ||
+          Number(port) < 1 ||
+          Number(port) > 65535 ||
+          host.startsWith('-')
+        )
+          throw new Error(
+            i18n('SFTP: the port must be a number between 1 and 65535.'),
+          )
         if (enabled) {
           if (!host || !user)
             throw new Error(i18n('SFTP: host and username are required.'))
-          if (!/^\d{1,5}$/.test(port) || host.startsWith('-'))
-            throw new Error(i18n('SFTP: the port must be a number.'))
           rejectLocalOrOnion(host, 'SFTP')
         }
         let pass: string | null = null
@@ -728,21 +758,35 @@ export const configureChannelBackup = sdk.Action.withInput(
           if (enabled && !keyPem)
             throw new Error(i18n('SFTP: a private key is required.'))
         }
+        // The pin belongs to one host and port. A pin is trusted only after
+        // the user has seen its fingerprints in an earlier save and confirms
+        // them now, so a scan made in this save never activates in it.
         let knownHosts: string | null = prev.knownHosts || null
+        let fingerprints: string = prev.hostKeyFingerprints || ''
+        let hostKeyVerified = !!prev.hostKeyVerified
         if (
-          enabled &&
-          (!knownHosts ||
-            host !== prev.host ||
-            port !== prev.port ||
-            !!v['sftp-trust-new-host-key'])
+          host !== (prev.host || '') ||
+          port !== (prev.port || '22') ||
+          !!v['sftp-trust-new-host-key']
         ) {
-          const scanned = await scanHostKeys(effects, host, port)
-          knownHosts = scanned.knownHosts
-          hostKeyNote = i18n(
-            'The SFTP server identified itself as ${fingerprint}. Check it against the server before relying on the first copy.',
-            { fingerprint: literal(scanned.fingerprints) },
-          )
+          knownHosts = null
+          fingerprints = ''
+          hostKeyVerified = false
         }
+        let scanned = false
+        if (enabled && !knownHosts) {
+          const scan = await scanHostKeys(effects, host, port)
+          knownHosts = scan.knownHosts
+          fingerprints = scan.fingerprints
+          scanned = true
+        }
+        if (!scanned && knownHosts && v['sftp-host-key-verified'])
+          hostKeyVerified = true
+        if (enabled && !hostKeyVerified)
+          hostKeyNote = i18n(
+            'The SFTP server identified itself as ${fingerprint}. Compare it with your server, then save again with Host key verified turned on; nothing is sent to it until then.',
+            { fingerprint: literal(fingerprints) },
+          )
         patch.sftp = {
           enabled,
           host,
@@ -752,6 +796,8 @@ export const configureChannelBackup = sdk.Action.withInput(
           pass,
           keyPem,
           knownHosts,
+          hostKeyFingerprints: fingerprints,
+          hostKeyVerified,
           path,
         }
       }
@@ -759,7 +805,9 @@ export const configureChannelBackup = sdk.Action.withInput(
 
     await channelBackupJson.merge(effects, patch)
 
-    const on = VALID_PROVIDERS.filter((p) => patch[p]?.enabled)
+    const on = VALID_PROVIDERS.filter(
+      (p) => patch[p]?.enabled && (p !== 'sftp' || patch.sftp.hostKeyVerified),
+    )
     const message = on.length
       ? i18n(
           'channel.backup will be copied to ${targets} whenever your channels change. Run Back Up Channels Now to check that it works.',

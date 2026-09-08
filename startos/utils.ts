@@ -102,7 +102,6 @@ export const channelBackupHostPath = `${mainVolumeHost}/data/chain/bitcoin/mainn
 // replacing it: LND rewrites channel.backup shortly after unlocking, which
 // would race a pull that wrote in place.
 export const channelBackupRestoredPath = `${lndDataDir}/channel.backup.restored`
-export const channelBackupRestoredHostPath = `${mainVolumeHost}/channel.backup.restored`
 export const backupAgentScript = '/usr/local/bin/backup-agent.sh'
 export const backupConfigSubpath = 'channel-backup.json'
 export const backupStateSubpath = '.channel-backup-state.json'

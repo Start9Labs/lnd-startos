@@ -438,7 +438,7 @@ const dict = {
   'Record a new host key': 444,
   'Turn on after the server was reinstalled and its host key changed. The key it presents now replaces the recorded one.': 445,
   'SFTP: ${host} did not answer with a host key. Check the address and port, and that the server is reachable from here.': 446,
-  'The SFTP server identified itself as ${fingerprint}. Check it against the server before relying on the first copy.': 447,
+  'The SFTP server identified itself as ${fingerprint}. Compare it with your server, then save again with Host key verified turned on; nothing is sent to it until then.': 447,
   '${target}: upload failed: ${detail}': 448,
   '${target}: could not be checked: ${detail}': 449,
   '${target}: its freshness marker is unreadable, so it was left untouched.': 450,
@@ -448,7 +448,12 @@ const dict = {
   '${target}: its newest channel.backup is older than the one this node last shipped, so the restore used the copy from the StartOS backup.': 454,
   'A restore is in progress. channel.backup is not sent until it completes.': 455,
   'No backup target is enabled. Run Configure Channel Backups first.': 456,
-  'SFTP: the port must be a number.': 457,
+  'SFTP: the port must be a number between 1 and 65535.': 457,
+  'Host key verified': 462,
+  'Turn on once the fingerprint shown after saving matches the one your server reports. Nothing is sent to the server until then.': 463,
+  '${target}: its host key has not been confirmed. Compare the fingerprint shown when the target was saved, then save it again with Host key verified turned on.': 464,
+  '${label}: the folder path must be relative, without a leading slash or ".." segments.': 465,
+  'A backup is already running. Try again in a moment.': 466,
 } as const
 
 /**

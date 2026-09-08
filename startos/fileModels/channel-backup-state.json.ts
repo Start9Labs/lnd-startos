@@ -16,12 +16,16 @@ export const channelBackupStateShape = z.object({
   // Epoch seconds of the last cycle in which every target succeeded.
   lastSuccess: z.number().nullable().catch(null),
   failures: z.array(backupFailureShape).catch([]),
-  // The generation this node last wrote to each target.
+  // Minted once; a restored node starts without one and so never mistakes the
+  // copies of the node it came from for its own.
+  node: z.string().nullable().catch(null),
+  // The generation this node last wrote to each destination.
   shipped: z.record(z.string(), z.number()).catch({}),
   // The newest generation restorechanbackup accepted, or the backup's own
   // watermark when it used the backup's copy.
   incorporated: z.number().catch(0),
-  restoreRejected: z.array(z.number()).catch([]),
+  // Candidates LND refused, as destination:generation:node.
+  restoreRejected: z.array(z.string()).catch([]),
 })
 
 export type ChannelBackupStateJson = z.infer<typeof channelBackupStateShape>

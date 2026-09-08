@@ -56,6 +56,10 @@ export const backupChannelsNow = sdk.Action.withoutInput(
             'No backup target is enabled. Run Configure Channel Backups first.',
           ),
         )
+      case 5:
+        throw new Error(
+          i18n('A backup is already running. Try again in a moment.'),
+        )
     }
 
     // The agent leaves each target's outcome in the state file, so the action

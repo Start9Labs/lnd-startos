@@ -11,7 +11,7 @@ const targetName = (target: string) =>
   })[target] ?? target
 
 /** One sentence per failure record backup-agent.sh leaves in the state file. */
-export function describeFailure(f: BackupFailure): string {
+function describeFailure(f: BackupFailure): string {
   const target = targetName(f.target)
   const detail = literal(f.detail)
   switch (f.code) {
@@ -42,13 +42,18 @@ export function describeFailure(f: BackupFailure): string {
         '${target}: no host key is recorded for this server. Save the SFTP target again to record it.',
         { target },
       )
+    case 'hostkey-unverified':
+      return i18n(
+        '${target}: its host key has not been confirmed. Compare the fingerprint shown when the target was saved, then save it again with Host key verified turned on.',
+        { target },
+      )
     case 'rolled-back':
       return i18n(
         '${target}: its newest channel.backup is older than the one this node last shipped, so the restore used the copy from the StartOS backup.',
         { target },
       )
     default:
-      return `${target}: ${f.detail}`
+      return `${target}: ${f.code} ${f.detail}`.trim()
   }
 }
 

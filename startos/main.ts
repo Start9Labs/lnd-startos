@@ -636,7 +636,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
                 // Runs after the unlock because LND rewrites its own
                 // channel.backup shortly after unlocking; the agent pulls each
                 // candidate to a separate path so that rewrite cannot race it.
-                fn: async (subcontainer) => {
+                fn: async (subcontainer, abort) => {
                   await sdk.setHealth(effects, {
                     id: 'restored',
                     name: i18n('Backup Restoration Detected'),
@@ -645,22 +645,45 @@ export const main = sdk.setupMain(async ({ effects }) => {
                     ),
                     result: 'failure',
                   })
+                  const tail = (out: unknown) =>
+                    String(out).trim().split('\n').slice(-2).join(' ')
+                  const agent = (mode: string, timeoutMs: number) =>
+                    subcontainer.exec(
+                      ['sh', backupAgentScript, mode],
+                      {},
+                      timeoutMs,
+                    )
+                  // A step that cannot record its outcome fails the oneshot, and
+                  // the SDK retries it with the restore flag still set.
+                  const record = async (mode: string) => {
+                    const res = await agent(mode, 60_000)
+                    if (res.exitCode !== 0) {
+                      throw new Error(`${mode} failed: ${tail(res.stderr)}`)
+                    }
+                  }
+                  // restorechanbackup is served by the main RPC server, which
+                  // comes up a little after the unlock; asking earlier fails
+                  // for a reason that says nothing about the candidate.
+                  while (
+                    !/^(RPC_ACTIVE|SERVER_ACTIVE)$/.test(
+                      (await getLndState()) ?? '',
+                    )
+                  ) {
+                    if (abort.aborted)
+                      throw new Error('aborted before LND served RPC')
+                    await sleep(2_000)
+                  }
                   // Newest target copy first; one LND rejects is marked and the
                   // next tried; the backup's own copy is last. Only what LND
                   // accepts is recorded, so an interrupted run starts over.
                   while (true) {
-                    const pull = await subcontainer.exec(
-                      ['sh', backupAgentScript, '--restore'],
-                      {},
-                      600_000,
-                    )
-                    const candidate = pull.exitCode === 0
-                    if (!candidate && pull.exitCode !== 3) {
-                      console.error(
-                        'restore: candidate search failed, using the volume copy',
-                        String(pull.stderr).trim(),
+                    const pull = await agent('--restore', 600_000)
+                    if (pull.exitCode !== 0 && pull.exitCode !== 3) {
+                      throw new Error(
+                        `candidate search failed: ${tail(pull.stderr)}`,
                       )
                     }
+                    const candidate = pull.exitCode === 0
                     if (
                       !candidate &&
                       !(await access(channelBackupHostPath).then(
@@ -670,11 +693,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
                     ) {
                       // A backup of a node that never had a channel carries no
                       // file; there is nothing to restore.
-                      await subcontainer.exec([
-                        'sh',
-                        backupAgentScript,
-                        '--commit-restore',
-                      ])
+                      await record('--commit-restore')
                       return null
                     }
                     const res = await subcontainer.exec(
@@ -690,30 +709,28 @@ export const main = sdk.setupMain(async ({ effects }) => {
                       {},
                       120_000,
                     )
-                    if (res.exitCode === 0) {
-                      await subcontainer.exec([
-                        'sh',
-                        backupAgentScript,
-                        '--commit-restore',
-                      ])
+                    const reason = tail(res.stderr)
+                    // "already exists" is a retry after an accepted restore
+                    // whose commit did not land.
+                    if (res.exitCode === 0 || /already exists/i.test(reason)) {
+                      await record('--commit-restore')
                       return null
                     }
-                    const reason = String(res.stderr)
-                      .trim()
-                      .split('\n')
-                      .slice(-2)
-                      .join(' ')
+                    // LND not ready or unreachable says nothing about the file.
+                    if (
+                      /starting up|waiting to start|not yet ready|unavailable|connection refused|deadline exceeded|wallet locked|unimplemented/i.test(
+                        reason,
+                      )
+                    ) {
+                      throw new Error(`restorechanbackup not ready: ${reason}`)
+                    }
                     if (!candidate) {
                       throw new Error(`restorechanbackup failed: ${reason}`)
                     }
                     console.warn(
                       `restorechanbackup refused the target copy: ${reason}`,
                     )
-                    await subcontainer.exec([
-                      'sh',
-                      backupAgentScript,
-                      '--reject-restore',
-                    ])
+                    await record('--reject-restore')
                   }
                 },
               },
