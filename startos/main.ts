@@ -73,9 +73,12 @@ export const main = sdk.setupMain(async ({ effects }) => {
     startupFlags
   let notified = startupFlags.notified
   let graphSyncPendingSince: number | null = null
-  // LND's reason for refusing the stored password, published by the
-  // wallet-unlock health check. Null while no attempt has been rejected.
-  let unlockError: string | null = null
+  // LND's own reason the stored password did not open the wallet, published by
+  // the wallet-unlock health check. Null while no attempt has failed that way.
+  let unlockError: { kind: 'passphrase' | 'lnd'; message: string } | null = null
+  // changepassword carries no recovery window, so a restore takes precedence
+  // and the rotation runs in the lifecycle clear-restore-flag starts.
+  const rotateDeferred = restore && rotateMacaroonRootKey
 
   const conf = await lndConfFile.read().const(effects)
   if (!conf) {
@@ -395,6 +398,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
         subcontainer: null,
         exec: {
           fn: async (_, abort) => {
+            let rotated = false
             while (true) {
               if (abort.aborted) {
                 console.log('wallet-unlock aborted')
@@ -404,7 +408,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
               // Skip the unlock call (and its noisy LND error log) only when
               // the wallet is strictly past LOCKED. WAITING_TO_START means
               // "not started yet" — keep polling.
-              const state = await getLndState()
+              const state = await getLndState(abort)
               if (isPastUnlock(state)) {
                 console.log(`wallet-unlock skipped, state=${state}`)
                 break
@@ -419,29 +423,46 @@ export const main = sdk.setupMain(async ({ effects }) => {
               if (!walletPassword)
                 throw new Error('Wallet Password is undefined!')
 
-              const res = await unlockWallet(walletPassword, {
-                recoveryWindow: restore ? 2_500 : null,
-                rotateMacaroonRootKey,
-              })
+              const rotate = rotateMacaroonRootKey && !rotateDeferred
+              const res = await unlockWallet(
+                walletPassword,
+                {
+                  recoveryWindow: restore ? 2_500 : null,
+                  rotateMacaroonRootKey: rotate,
+                },
+                abort,
+              )
               if (res.ok) {
                 console.log('wallet-unlock succeeded')
+                rotated = rotate
                 unlockError = null
                 break
               }
               console.log('wallet-unlock failed', res)
-              // Only LND's own refusal is reported: a request that got no
-              // grpc-gateway answer says nothing about the password.
-              if (res.refused !== null) {
-                unlockError = res.refused || i18n('LND gave no reason')
+              // Only LND's own answer is reported: a request that got none says
+              // nothing about the password.
+              if (res.kind !== 'transport') {
+                unlockError = {
+                  kind: res.kind,
+                  message: res.message || i18n('LND gave no reason'),
+                }
               }
               await sleep(10_000)
             }
             // Cleared here, not from a dependent oneshot: a restart lands in
-            // the window between the two and arms the flag for every start after.
-            await startupFlagsJson.merge(effects, {
-              resetWalletTransactions: false,
-              rotateMacaroonRootKey: false,
-            })
+            // the window between the two and arms the flag for every start
+            // after. Only what this run consumed: the reset was applied when
+            // LND started, the rotation only if this oneshot performed it, and
+            // a flag armed by a newer lifecycle is left to that lifecycle.
+            const consumed = {
+              ...(resetWalletTransactions
+                ? { resetWalletTransactions: false }
+                : {}),
+              ...(rotated ? { rotateMacaroonRootKey: false } : {}),
+            }
+            if (Object.keys(consumed).length) {
+              await startupFlagsJson.merge(effects, consumed)
+            }
             return null
           },
         },
@@ -464,10 +485,14 @@ export const main = sdk.setupMain(async ({ effects }) => {
             if (state === 'LOCKED' && unlockError) {
               return {
                 result: 'failure',
-                message: i18n(
-                  'LND refused the stored wallet password: ${error}',
-                  { error: literal(unlockError) },
-                ),
+                message:
+                  unlockError.kind === 'passphrase'
+                    ? i18n('LND refused the stored wallet password: ${error}', {
+                        error: literal(unlockError.message),
+                      })
+                    : i18n('LND could not unlock the wallet: ${error}', {
+                        error: literal(unlockError.message),
+                      }),
               }
             }
             if (isPastUnlock(state)) {
@@ -618,6 +643,9 @@ export const main = sdk.setupMain(async ({ effects }) => {
               exec: {
                 fn: async () => {
                   await startupFlagsJson.merge(effects, { restore: false })
+                  // The rotation this restore displaced still holds its flag;
+                  // the lifecycle this starts performs it.
+                  if (rotateDeferred) await sdk.restart(effects)
                   return null
                 },
               },

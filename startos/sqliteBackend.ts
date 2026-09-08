@@ -1,11 +1,10 @@
-import { SubContainer, T } from '@start9labs/start-sdk'
+import { T } from '@start9labs/start-sdk'
 import { rm, stat } from 'fs/promises'
 import { lndConfFile } from './fileModels/lnd.conf'
 import { startupFlagsJson } from './fileModels/startupFlags.json'
 import { storeJson } from './fileModels/store.json'
 import { i18n } from './i18n'
 import { getLndState, isPastUnlock, LndState, unlockWallet } from './lndRest'
-import { manifest } from './manifest'
 import { sdk } from './sdk'
 import {
   lndDataDir,
@@ -14,9 +13,6 @@ import {
   sleep,
   watchtowerServerDir,
 } from './utils'
-
-// The subcontainer type the migration chains run LND / lndinit in.
-type Sub = SubContainer<typeof manifest>
 
 // Minimal view of the init FullProgressTracker — just the phase controls the
 // migration reports through. The real tracker (handed to the init handler)
@@ -257,14 +253,14 @@ async function finalizeBoltSchema(
       requires: [],
     })
     .addOneshot('finalize-schema', {
-      subcontainer: schemaSub,
+      subcontainer: null,
       exec: {
         fn: async (_, abort) => {
-          if (!isPastUnlock(await getLndState())) {
-            const res = await unlockWallet(walletPassword)
+          if (!isPastUnlock(await getLndState(abort))) {
+            const res = await unlockWallet(walletPassword, {}, abort)
             if (!res.ok) {
               throw new Error(
-                `Failed to unlock wallet for schema migration: ${res.refused ?? res.detail}`,
+                `Failed to unlock wallet for schema migration: ${res.message}`,
               )
             }
           }

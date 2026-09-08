@@ -356,6 +356,7 @@ const dict = {
   'Wallet is unlocked': 306,
   'LND refused the stored wallet password: ${error}': 307,
   'LND gave no reason': 308,
+  'LND could not unlock the wallet: ${error}': 470,
 } as const
 
 /**
