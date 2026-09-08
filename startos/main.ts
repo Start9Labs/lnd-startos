@@ -502,26 +502,25 @@ export const main = sdk.setupMain(async ({ effects }) => {
               // `{}` = unlock succeeded. "wallet already unlocked" = wallet is
               // already past the LOCKED state (e.g. because /v1/state raced
               // with the oneshot). Both mean we're done. changepassword answers
-              // with an admin_macaroon field instead of `{}`, and only when it
-              // fails does the body carry an error.
+              // with an admin_macaroon field instead of `{}`; a refusal is a
+              // grpc-gateway error body, `{"code":…,"message":…}`.
               if (
                 stdout === '{}' ||
                 stdout.includes('wallet already unlocked') ||
-                (rotateMacaroonRootKey && !stdout.includes('"error"'))
+                (rotateMacaroonRootKey && stdout.includes('admin_macaroon'))
               ) {
                 unlockError = null
                 break
               }
               // Only the message field: a rotate response carries the new
-              // admin_macaroon, which must not reach a health message.
-              unlockError =
-                (() => {
-                  try {
-                    return String(JSON.parse(stdout).message ?? '').trim()
-                  } catch {
-                    return ''
-                  }
-                })() || i18n('LND gave no reason')
+              // admin_macaroon, which must not reach a health message. A body
+              // without one is a transport failure, not a refusal.
+              try {
+                const message = JSON.parse(stdout).message
+                if (typeof message === 'string') {
+                  unlockError = message.trim() || i18n('LND gave no reason')
+                }
+              } catch {}
               await sleep(10_000)
             }
             // Cleared here, not from a dependent oneshot: a restart lands in
@@ -556,10 +555,14 @@ export const main = sdk.setupMain(async ({ effects }) => {
                 ),
               }
             }
-            if (!state || state === 'LOCKED' || state === 'NON_EXISTING') {
-              return { result: 'starting', message: null }
+            if (
+              state === 'UNLOCKED' ||
+              state === 'RPC_ACTIVE' ||
+              state === 'SERVER_ACTIVE'
+            ) {
+              return { result: 'success', message: i18n('Wallet is unlocked') }
             }
-            return { result: 'success', message: i18n('Wallet is unlocked') }
+            return { result: 'starting', message: null }
           },
         },
         requires: ['lnd'],
