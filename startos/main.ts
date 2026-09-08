@@ -495,19 +495,21 @@ export const main = sdk.setupMain(async ({ effects }) => {
             // this run consumed, so one armed since is left to the lifecycle
             // that will consume it.
             const settled = rotated || unconfirmed
-            await updateStartupFlags(effects, (flags) => ({
-              ...(resetWalletTransactions &&
-              flags.resetWalletTransactions === resetWalletTransactions
-                ? { resetWalletTransactions: false }
-                : {}),
-              ...(settled && flags.rotationSent === sent
-                ? { rotationSent: false }
-                : {}),
-              ...(settled && flags.rotateMacaroonRootKey === sent
-                ? { rotateMacaroonRootKey: false }
-                : {}),
-            }))
-            if (unconfirmed) {
+            let dropped = false
+            await updateStartupFlags(effects, (flags) => {
+              dropped = settled && flags.rotationSent === sent
+              return {
+                ...(resetWalletTransactions &&
+                flags.resetWalletTransactions === resetWalletTransactions
+                  ? { resetWalletTransactions: false }
+                  : {}),
+                ...(dropped ? { rotationSent: false } : {}),
+                ...(settled && flags.rotateMacaroonRootKey === sent
+                  ? { rotateMacaroonRootKey: false }
+                  : {}),
+              }
+            })
+            if (unconfirmed && dropped) {
               await sdk.notification.create(effects, {
                 level: 'warning',
                 title: i18n('Revoke Macaroons'),
