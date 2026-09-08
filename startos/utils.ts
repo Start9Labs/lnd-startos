@@ -92,6 +92,16 @@ export type GetInfo = {
   synced_to_graph: boolean
 }
 
-export function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
+/** Resolves after `ms`, or as soon as `abort` fires. */
+export function sleep(ms: number, abort?: AbortSignal) {
+  return new Promise<void>((resolve) => {
+    if (abort?.aborted) return resolve()
+    const done = () => {
+      clearTimeout(timer)
+      abort?.removeEventListener('abort', done)
+      resolve()
+    }
+    const timer = setTimeout(done, ms)
+    abort?.addEventListener('abort', done, { once: true })
+  })
 }

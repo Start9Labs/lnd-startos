@@ -1,4 +1,4 @@
-import { startupFlagsJson } from './fileModels/startupFlags.json'
+import { updateStartupFlags } from './fileModels/startupFlags.json'
 import { sdk } from './sdk'
 
 export const { createBackup, restoreInit } = sdk.setupBackups(
@@ -25,9 +25,9 @@ export const { createBackup, restoreInit } = sdk.setupBackups(
         // stale, and re-running a copy against the origin is never what a
         // restore means — recovery goes through the SCB flow the restore flag
         // drives. Re-running Initialize Wallet is the way to migrate again.
-        await startupFlagsJson.merge(effects, {
+        await updateStartupFlags(effects, () => ({
           restore: true,
           importPending: false,
-        })
+        }))
       }),
 )

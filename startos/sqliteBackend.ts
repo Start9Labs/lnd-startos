@@ -1,7 +1,10 @@
 import { T } from '@start9labs/start-sdk'
 import { rm, stat } from 'fs/promises'
 import { lndConfFile } from './fileModels/lnd.conf'
-import { startupFlagsJson } from './fileModels/startupFlags.json'
+import {
+  startupFlagsJson,
+  updateStartupFlags,
+} from './fileModels/startupFlags.json'
 import { storeJson } from './fileModels/store.json'
 import { i18n } from './i18n'
 import { getLndState, isPastUnlock, LndState, unlockWallet } from './lndRest'
@@ -175,7 +178,7 @@ export async function runSqliteMigration(
   if (!flags?.dbSchemaFinalized) {
     schemaPhase.start()
     await finalizeBoltSchema(effects, store.walletPassword)
-    await startupFlagsJson.merge(effects, { dbSchemaFinalized: true })
+    await updateStartupFlags(effects, () => ({ dbSchemaFinalized: true }))
   }
   // Complete even on resume (schema was finalized on an earlier attempt).
   schemaPhase.complete()
@@ -187,7 +190,7 @@ export async function runSqliteMigration(
 
   await scrubZombieIndex(effects)
 
-  await startupFlagsJson.merge(effects, { dbMigrationComplete: true })
+  await updateStartupFlags(effects, () => ({ dbMigrationComplete: true }))
 }
 
 /**
@@ -377,7 +380,7 @@ async function waitForState(
 ): Promise<void> {
   while (!abort.aborted) {
     if (predicate(await getLndState())) return
-    await sleep(2_000)
+    await sleep(2_000, abort)
   }
   throw new Error('Migration aborted before LND reached the expected state')
 }

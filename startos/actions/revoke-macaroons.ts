@@ -1,4 +1,5 @@
-import { startupFlagsJson } from '../fileModels/startupFlags.json'
+import { randomUUID } from 'node:crypto'
+import { updateStartupFlags } from '../fileModels/startupFlags.json'
 import { i18n } from '../i18n'
 import { sdk } from '../sdk'
 
@@ -30,7 +31,9 @@ export const revokeMacaroons = sdk.Action.withoutInput(
     // has, which breaks even the node's own health check. LND rotates the key
     // and re-bakes the files together through the wallet unlocker, so the work
     // happens at unlock; this only asks for it.
-    await startupFlagsJson.merge(effects, { rotateMacaroonRootKey: true })
+    await updateStartupFlags(effects, () => ({
+      rotateMacaroonRootKey: randomUUID(),
+    }))
     await sdk.restart(effects)
 
     return {

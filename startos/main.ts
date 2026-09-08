@@ -2,7 +2,11 @@ import { FileHelper, utils } from '@start9labs/start-sdk'
 import { manifest as bitcoinManifest } from 'bitcoin-core-startos/startos/manifest'
 import { initializeWallet } from './actions/initializeWallet'
 import { lndConfFile } from './fileModels/lnd.conf'
-import { ImportPending, startupFlagsJson } from './fileModels/startupFlags.json'
+import {
+  ImportPending,
+  startupFlagsJson,
+  updateStartupFlags,
+} from './fileModels/startupFlags.json'
 import { shape, storeJson } from './fileModels/store.json'
 import { i18n } from './i18n'
 import { getLndState, isPastUnlock, unlockWallet } from './lndRest'
@@ -78,7 +82,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
   let unlockError: { kind: 'passphrase' | 'lnd'; message: string } | null = null
   // changepassword carries no recovery window, so a restore takes precedence
   // and the rotation runs in the lifecycle clear-restore-flag starts.
-  const rotateDeferred = restore && rotateMacaroonRootKey
+  const rotateDeferred = restore && !!rotateMacaroonRootKey
 
   const conf = await lndConfFile.read().const(effects)
   if (!conf) {
@@ -286,7 +290,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
             })
 
             // Swaps this phase out for whatever the data needs next.
-            await startupFlagsJson.merge(effects, { importPending: false })
+            await updateStartupFlags(effects, () => ({ importPending: false }))
             return null
           } catch (e) {
             // A oneshot's own health is internal to the chain — the SDK
@@ -416,14 +420,14 @@ export const main = sdk.setupMain(async ({ effects }) => {
               if (state !== 'LOCKED') {
                 // NON_EXISTING, WAITING_TO_START, or endpoint unreachable —
                 // wallet unlocker isn't ready for a POST yet.
-                await sleep(2_000)
+                await sleep(2_000, abort)
                 continue
               }
 
               if (!walletPassword)
                 throw new Error('Wallet Password is undefined!')
 
-              const rotate = rotateMacaroonRootKey && !rotateDeferred
+              const rotate = !!rotateMacaroonRootKey && !rotateDeferred
               const res = await unlockWallet(
                 walletPassword,
                 {
@@ -442,27 +446,28 @@ export const main = sdk.setupMain(async ({ effects }) => {
               // Only LND's own answer is reported: a request that got none says
               // nothing about the password.
               if (res.kind !== 'transport') {
-                unlockError = {
-                  kind: res.kind,
-                  message: res.message || i18n('LND gave no reason'),
-                }
+                unlockError = { kind: res.kind, message: res.message }
               }
-              await sleep(10_000)
+              await sleep(10_000, abort)
             }
             // Cleared here, not from a dependent oneshot: a restart lands in
             // the window between the two and arms the flag for every start
-            // after. Only what this run consumed: the reset was applied when
-            // LND started, the rotation only if this oneshot performed it, and
-            // a flag armed by a newer lifecycle is left to that lifecycle.
-            const consumed = {
-              ...(resetWalletTransactions
+            // after. Each flag is cleared only while it still holds the very
+            // request this run consumed — the reset applied when LND started,
+            // the rotation only if this oneshot performed it — so a request
+            // armed since is left to the lifecycle that will consume it. A
+            // rotation LND performed but never answered stays armed and runs
+            // again: at-least-once, which a rotation tolerates.
+            await updateStartupFlags(effects, (flags) => ({
+              ...(resetWalletTransactions &&
+              flags.resetWalletTransactions === resetWalletTransactions
                 ? { resetWalletTransactions: false }
                 : {}),
-              ...(rotated ? { rotateMacaroonRootKey: false } : {}),
-            }
-            if (Object.keys(consumed).length) {
-              await startupFlagsJson.merge(effects, consumed)
-            }
+              ...(rotated &&
+              flags.rotateMacaroonRootKey === rotateMacaroonRootKey
+                ? { rotateMacaroonRootKey: false }
+                : {}),
+            }))
             return null
           },
         },
@@ -593,7 +598,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
                 title: i18n('Sync Complete'),
                 message: i18n('LND is synced to chain and graph.'),
               })
-              await startupFlagsJson.merge(effects, { notified: true })
+              await updateStartupFlags(effects, () => ({ notified: true }))
               notified = true
             }
             return null
@@ -642,7 +647,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
               subcontainer: null,
               exec: {
                 fn: async () => {
-                  await startupFlagsJson.merge(effects, { restore: false })
+                  await updateStartupFlags(effects, () => ({ restore: false }))
                   // The rotation this restore displaced still holds its flag;
                   // the lifecycle this starts performs it.
                   if (rotateDeferred) await sdk.restart(effects)

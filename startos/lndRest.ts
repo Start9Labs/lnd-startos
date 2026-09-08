@@ -22,8 +22,9 @@ type Reply = { status: number; body: string } | { error: string }
 /**
  * One request to LND's REST API on loopback, pinned to its own tls.cert; an
  * unreadable certificate fails the request, never the pin. Made from this
- * process so a password never appears in a command line or a pipe. The whole
- * exchange is bounded by `timeoutMs` and by `abort`, whatever the socket does.
+ * process so a password never appears in a command line or a pipe. Reading the
+ * certificate, connecting and receiving are all under one deadline and one
+ * abort signal.
  */
 async function rest(
   path: string,
@@ -31,55 +32,64 @@ async function rest(
   timeoutMs: number,
   abort?: AbortSignal,
 ): Promise<Reply> {
-  let ca: Buffer
+  if (abort?.aborted) return { error: 'aborted' }
+  const ctrl = new AbortController()
+  const onAbort = () => ctrl.abort()
+  abort?.addEventListener('abort', onAbort, { once: true })
+  const deadline = setTimeout(() => ctrl.abort(), timeoutMs)
+  const why = () =>
+    abort?.aborted ? 'aborted' : `no answer within ${timeoutMs} ms`
   try {
-    ca = await readFile(certPathHost)
-  } catch (e) {
-    return { error: `tls.cert unreadable: ${(e as Error).message}` }
+    let ca: Buffer
+    try {
+      ca = await readFile(certPathHost, { signal: ctrl.signal })
+    } catch (e) {
+      return {
+        error: ctrl.signal.aborted
+          ? why()
+          : `tls.cert unreadable: ${(e as Error).message}`,
+      }
+    }
+    return await new Promise<Reply>((resolve) => {
+      let done = false
+      const finish = (reply: Reply) => {
+        if (done) return
+        done = true
+        resolve(reply)
+      }
+      const req = request(
+        `${selfRestUrl}${path}`,
+        {
+          method: body === null ? 'GET' : 'POST',
+          ca,
+          rejectUnauthorized: true,
+          headers: body === null ? {} : { 'Content-Type': 'application/json' },
+          signal: ctrl.signal,
+        },
+        (res) => {
+          let data = ''
+          res.setEncoding('utf8')
+          res.on('data', (c) => (data += c))
+          res.on('end', () =>
+            finish({ status: res.statusCode ?? 0, body: data }),
+          )
+          res.on('error', (e) => finish({ error: e.message }))
+          res.on('close', () =>
+            finish({ error: 'connection closed before the answer ended' }),
+          )
+        },
+      )
+      req.on('error', (e) =>
+        finish({ error: ctrl.signal.aborted ? why() : e.message }),
+      )
+      req.on('close', () => finish({ error: 'connection closed' }))
+      if (body !== null) req.write(body)
+      req.end()
+    })
+  } finally {
+    clearTimeout(deadline)
+    abort?.removeEventListener('abort', onAbort)
   }
-  return new Promise((resolve) => {
-    let done = false
-    const finish = (reply: Reply) => {
-      if (done) return
-      done = true
-      clearTimeout(deadline)
-      abort?.removeEventListener('abort', onAbort)
-      resolve(reply)
-    }
-    const req = request(
-      `${selfRestUrl}${path}`,
-      {
-        method: body === null ? 'GET' : 'POST',
-        ca,
-        rejectUnauthorized: true,
-        headers: body === null ? {} : { 'Content-Type': 'application/json' },
-      },
-      (res) => {
-        let data = ''
-        res.setEncoding('utf8')
-        res.on('data', (c) => (data += c))
-        res.on('end', () => finish({ status: res.statusCode ?? 0, body: data }))
-        res.on('error', (e) => finish({ error: e.message }))
-        res.on('close', () =>
-          finish({ error: 'connection closed before the answer ended' }),
-        )
-      },
-    )
-    req.on('error', (e) => finish({ error: e.message }))
-    req.on('close', () => finish({ error: 'connection closed' }))
-    const deadline = setTimeout(() => {
-      req.destroy()
-      finish({ error: `no answer within ${timeoutMs} ms` })
-    }, timeoutMs)
-    const onAbort = () => {
-      req.destroy()
-      finish({ error: 'aborted' })
-    }
-    if (abort?.aborted) return onAbort()
-    abort?.addEventListener('abort', onAbort, { once: true })
-    if (body !== null) req.write(body)
-    req.end()
-  })
 }
 
 export async function getLndState(
@@ -94,8 +104,12 @@ export async function getLndState(
   }
 }
 
+// btcwallet's wording for a password that does not open the wallet. Anything
+// else LND says is a failure of the operation, not of the password.
+const REFUSED = /invalid passphrase for master public key/i
+
 /**
- * `passphrase`: the unlocker rejected the password. `lnd`: LND answered but did
+ * `passphrase`: the wallet rejected the password. `lnd`: LND answered but did
  * not do what was asked, for another reason. `transport`: no usable answer.
  */
 type UnlockOutcome =
@@ -105,9 +119,10 @@ type UnlockOutcome =
 /**
  * Unlock through the wallet unlocker. A pending macaroon rotation goes through
  * changepassword with the same password instead, which unlocks as a side
- * effect and rewrites every macaroon; `ok` on that path means the rotation was
- * performed. No reply body is ever logged or returned: the rotation reply
- * carries the new admin macaroon.
+ * effect and rewrites every macaroon; `ok` on that path means the parsed reply
+ * carried the new admin macaroon, which never leaves this function. Of an
+ * error reply only the gateway's `message` field is returned, and no reply is
+ * logged.
  */
 export async function unlockWallet(
   password: string,
@@ -170,7 +185,7 @@ export async function unlockWallet(
     return { ok: true }
   return {
     ok: false,
-    kind: /passphrase|password/i.test(message) ? 'passphrase' : 'lnd',
+    kind: REFUSED.test(message) ? 'passphrase' : 'lnd',
     message,
   }
 }

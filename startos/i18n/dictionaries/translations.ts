@@ -287,7 +287,6 @@ export default {
     305: 'Desbloqueo del monedero',
     306: 'El monedero está desbloqueado',
     307: 'LND rechazó la contraseña del monedero almacenada: ${error}',
-    308: 'LND no dio ninguna razón',
     470: 'LND no pudo desbloquear el monedero: ${error}',
   },
   de_DE: {
@@ -576,7 +575,6 @@ export default {
     305: 'Wallet-Entsperrung',
     306: 'Die Wallet ist entsperrt',
     307: 'LND hat das gespeicherte Wallet-Passwort abgelehnt: ${error}',
-    308: 'LND nannte keinen Grund',
     470: 'LND konnte die Wallet nicht entsperren: ${error}',
   },
   pl_PL: {
@@ -865,7 +863,6 @@ export default {
     305: 'Odblokowanie portfela',
     306: 'Portfel jest odblokowany',
     307: 'LND odrzucił zapisane hasło portfela: ${error}',
-    308: 'LND nie podał powodu',
     470: 'LND nie mógł odblokować portfela: ${error}',
   },
   fr_FR: {
@@ -1154,7 +1151,6 @@ export default {
     305: 'Déverrouillage du portefeuille',
     306: 'Le portefeuille est déverrouillé',
     307: 'LND a refusé le mot de passe du portefeuille enregistré : ${error}',
-    308: "LND n'a donné aucune raison",
     470: "LND n'a pas pu déverrouiller le portefeuille : ${error}",
   },
 } satisfies Record<string, LangDict>
