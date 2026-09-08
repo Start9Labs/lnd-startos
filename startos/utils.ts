@@ -12,6 +12,10 @@ import { sdk } from './sdk'
 export const lndDataDir = '/root/.lnd'
 export const bitcoindMnt = '/mnt/bitcoin'
 export const mainVolumeHost = '/media/startos/volumes/main'
+
+// For untrusted text passed as an i18n parameter: the SDK substitutes with
+// String.replace, which reads `$&`, `$'` and `` $` `` in the value as patterns.
+export const literal = (text: string) => text.replace(/\$/g, '$$$$')
 // The watchtower *server* database (client sessions + their state-update
 // backups), distinct from the wtclient db under data/graph. Deleted whenever
 // the server is disabled — by the action and, as a backstop, by the migration.
@@ -93,9 +97,10 @@ export function sleep(ms: number) {
 // Continuous channel-backup paths. backup-agent.sh hardcodes the matching
 // absolute paths — keep the two in sync.
 export const channelBackupPath = `${lndDataDir}/data/chain/bitcoin/mainnet/channel.backup`
-// What restore-pull fetches. Kept beside LND's own copy rather than replacing
-// it: LND rewrites channel.backup shortly after unlocking, which would race a
-// pull that wrote in place.
+export const channelBackupHostPath = `${mainVolumeHost}/data/chain/bitcoin/mainnet/channel.backup`
+// The candidate a restore pulls. Kept beside LND's own copy rather than
+// replacing it: LND rewrites channel.backup shortly after unlocking, which
+// would race a pull that wrote in place.
 export const channelBackupRestoredPath = `${lndDataDir}/channel.backup.restored`
 export const channelBackupRestoredHostPath = `${mainVolumeHost}/channel.backup.restored`
 export const backupAgentScript = '/usr/local/bin/backup-agent.sh'

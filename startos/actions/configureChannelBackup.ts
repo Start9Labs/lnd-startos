@@ -3,28 +3,59 @@ import { URLSearchParams } from 'url'
 import { channelBackupJson } from '../fileModels/channel-backup.json'
 import { i18n } from '../i18n'
 import { sdk } from '../sdk'
-import { backupFolderDefault } from '../utils'
+import { backupFolderDefault, literal, mainMounts } from '../utils'
 
 const VALID_PROVIDERS = ['gdrive', 'dropbox', 'nextcloud', 'sftp'] as const
 
-function rejectOnion(addr: string, label: string): void {
-  if (addr.includes('.onion'))
+// rclone.conf is line-based, so a line break in any value would start a new
+// key or section.
+const CONTROL = /[\u0000-\u001f\u007f]/
+
+function clean(value: unknown, label: string): string {
+  const s = typeof value === 'string' ? value.trim() : ''
+  if (CONTROL.test(s)) {
+    throw new Error(
+      i18n('${label}: line breaks and control characters are not allowed.', {
+        label,
+      }),
+    )
+  }
+  return s
+}
+
+// Secrets keep every byte the user typed.
+function secret(value: unknown, label: string): string {
+  const s = typeof value === 'string' ? value : ''
+  if (CONTROL.test(s)) {
+    throw new Error(
+      i18n('${label}: line breaks and control characters are not allowed.', {
+        label,
+      }),
+    )
+  }
+  return s
+}
+
+function hostOf(addr: string): string {
+  let host = addr.toLowerCase()
+  try {
+    host = new URL(host.includes('://') ? host : `sftp://${host}`).hostname
+  } catch {}
+  return host.replace(/^\[|\]$/g, '')
+}
+
+// A backup that lives on this same server does not survive losing it, which is
+// the case these backups exist for; a Tor target needs a proxy the agent has no
+// route to.
+function rejectLocalOrOnion(addr: string, label: string): void {
+  const host = hostOf(addr)
+  if (host.endsWith('.onion'))
     throw new Error(
       i18n(
         '${label}: Tor .onion targets are not supported yet. Use a clearnet address.',
         { label },
       ),
     )
-}
-
-// A backup that lives on this same server does not survive losing it, which is
-// the case these backups exist for.
-function rejectLoopback(addr: string, label: string): void {
-  let host = addr.trim().toLowerCase()
-  try {
-    host = new URL(host.includes('://') ? host : `sftp://${host}`).hostname
-  } catch {}
-  host = host.replace(/^\[|\]$/g, '')
   if (
     host === 'localhost' ||
     host === '::1' ||
@@ -116,7 +147,7 @@ function httpsPostJson(
 }
 
 // Exchange a fresh authorization code for the rclone token JSON that holds the
-// refresh token. Runs only while a target is being enabled with a new code.
+// refresh token.
 async function exchangeGoogleCode(
   clientId: string,
   clientSecret: string,
@@ -171,20 +202,35 @@ async function exchangeDropboxCode(
         'Dropbox did not return a refresh token. The code may have expired or already been used. Approve the app again and paste the fresh code it shows.',
       ),
     )
-  return `{"access_token":"${r.access_token}","token_type":"bearer","refresh_token":"${r.refresh_token}","expiry":"${new Date(Date.now() + r.expires_in * 1000).toISOString()}"}`
+  return JSON.stringify({
+    access_token: r.access_token,
+    token_type: 'bearer',
+    refresh_token: r.refresh_token,
+    expiry: new Date(Date.now() + r.expires_in * 1000).toISOString(),
+  })
 }
 
 // rclone refreshes the expired access token on first use, so only the refresh
 // token has to be real.
 function tokenFromRefresh(refreshToken: string, google: boolean): string {
-  return google
-    ? JSON.stringify({
-        access_token: 'DUMMY',
-        token_type: 'Bearer',
-        refresh_token: refreshToken,
-        expiry: '2020-01-01T00:00:00Z',
-      })
-    : `{"access_token":"DUMMY","token_type":"bearer","refresh_token":"${refreshToken}","expiry":"2020-01-01T00:00:00Z"}`
+  return JSON.stringify({
+    access_token: 'DUMMY',
+    token_type: google ? 'Bearer' : 'bearer',
+    refresh_token: refreshToken,
+    expiry: '2020-01-01T00:00:00Z',
+  })
+}
+
+// openssh-key-v1 names its cipher up front; "none" is the only one rclone can
+// open without a passphrase it has no way to ask for.
+function opensshKeyIsEncrypted(body: string): boolean {
+  const raw = Buffer.from(body, 'base64')
+  const magic = 'openssh-key-v1\0'
+  if (raw.subarray(0, magic.length).toString('latin1') !== magic) return false
+  const len = raw.readUInt32BE(magic.length)
+  return (
+    raw.subarray(magic.length + 4, magic.length + 4 + len).toString() !== 'none'
+  )
 }
 
 // Normalize a pasted OpenSSH key into the single-line, `\n`-escaped form
@@ -198,18 +244,62 @@ function normalizeKeyPem(keyInput: string): string {
   const body = norm
     .substring(norm.indexOf(begin) + begin.length, norm.indexOf(end))
     .replace(/\s+/g, '')
+  let encrypted: boolean
+  try {
+    encrypted = opensshKeyIsEncrypted(body)
+  } catch {
+    throw new Error(i18n('SFTP: that is not a valid OpenSSH private key.'))
+  }
+  if (encrypted)
+    throw new Error(
+      i18n(
+        'SFTP: that key is protected by a passphrase, which rclone cannot enter. Export an unencrypted key for this purpose.',
+      ),
+    )
   const out = [begin]
   for (let i = 0; i < body.length; i += 70) out.push(body.substring(i, i + 70))
   out.push(end)
   return out.join('\n').replace(/\n/g, '\\n')
 }
 
-function refreshOf(tok?: string | null): string {
-  try {
-    return JSON.parse(tok || '{}').refresh_token || ''
-  } catch {
-    return ''
-  }
+// Record the server's host keys, so rclone verifies the server on every
+// connection afterwards. Returns their fingerprints for the user to compare.
+async function scanHostKeys(
+  effects: any,
+  host: string,
+  port: string,
+): Promise<{ knownHosts: string; fingerprints: string }> {
+  return sdk.SubContainer.withTemp(
+    effects,
+    { imageId: 'lnd' },
+    mainMounts,
+    'sftp-keyscan',
+    async (sub) => {
+      const scan = await sub.exec(
+        ['ssh-keyscan', '-T', '10', '-p', port, host],
+        {},
+        40_000,
+      )
+      const lines = String(scan.stdout)
+        .split('\n')
+        .filter((l) => l && !l.startsWith('#'))
+      if (!lines.length)
+        throw new Error(
+          i18n(
+            'SFTP: ${host} did not answer with a host key. Check the address and port, and that the server is reachable from here.',
+            { host: literal(`${host}:${port}`) },
+          ),
+        )
+      const knownHosts = lines.join('\n')
+      const fp = await sub.exec(['ssh-keygen', '-lf', '-'], {
+        input: knownHosts + '\n',
+      })
+      return {
+        knownHosts,
+        fingerprints: fp.exitCode === 0 ? String(fp.stdout).trim() : knownHosts,
+      }
+    },
+  )
 }
 
 const enabledToggle = () =>
@@ -228,7 +318,9 @@ const gdriveFields = {
   }),
   'gdrive-client-secret': sdk.Value.text({
     name: i18n('OAuth Client Secret'),
-    description: i18n('From Google Cloud Console.'),
+    description: i18n(
+      'From Google Cloud Console. Leave blank to keep the stored one.',
+    ),
     default: '',
     masked: true,
     required: false,
@@ -245,7 +337,7 @@ const gdriveFields = {
   'gdrive-refresh-token': sdk.Value.text({
     name: i18n('Refresh Token'),
     description: i18n(
-      'Paste an existing token, or leave blank to generate one from the authorization code.',
+      'Optional. Paste a refresh token you already have; a new authorization code takes precedence. Leave blank to keep the stored one.',
     ),
     default: '',
     masked: true,
@@ -268,7 +360,9 @@ const dropboxFields = {
   }),
   'dropbox-client-secret': sdk.Value.text({
     name: i18n('App Secret'),
-    description: i18n('From the Dropbox App Console.'),
+    description: i18n(
+      'From the Dropbox App Console. Leave blank to keep the stored one.',
+    ),
     default: '',
     masked: true,
     required: false,
@@ -283,7 +377,7 @@ const dropboxFields = {
   'dropbox-refresh-token': sdk.Value.text({
     name: i18n('Refresh Token'),
     description: i18n(
-      'Paste an existing token, or leave blank to generate one from the authorization code.',
+      'Optional. Paste a refresh token you already have; a new authorization code takes precedence. Leave blank to keep the stored one.',
     ),
     default: '',
     masked: true,
@@ -312,7 +406,9 @@ const nextcloudFields = {
   }),
   'nextcloud-pass': sdk.Value.text({
     name: i18n('Password'),
-    description: i18n('An app password (Settings, then Security).'),
+    description: i18n(
+      'An app password (Settings, then Security). Leave blank to keep the stored one.',
+    ),
     default: '',
     masked: true,
     required: false,
@@ -320,7 +416,7 @@ const nextcloudFields = {
   'nextcloud-insecure-tls': sdk.Value.toggle({
     name: i18n('Trust self-signed certificate'),
     description: i18n(
-      'Skip certificate verification for this server. Turn this on only for a Nextcloud on your own network using a self-signed certificate. channel.backup is encrypted by LND before it leaves this server either way.',
+      'Skip certificate verification for this server. Only for a Nextcloud on your own network with a self-signed certificate: anyone between this server and it could then read the app password, though channel.backup itself stays encrypted.',
     ),
     default: false,
   }),
@@ -359,6 +455,13 @@ const sftpCommon = {
     default: backupFolderDefault,
     required: false,
   }),
+  'sftp-trust-new-host-key': sdk.Value.toggle({
+    name: i18n('Record a new host key'),
+    description: i18n(
+      'Turn on after the server was reinstalled and its host key changed. The key it presents now replaces the recorded one.',
+    ),
+    default: false,
+  }),
 }
 
 const sftpFields = {
@@ -373,7 +476,9 @@ const sftpFields = {
           ...sftpCommon,
           'sftp-pass': sdk.Value.text({
             name: i18n('Password'),
-            description: i18n('Login password.'),
+            description: i18n(
+              'Login password. Leave blank to keep the stored one.',
+            ),
             default: '',
             masked: true,
             required: false,
@@ -387,7 +492,7 @@ const sftpFields = {
           'sftp-key': sdk.Value.text({
             name: i18n('Private Key'),
             description: i18n(
-              'The whole OpenSSH private key, including its BEGIN and END lines.',
+              'The whole OpenSSH private key without a passphrase, including its BEGIN and END lines. Leave blank to keep the stored one.',
             ),
             default: '',
             required: false,
@@ -395,7 +500,7 @@ const sftpFields = {
             patterns: [
               {
                 regex:
-                  '^-----BEGIN OPENSSH PRIVATE KEY-----[\\s\\S]*-----END OPENSSH PRIVATE KEY-----\\s*$',
+                  '^\\s*(-----BEGIN OPENSSH PRIVATE KEY-----[\\s\\S]*-----END OPENSSH PRIVATE KEY-----\\s*)?$',
                 description: i18n('Must be an OpenSSH private key'),
               },
             ],
@@ -461,10 +566,7 @@ export const configureChannelBackup = sdk.Action.withInput(
   // Prefill from the saved config. Secrets come back blank and are kept when
   // left blank, so a round-trip never has to retype them.
   async ({ effects }) => {
-    const cfg = await channelBackupJson
-      .read()
-      .once()
-      .catch(() => null)
+    const cfg = await channelBackupJson.read().once()
     const g = cfg?.gdrive
     const d = cfg?.dropbox
     const n = cfg?.nextcloud
@@ -473,17 +575,17 @@ export const configureChannelBackup = sdk.Action.withInput(
       gdrive: {
         enabled: !!g?.enabled,
         'gdrive-client-id': g?.clientId || '',
-        'gdrive-client-secret': g?.clientSecret || '',
+        'gdrive-client-secret': '',
         'gdrive-auth-code': '',
-        'gdrive-refresh-token': refreshOf(g?.token),
+        'gdrive-refresh-token': '',
         'gdrive-path': g?.path || backupFolderDefault,
       },
       dropbox: {
         enabled: !!d?.enabled,
         'dropbox-client-id': d?.clientId || '',
-        'dropbox-client-secret': d?.clientSecret || '',
+        'dropbox-client-secret': '',
         'dropbox-auth-code': '',
-        'dropbox-refresh-token': refreshOf(d?.token),
+        'dropbox-refresh-token': '',
         'dropbox-path': d?.path || backupFolderDefault,
       },
       nextcloud: {
@@ -503,6 +605,7 @@ export const configureChannelBackup = sdk.Action.withInput(
             'sftp-user': s?.user || '',
             'sftp-port': s?.port || '22',
             'sftp-path': s?.path || backupFolderDefault,
+            'sftp-trust-new-host-key': false,
             ...(s?.authType === 'key'
               ? { 'sftp-key': '' }
               : { 'sftp-pass': '' }),
@@ -513,11 +616,9 @@ export const configureChannelBackup = sdk.Action.withInput(
   },
 
   async ({ effects, input }) => {
-    const cfg = await channelBackupJson
-      .read()
-      .once()
-      .catch(() => null)
+    const cfg = await channelBackupJson.read().once()
     const patch: any = {}
+    let hostKeyNote = ''
 
     for (const provider of VALID_PROVIDERS) {
       const o = (input as any)[provider] || {}
@@ -526,26 +627,36 @@ export const configureChannelBackup = sdk.Action.withInput(
 
       if (provider === 'gdrive' || provider === 'dropbox') {
         const google = provider === 'gdrive'
+        const label = google ? 'Google Drive' : 'Dropbox'
         const clientId =
-          o[`${provider}-client-id`]?.trim() || prev.clientId || ''
+          clean(o[`${provider}-client-id`], label) || prev.clientId || ''
         const clientSecret =
-          o[`${provider}-client-secret`]?.trim() || prev.clientSecret || ''
-        const authCodeRaw = o[`${provider}-auth-code`]?.trim()
-        const refreshToken = o[`${provider}-refresh-token`]?.trim()
+          secret(o[`${provider}-client-secret`], label) ||
+          prev.clientSecret ||
+          ''
+        const authCodeRaw = clean(o[`${provider}-auth-code`], label)
+        const refreshToken = clean(o[`${provider}-refresh-token`], label)
         const path =
-          o[`${provider}-path`]?.trim() || prev.path || backupFolderDefault
-        if (enabled && (!clientId || !clientSecret))
+          clean(o[`${provider}-path`], label) ||
+          prev.path ||
+          backupFolderDefault
+        if ((enabled || authCodeRaw) && (!clientId || !clientSecret))
           throw new Error(
             google
               ? i18n('Google Drive: Client ID and Client Secret are required.')
               : i18n('Dropbox: App Key and App Secret are required.'),
           )
-        let token: string | null = prev.token || null
-        if (refreshToken) token = tokenFromRefresh(refreshToken, google)
-        else if (enabled && authCodeRaw)
+        // A token belongs to the client that issued it, and a fresh
+        // authorization is what the user meant when they pasted a code.
+        const clientChanged =
+          clientId !== (prev.clientId || '') ||
+          clientSecret !== (prev.clientSecret || '')
+        let token: string | null = clientChanged ? null : prev.token || null
+        if (authCodeRaw)
           token = google
             ? await exchangeGoogleCode(clientId, clientSecret, authCodeRaw)
             : await exchangeDropboxCode(clientId, clientSecret, authCodeRaw)
+        else if (refreshToken) token = tokenFromRefresh(refreshToken, google)
         if (enabled && !token)
           throw new Error(
             google
@@ -560,18 +671,26 @@ export const configureChannelBackup = sdk.Action.withInput(
           )
         patch[provider] = { enabled, clientId, clientSecret, token, path }
       } else if (provider === 'nextcloud') {
-        const url = o['nextcloud-url']?.trim() || prev.url || ''
-        const user = o['nextcloud-user']?.trim() || prev.user || ''
-        const pass = o['nextcloud-pass']?.trim() || prev.pass || null
+        const url = clean(o['nextcloud-url'], 'Nextcloud') || prev.url || ''
+        const user = clean(o['nextcloud-user'], 'Nextcloud') || prev.user || ''
+        const pass =
+          secret(o['nextcloud-pass'], 'Nextcloud') || prev.pass || null
         const path =
-          o['nextcloud-path']?.trim() || prev.path || backupFolderDefault
+          clean(o['nextcloud-path'], 'Nextcloud') ||
+          prev.path ||
+          backupFolderDefault
         if (enabled) {
-          rejectOnion(url, 'Nextcloud')
-          rejectLoopback(url, 'Nextcloud')
           if (!url || !user || !pass)
             throw new Error(
               i18n('Nextcloud: URL, username, and password are required.'),
             )
+          if (!/^https:\/\//i.test(url))
+            throw new Error(
+              i18n(
+                'Nextcloud: the WebDAV URL must start with https://, or the app password would travel in clear text.',
+              ),
+            )
+          rejectLocalOrOnion(url, 'Nextcloud')
         }
         patch.nextcloud = {
           enabled,
@@ -584,48 +703,75 @@ export const configureChannelBackup = sdk.Action.withInput(
       } else {
         const auth = o.auth || { selection: 'password', value: {} }
         const v = auth.value || {}
-        const host = v['sftp-host']?.trim() || prev.host || ''
-        const user = v['sftp-user']?.trim() || prev.user || ''
-        const port = v['sftp-port']?.trim() || prev.port || '22'
-        const path = v['sftp-path']?.trim() || prev.path || backupFolderDefault
+        const host = clean(v['sftp-host'], 'SFTP') || prev.host || ''
+        const user = clean(v['sftp-user'], 'SFTP') || prev.user || ''
+        const port = clean(v['sftp-port'], 'SFTP') || prev.port || '22'
+        const path =
+          clean(v['sftp-path'], 'SFTP') || prev.path || backupFolderDefault
         const authType = auth.selection === 'key' ? 'key' : 'password'
         if (enabled) {
-          rejectOnion(host, 'SFTP')
-          rejectLoopback(host, 'SFTP')
           if (!host || !user)
             throw new Error(i18n('SFTP: host and username are required.'))
+          if (!/^\d{1,5}$/.test(port) || host.startsWith('-'))
+            throw new Error(i18n('SFTP: the port must be a number.'))
+          rejectLocalOrOnion(host, 'SFTP')
         }
         let pass: string | null = null
         let keyPem: string | null = null
         if (authType === 'password') {
-          pass = v['sftp-pass']?.trim() || prev.pass || null
+          pass = secret(v['sftp-pass'], 'SFTP') || prev.pass || null
           if (enabled && !pass)
             throw new Error(i18n('SFTP: a password is required.'))
         } else {
-          keyPem = v['sftp-key']?.trim()
-            ? normalizeKeyPem(v['sftp-key'])
-            : prev.keyPem || null
+          const pasted = typeof v['sftp-key'] === 'string' ? v['sftp-key'] : ''
+          keyPem = pasted.trim() ? normalizeKeyPem(pasted) : prev.keyPem || null
           if (enabled && !keyPem)
             throw new Error(i18n('SFTP: a private key is required.'))
         }
-        patch.sftp = { enabled, host, user, port, authType, pass, keyPem, path }
+        let knownHosts: string | null = prev.knownHosts || null
+        if (
+          enabled &&
+          (!knownHosts ||
+            host !== prev.host ||
+            port !== prev.port ||
+            !!v['sftp-trust-new-host-key'])
+        ) {
+          const scanned = await scanHostKeys(effects, host, port)
+          knownHosts = scanned.knownHosts
+          hostKeyNote = i18n(
+            'The SFTP server identified itself as ${fingerprint}. Check it against the server before relying on the first copy.',
+            { fingerprint: literal(scanned.fingerprints) },
+          )
+        }
+        patch.sftp = {
+          enabled,
+          host,
+          user,
+          port,
+          authType,
+          pass,
+          keyPem,
+          knownHosts,
+          path,
+        }
       }
     }
 
     await channelBackupJson.merge(effects, patch)
 
     const on = VALID_PROVIDERS.filter((p) => patch[p]?.enabled)
+    const message = on.length
+      ? i18n(
+          'channel.backup will be copied to ${targets} whenever your channels change. Run Back Up Channels Now to check that it works.',
+          { targets: on.join(', ') },
+        )
+      : i18n(
+          'No target is enabled, so channel.backup travels only inside StartOS backups you take yourself. Saved target settings were kept.',
+        )
     return {
       version: '1' as const,
       title: i18n('Channel Backups'),
-      message: on.length
-        ? i18n(
-            'channel.backup will be copied to ${targets} whenever your channels change. Run Back Up Channels Now to check that it works.',
-            { targets: on.join(', ') },
-          )
-        : i18n(
-            'No target is enabled, so channel.backup travels only inside StartOS backups you take yourself. Saved target settings were kept.',
-          ),
+      message: hostKeyNote ? `${message} ${hostKeyNote}` : message,
       result: null,
     }
   },

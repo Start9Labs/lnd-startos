@@ -1,6 +1,8 @@
+import { describeFailures } from '../channelBackupStatus'
+import { channelBackupStateJson } from '../fileModels/channel-backup-state.json'
 import { i18n } from '../i18n'
 import { sdk } from '../sdk'
-import { backupAgentScript, mainMounts } from '../utils'
+import { backupAgentScript, literal, mainMounts } from '../utils'
 
 export const backupChannelsNow = sdk.Action.withoutInput(
   'backup-channels-now',
@@ -17,46 +19,55 @@ export const backupChannelsNow = sdk.Action.withoutInput(
   }),
 
   async ({ effects }) => {
+    // StartOS caps an action at 120 s; the agent bounds its own rclone calls
+    // to fit.
     const res = await sdk.SubContainer.withTemp(
       effects,
       { imageId: 'lnd' },
       mainMounts,
       'backup-channels-now',
-      async (sub) => sub.exec(['sh', backupAgentScript, '--once'], {}, 180_000),
+      async (sub) => sub.exec(['sh', backupAgentScript, '--once'], {}, 110_000),
     )
-
-    if (res.exitCode === 3) {
-      return {
-        version: '1' as const,
-        title: i18n('Channel Backups'),
-        message: i18n(
-          'There is no channel.backup to copy yet. LND writes it when your first channel opens.',
-        ),
-        result: null,
-      }
-    }
-
-    // The agent reports each target's outcome on stderr and exits non-zero if
-    // any of them failed, so the action fails with the same detail the health
-    // check shows rather than a generic message.
-    if (res.exitCode !== 0) {
-      throw new Error(
-        i18n('Backup failed: ${reason}', {
-          reason:
-            String(res.stderr || res.stdout)
-              .trim()
-              .split('\n')
-              .slice(-3)
-              .join(' ') || i18n('The target gave no reason'),
-        }),
-      )
-    }
-
-    return {
+    const done = (message: string) => ({
       version: '1' as const,
       title: i18n('Channel Backups'),
-      message: i18n('channel.backup was copied to every enabled target.'),
+      message,
       result: null,
+    })
+
+    switch (res.exitCode) {
+      case 0:
+        return done(i18n('channel.backup was copied to every enabled target.'))
+      case 2:
+        throw new Error(
+          i18n(
+            'A restore is in progress. channel.backup is not sent until it completes.',
+          ),
+        )
+      case 3:
+        return done(
+          i18n(
+            'There is no channel.backup to copy yet. LND writes it when your first channel opens.',
+          ),
+        )
+      case 4:
+        throw new Error(
+          i18n(
+            'No backup target is enabled. Run Configure Channel Backups first.',
+          ),
+        )
     }
+
+    // The agent leaves each target's outcome in the state file, so the action
+    // fails with the same detail the health check shows.
+    const failures = (await channelBackupStateJson.read().once())?.failures
+    const reason = failures?.length
+      ? describeFailures(failures)
+      : String(res.stderr).trim().split('\n').slice(-2).join(' ')
+    throw new Error(
+      i18n('Backup failed: ${reason}', {
+        reason: literal(reason) || i18n('The target gave no reason'),
+      }),
+    )
   },
 )

@@ -10,13 +10,14 @@ import { shape, storeJson } from './fileModels/store.json'
 import { i18n } from './i18n'
 import { sdk } from './sdk'
 import { migrateOnStart, needsSqliteMigration } from './sqliteBackend'
+import { describeFailures } from './channelBackupStatus'
 import { channelBackupStateJson } from './fileModels/channel-backup-state.json'
 import { channelBackupJson } from './fileModels/channel-backup.json'
 import {
   backupAgentScript,
   bitcoindMnt,
+  channelBackupHostPath,
   channelBackupPath,
-  channelBackupRestoredHostPath,
   channelBackupRestoredPath,
   getBitcoindBundle,
   GetInfo,
@@ -627,26 +628,15 @@ export const main = sdk.setupMain(async ({ effects }) => {
         },
         requires: ['sync-progress'],
       })
-      .addOneshot('restore-pull', () =>
-        restore
-          ? {
-              // Fetch a channel.backup newer than the one the StartOS backup
-              // carried, before restorechanbackup reads it. Runs after the
-              // unlock because LND rewrites its own channel.backup shortly
-              // after unlocking; the agent writes to a separate path so that
-              // rewrite cannot race the pull.
-              subcontainer: lndSub,
-              exec: { command: ['sh', backupAgentScript, '--restore'] },
-              requires: ['lnd', 'unlock-wallet'],
-            }
-          : null,
-      )
       .addOneshot('restore', () =>
         restore
           ? {
               subcontainer: lndSub,
               exec: {
-                fn: async () => {
+                // Runs after the unlock because LND rewrites its own
+                // channel.backup shortly after unlocking; the agent pulls each
+                // candidate to a separate path so that rewrite cannot race it.
+                fn: async (subcontainer) => {
                   await sdk.setHealth(effects, {
                     id: 'restored',
                     name: i18n('Backup Restoration Detected'),
@@ -655,23 +645,79 @@ export const main = sdk.setupMain(async ({ effects }) => {
                     ),
                     result: 'failure',
                   })
-                  // restore-pull leaves a file here only when a target held one
-                  // newer than the backup's own copy.
-                  const pulled = await access(channelBackupRestoredHostPath)
-                    .then(() => true)
-                    .catch(() => false)
-                  return {
-                    command: [
-                      'lncli',
-                      `--rpcserver=${selfGrpcHost}`,
-                      'restorechanbackup',
-                      '--multi_file',
-                      pulled ? channelBackupRestoredPath : channelBackupPath,
-                    ],
+                  // Newest target copy first; one LND rejects is marked and the
+                  // next tried; the backup's own copy is last. Only what LND
+                  // accepts is recorded, so an interrupted run starts over.
+                  while (true) {
+                    const pull = await subcontainer.exec(
+                      ['sh', backupAgentScript, '--restore'],
+                      {},
+                      600_000,
+                    )
+                    const candidate = pull.exitCode === 0
+                    if (!candidate && pull.exitCode !== 3) {
+                      console.error(
+                        'restore: candidate search failed, using the volume copy',
+                        String(pull.stderr).trim(),
+                      )
+                    }
+                    if (
+                      !candidate &&
+                      !(await access(channelBackupHostPath).then(
+                        () => true,
+                        () => false,
+                      ))
+                    ) {
+                      // A backup of a node that never had a channel carries no
+                      // file; there is nothing to restore.
+                      await subcontainer.exec([
+                        'sh',
+                        backupAgentScript,
+                        '--commit-restore',
+                      ])
+                      return null
+                    }
+                    const res = await subcontainer.exec(
+                      [
+                        'lncli',
+                        `--rpcserver=${selfGrpcHost}`,
+                        'restorechanbackup',
+                        '--multi_file',
+                        candidate
+                          ? channelBackupRestoredPath
+                          : channelBackupPath,
+                      ],
+                      {},
+                      120_000,
+                    )
+                    if (res.exitCode === 0) {
+                      await subcontainer.exec([
+                        'sh',
+                        backupAgentScript,
+                        '--commit-restore',
+                      ])
+                      return null
+                    }
+                    const reason = String(res.stderr)
+                      .trim()
+                      .split('\n')
+                      .slice(-2)
+                      .join(' ')
+                    if (!candidate) {
+                      throw new Error(`restorechanbackup failed: ${reason}`)
+                    }
+                    console.warn(
+                      `restorechanbackup refused the target copy: ${reason}`,
+                    )
+                    await subcontainer.exec([
+                      'sh',
+                      backupAgentScript,
+                      '--reject-restore',
+                    ])
                   }
                 },
               },
-              requires: ['lnd', 'unlock-wallet', 'restore-pull'],
+              requires: ['lnd', 'unlock-wallet'],
             }
           : null,
       )
@@ -773,11 +819,15 @@ export const main = sdk.setupMain(async ({ effects }) => {
       .addHealthCheck('channel-backup', {
         ready: {
           display: i18n('Channel Backup'),
+          // A failing target needs a person or the agent's 5-minute retry;
+          // polling faster than that shows nothing new.
+          trigger: sdk.trigger.statusTrigger(30_000, {
+            starting: 5_000,
+            waiting: 5_000,
+            failure: 15_000,
+          }),
           fn: async () => {
-            const cfg = await channelBackupJson
-              .read()
-              .once()
-              .catch(() => null)
+            const cfg = await channelBackupJson.read().once()
             if (
               ![cfg?.gdrive, cfg?.dropbox, cfg?.nextcloud, cfg?.sftp].some(
                 (t) => t?.enabled,
@@ -790,12 +840,12 @@ export const main = sdk.setupMain(async ({ effects }) => {
                 ),
               }
             }
-            const state = await channelBackupStateJson
-              .read()
-              .once()
-              .catch(() => null)
-            if (state?.lastError) {
-              return { result: 'failure', message: state.lastError }
+            const state = await channelBackupStateJson.read().once()
+            if (state?.failures.length) {
+              return {
+                result: 'failure',
+                message: describeFailures(state.failures),
+              }
             }
             if (state?.lastSuccess) {
               return {

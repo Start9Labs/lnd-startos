@@ -35,21 +35,21 @@
 
 ## Image and Container Runtime
 
-The image is built here because two extra binaries are needed alongside `lnd`.
+The image is built here because three extra binaries and one script are needed alongside `lnd`.
 
-| Property      | Value                                                                          |
-| ------------- | ------------------------------------------------------------------------------ |
-| Image         | Built from `Dockerfile` — upstream `lnd`, plus `lndinit` and the `sqlite3` CLI |
-| Architectures | x86_64, aarch64                                                                |
-| Subcontainer  | `lnd-sub` — the `lnd` daemon, and the one to `attach` to                       |
+| Property      | Value                                                                                                       |
+| ------------- | ----------------------------------------------------------------------------------------------------------- |
+| Image         | Built from `Dockerfile` — upstream `lnd`, plus `lndinit`, the `sqlite3` CLI, `rclone` and `backup-agent.sh` |
+| Architectures | x86_64, aarch64                                                                                             |
+| Subcontainers | `lnd-sub` — the `lnd` daemon, and the one to `attach` to; `channel-backup-sub` — the channel-backup agent   |
 
-`lndinit` and `sqlite3` exist for the bolt-to-SQLite conversion described below. A separate `import-<source>` subcontainer is created when a wallet import is scheduled.
+`lndinit` and `sqlite3` exist for the bolt-to-SQLite conversion described below; `rclone` and `backup-agent.sh` keep `channel.backup` current on the configured targets. A separate `import-<source>` subcontainer is created when a wallet import is scheduled.
 
 **`main` runs in one of three modes**, and only the third is the ordinary one:
 
 1. **Import** — a wallet migration from another node is pending, so the only thing running is the copy.
 2. **Conversion** — an imported bolt database has to be converted before LND may open it.
-3. **Normal** — the LND daemon and its supporting oneshots.
+3. **Normal** — the LND daemon, the channel-backup agent, and their supporting oneshots.
 
 ## Volume and Data Layout
 
@@ -193,14 +193,16 @@ Read-only, running only. The first reports the node's identity, URIs, and sync s
 
 Grouped under Backups. `channel.backup` is LND's static channel backup: the file a restore needs to ask your peers to close your channels and return your funds. LND rewrites it whenever your channel set changes, and encrypts it under a key derived from the wallet seed, so a storage provider only ever holds ciphertext.
 
-**Configure Channel Backups** takes any combination of Google Drive, Dropbox, Nextcloud and SFTP. Each target has its own enable toggle, so turning one off keeps its saved credentials. Google and Dropbox use an authorization-code exchange: submit once with the client credentials to get a link, approve it, then paste the code back and submit again. Targets on this same server, and Tor `.onion` targets, are rejected.
+**Configure Channel Backups** takes any combination of Google Drive, Dropbox, Nextcloud and SFTP. Each target has its own enable toggle, so turning one off keeps its saved credentials. Google and Dropbox use an authorization-code exchange: submit once with the client credentials to get a link, approve it, then paste the code back and submit again. Targets on this same server, and Tor `.onion` targets, are rejected; Nextcloud must be `https://`, and an SFTP key must be an unencrypted OpenSSH key, since rclone has no way to enter a passphrase.
+
+SFTP servers are pinned by host key. Saving the target records the keys the server presents (`ssh-keyscan`), the action reports their fingerprints for comparison, and rclone refuses any other server at that address from then on. _Record a new host key_ re-records them after a server reinstall.
 
 - **What it changes:** writes `channel-backup.json`. No restart.
-- **Repeat safety:** safe; secrets left blank keep their stored value.
+- **Repeat safety:** safe; secrets are never prefilled, and left blank they keep their stored value. A changed OAuth client id or secret drops the stored token, and a fresh authorization code always replaces it.
 
-**Back Up Channels Now** runs one copy immediately and fails with whatever each target said, so a freshly configured target can be checked without waiting for a channel to open.
+**Back Up Channels Now** runs one copy immediately and fails with whatever each target said, so a freshly configured target can be checked without waiting for a channel to open. It is also the way past a copy the daemon refuses to overwrite (see Backups and Restore): it archives that copy on the target and continues.
 
-- **Cost:** seconds; running only.
+- **Cost:** seconds to a minute; running only. Refused while a restore is pending.
 
 ### Auto-Configure — hidden
 
@@ -223,15 +225,15 @@ The Bitcoin task appears on **Bitcoin's** page with nothing there explaining whi
 
 Which checks exist depends on what the service is doing.
 
-| Check           | Displayed                         | Present                                  |
-| --------------- | --------------------------------- | ---------------------------------------- |
-| `import`        | Wallet Import progress            | While a wallet import is running         |
-| `db-migration`  | "Database Conversion"             | While a bolt database is being converted |
-| `lnd`           | "LND Server"                      | Normal operation                         |
-| `sync-progress` | "Network and Graph Sync Progress" | Normal operation                         |
-| `channel-backup` | "Channel Backup"                 | Normal operation; `disabled` until a target is enabled |
-| `reachability`  | "Node Reachability"               | Normal operation                         |
-| `restored`      | Restore notice                    | After a seed restore                     |
+| Check            | Displayed                         | Present                                                |
+| ---------------- | --------------------------------- | ------------------------------------------------------ |
+| `import`         | Wallet Import progress            | While a wallet import is running                       |
+| `db-migration`   | "Database Conversion"             | While a bolt database is being converted               |
+| `lnd`            | "LND Server"                      | Normal operation                                       |
+| `sync-progress`  | "Network and Graph Sync Progress" | Normal operation                                       |
+| `channel-backup` | "Channel Backup"                  | Normal operation; `disabled` until a target is enabled |
+| `reachability`   | "Node Reachability"               | Normal operation                                       |
+| `restored`       | Restore notice                    | After a seed restore                                   |
 
 **`sync-progress` covers two different syncs** — the chain and the network graph — and a node can be caught up on one while still working through the other. It is the check to read while a node is coming up for the first time.
 
@@ -260,15 +262,25 @@ The `main` volume is copied wholesale — `sdk.Backups.ofVolumes('main')` — wi
 
 A StartOS backup carries the `channel.backup` that existed when it was taken, so a channel opened since then is not in it and its funds are not recovered. Configure Channel Backups keeps a copy off the server that is updated whenever the channel set changes, which closes that window.
 
-On a restore the `restore-pull` oneshot asks every configured target for its copy and the generation marker shipped beside it, and compares the newest against the watermark that travelled inside the StartOS backup:
+Beside every copy sits a marker, plaintext JSON holding one number: the generation, a timestamp of when the copy was made. A watermark with the newest generation this node has shipped or accepted rides inside the StartOS backup.
 
-- **A target is newer** — its copy is written to `channel.backup.restored`, `restorechanbackup` reads that instead, and the watermark moves up to the pulled generation.
+On a restore the `restore` oneshot asks the agent for candidates: every configured target's copy whose marker is newer than the watermark, newest first. Each is pulled to `channel.backup.restored` and handed to `restorechanbackup`; one LND refuses is recorded and the next tried, and the `channel.backup` from the StartOS backup itself comes last. Only what LND accepts is recorded, so an interrupted run starts over rather than trusting a half-finished one.
+
+- **A target is newer** — its copy is restored, and the watermark and the node's incorporated generation move up to it.
 - **No target is newer, or none is reachable** — the `channel.backup` from the StartOS backup is used, exactly as before.
-- **The newest target is older than the watermark** — the target has been rolled back. Nothing is pulled, the backup's own copy is used, and the Channel Backup health check says so until the next successful copy replaces the rolled-back one.
+- **The newest target is older than the watermark** — the target has been rolled back. The backup's own copy is used, and the Channel Backup health check says so until the next successful copy replaces the rolled-back one.
+- **A target cannot be compared** — unreachable, or its marker unreadable — it is skipped here and, below, never overwritten.
 
-`restore-pull` runs after the wallet unlocks, because LND rewrites its own `channel.backup` shortly after unlocking; writing to a separate path is what keeps that rewrite from racing the pull. The backup agent also stops uploading while a restore is pending, so the stale file LND writes on the way through is never shipped over a good copy.
+The oneshot runs after the wallet unlocks, because LND rewrites its own `channel.backup` shortly after unlocking; pulling to a separate path is what keeps that rewrite from racing the pull. The agent also stops uploading while a restore is pending, so the stale file LND writes on the way through is never shipped over a good copy.
 
-**A target is never overwritten while it holds a copy newer than the watermark.** Before every upload the agent reads the target's marker; a generation above anything this node has shipped means the restore could not reach that target and it still holds channels this node does not know about. The upload is skipped, the health check names the target and says to restore again with it reachable, and every other target is still served. The same rule stops two nodes pointed at one folder from clobbering each other.
+**Nothing this node did not write is overwritten without a trace.** Before every upload the agent lists the target and reads its marker:
+
+- A generation this node wrote there is replaced in place.
+- A copy older than something this node wrote or restored — the copy a restore was taken from, another node's, a rolled-back one — is first archived on the target as `channel.backup.<generation>` with its marker beside it, then replaced.
+- A copy newer than anything this node has seen holds channels it does not know about: a restore that could not reach that target left it behind. The upload is skipped, every other target is still served, and the health check names the target and says what to do: retrieve the file and run `restorechanbackup` with it, or run Back Up Channels Now, which archives it under the same scheme and continues.
+- A marker that cannot be read, or a target that cannot be listed, is left untouched and reported.
+
+Marker and copy count as one: a target is recorded as shipped only once both landed, and the daemon re-sends every copy daily even when nothing changed, so a deleted copy or a revoked credential surfaces within a day. Generations only increase, and the watcher, Back Up Channels Now and the restore steps share one lock, so no older upload can land after a newer one.
 
 ## Limitations and Differences
 

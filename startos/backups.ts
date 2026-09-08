@@ -18,11 +18,13 @@ export const { createBackup, restoreInit } = sdk.setupBackups(
           'data/chain/bitcoin/mainnet/block_headers.bin',
           'data/chain/bitcoin/mainnet/reg_filter_headers.bin',
           'logs',
-          // Runtime state and the file restore-pull fetches: both are about the
+          // Runtime state and the candidate a restore pulls: both are about the
           // machine being restored FROM, and a stale copy would misreport the
           // backup's health or be restored in place of a current one.
           '.channel-backup-state.json',
+          '.channel-backup.lock',
           'channel.backup.restored',
+          'channel.backup.restored.gen',
         ],
       })
       .setPostRestore(async (effects) => {

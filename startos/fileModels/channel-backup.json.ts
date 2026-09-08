@@ -3,7 +3,7 @@ import { sdk } from '../sdk'
 import { backupFolderDefault } from '../utils'
 
 // Where the continuous channel backup ships, and the credentials to get there.
-// Included in the StartOS backup on purpose: it is what restore-pull needs to
+// Included in the StartOS backup on purpose: it is what the restore needs to
 // find the current channel.backup again.
 //
 // Credentials are stored verbatim. backup-agent.sh obscures them with
@@ -40,6 +40,9 @@ const sftpTarget = z.object({
   authType: z.enum(['password', 'key']).catch('password'),
   pass: z.string().nullable().catch(null),
   keyPem: z.string().nullable().catch(null),
+  // ssh-keyscan output recorded when the target was saved; rclone verifies the
+  // server against it on every connection.
+  knownHosts: z.string().nullable().catch(null),
   path: z.string().catch(backupFolderDefault),
 })
 
