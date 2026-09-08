@@ -65,13 +65,14 @@ Bitcoin's data directory is mounted **read-only** at `/mnt/bitcoin` when bitcoin
 
 Five models, and the split between two of them is load-bearing.
 
-| File                         | Format | Modelled                | Written by                                                |
-| ---------------------------- | ------ | ----------------------- | --------------------------------------------------------- |
-| `lnd.conf`                   | INI    | Yes — `FileHelper.ini`  | Every init, every start, and the config actions           |
-| `store.json`                 | JSON   | Yes — `FileHelper.json` | Install, and the wallet and watchtower actions            |
-| `startup-flags.json`         | JSON   | Yes — `FileHelper.json` | Actions, the restore hook, and `main` as it consumes them |
-| `channel-backup.json`        | JSON   | Yes — `FileHelper.json` | The Configure Channel Backups action                      |
-| `.channel-backup-state.json` | JSON   | Yes — `FileHelper.json` | `backup-agent.sh`, on every backup attempt                |
+| File                            | Format | Modelled                | Written by                                                 |
+| ------------------------------- | ------ | ----------------------- | ---------------------------------------------------------- |
+| `lnd.conf`                      | INI    | Yes — `FileHelper.ini`  | Every init, every start, and the config actions            |
+| `store.json`                    | JSON   | Yes — `FileHelper.json` | Install, and the wallet and watchtower actions             |
+| `startup-flags.json`            | JSON   | Yes — `FileHelper.json` | Actions, the restore hook, and `main` as it consumes them  |
+| `channel-backup.json`           | JSON   | Yes — `FileHelper.json` | The Configure Channel Backups action                       |
+| `.channel-backup-state.json`    | JSON   | Yes — `FileHelper.json` | `backup-agent.sh`, on every backup attempt                 |
+| `channel-backup-watermark.json` | JSON   | No                      | `backup-agent.sh`; the newest generation this node shipped |
 
 **`channel-backup.json` holds the credentials for each backup target** — an app password, an OAuth refresh token, or an SSH private key, depending on the target. It is included in the StartOS backup because a restore needs it to find the current `channel.backup` again. `.channel-backup-state.json` is excluded, so a restored node reports its own backup health rather than the health of the machine it came from.
 
@@ -193,9 +194,9 @@ Read-only, running only. The first reports the node's identity, URIs, and sync s
 
 Grouped under Backups. `channel.backup` is LND's static channel backup: the file a restore needs to ask your peers to close your channels and return your funds. LND rewrites it whenever your channel set changes, and encrypts it under a key derived from the wallet seed, so a storage provider only ever holds ciphertext.
 
-**Configure Channel Backups** takes any combination of Google Drive, Dropbox, Nextcloud and SFTP. Each target has its own enable toggle, so turning one off keeps its saved credentials. Google and Dropbox use an authorization-code exchange: submit once with the client credentials to get a link, approve it, then paste the code back and submit again. Targets on this same server, and Tor `.onion` targets, are rejected; Nextcloud must be `https://`, and an SFTP key must be an unencrypted OpenSSH key, since rclone has no way to enter a passphrase.
+**Configure Channel Backups** takes any combination of Google Drive, Dropbox, Nextcloud and SFTP. Each target has its own enable toggle, so turning one off keeps its saved credentials. Google and Dropbox use an authorization-code exchange: submit once with the client credentials to get a link, approve it, then paste the code back and submit again. A loopback address and a Tor `.onion` address are rejected, and those checks apply to every saved target, enabled or not, because a restore reads them all. A copy in another folder of this same server cannot be detected, so the warning asks for a different machine. Nextcloud must be `https://`, and an SFTP key must be an unencrypted OpenSSH key, since rclone has no way to enter a passphrase. The OAuth code exchange is bounded to 30 seconds.
 
-SFTP servers are pinned by host key, and the pin is confirmed before it is used. Saving the target records the keys the server presents (`ssh-keyscan`) and reports their fingerprints, but nothing is sent until a later save with _Host key verified_ turned on; the health check says so in the meantime. A changed host or port drops the pin, as does _Record a new host key_ after a server reinstall. Folder paths on every target must be relative, with no `..` segments.
+SFTP servers are pinned by host key, and the pin is confirmed before it is used. Saving the target records the keys the server presents (`ssh-keyscan`) and reports their fingerprints, but nothing is sent until a later save with _Host key verified_ turned on; the health check says so in the meantime, and saving with the toggle off withdraws that trust. Only a scan that finished cleanly, every line a whole key that `ssh-keygen` can fingerprint, is recorded. A changed host or port drops the pin, as does _Record a new host key_ after a server reinstall. Folder paths on every target must be relative, with no `..` segments.
 
 - **What it changes:** writes `channel-backup.json`. No restart.
 - **Repeat safety:** safe; secrets are never prefilled, and left blank they keep their stored value. A changed OAuth client id or secret drops the stored token, and a fresh authorization code always replaces it.
@@ -251,8 +252,8 @@ That state is indistinguishable from a large legitimate backfill through `getinf
 
 The `main` volume is copied wholesale — `sdk.Backups.ofVolumes('main')` — with a substantial exclude list, and the exclusions are the substance.
 
-- **Excluded:** the network graph, the channel database, the sphinx replay database, the Neutrino chain data and header files, the logs, `startup-flags.json`, `.channel-backup-state.json`, and `channel.backup.restored`.
-- **Included:** `lnd.conf`, `store.json` with the wallet password and seed, the TLS pair, the macaroons, the wallet database, `channel.backup`, and `channel-backup.json`.
+- **Excluded:** the network graph, the channel database, the sphinx replay database, the Neutrino chain data and header files, the logs, `startup-flags.json`, `.channel-backup-state.json`, `.channel-backup.lock`, and the restore's staging files `channel.backup.restored` and `channel.backup.restored.gen`.
+- **Included:** `lnd.conf`, `store.json` with the wallet password and seed, the TLS pair, the macaroons, the wallet database, `channel.backup`, `channel-backup.json`, and `channel-backup-watermark.json`.
 
 **The channel database is deliberately not backed up.** Restoring a stale one claims channel states the network has moved past, which is how funds are lost — so a restore recovers the wallet and relies on the static channel backup, which asks each peer to force-close and return the funds, rather than resuming the channels.
 
@@ -262,14 +263,9 @@ The `main` volume is copied wholesale — `sdk.Backups.ofVolumes('main')` — wi
 
 A StartOS backup carries the `channel.backup` that existed when it was taken, so a channel opened since then is not in it and its funds are not recovered. Configure Channel Backups keeps a copy off the server that is updated whenever the channel set changes, which closes that window.
 
-Every target holds `channel.backup`, the newest copy for a person to find; `channel.backup.meta`, a plaintext marker naming the current record by generation and node; one immutable record per copy shipped, `channel.backup.<generation>.<node>`, of which the newest twenty of this node's are kept; and `channel.backup.unknown-<time>` for any copy found there without a marker. The record is written first and the marker last, so a run cut off anywhere leaves every record intact and a marker that names a complete one. A generation is a timestamp that only ever increases on a node; the node id is minted once and lives in the state file, which is excluded from backups, so a restored node gets a fresh one and never mistakes the copies of the node it came from for its own. Shipped generations are tracked per destination, not per provider slot, so pointing a slot at a different folder starts over.
+Every target holds `channel.backup`, the newest copy for a person to find; `channel.backup.meta`, a plaintext marker naming the current record by generation and node; one immutable record per copy shipped, `channel.backup.<generation>.<node>`, of which the newest twenty of this node's are kept; and `channel.backup.unknown-<time>` for any copy found there without a marker. The record is written first and the marker last, so a run cut off anywhere leaves every record intact and a marker that names a complete one. A generation is a timestamp that only ever increases on a node, and means nothing between nodes; the node id is minted once and lives in the state file, which is excluded from backups, so a restored node gets a fresh one and never mistakes the copies of the node it came from for its own. Marker fields and record names are checked for shape before they are used, so a stray file on a target cannot reach shell arithmetic or a path.
 
-On a restore the `restore` oneshot waits for LND's RPC server, then asks the agent for candidates: every target with complete credentials, enabled or not, whose marker is newer than the watermark that travelled inside the StartOS backup, newest first. Each candidate's record is pulled to `channel.backup.restored` and handed to `restorechanbackup`; one LND refuses is recorded by destination, generation and node and the next tried, and the `channel.backup` from the StartOS backup itself comes last. An answer that says LND was not ready, or an agent step that cannot record its outcome, fails the oneshot so the SDK retries it with the flag still set; only what LND accepts is committed, and "channel already exists" on a retry counts as accepted.
-
-- **A target is newer** — its record is restored, and the watermark and the node's incorporated generation move up to it.
-- **No target is newer, or none is reachable** — the `channel.backup` from the StartOS backup is used, exactly as before.
-- **The newest target is older than the watermark** — the target has been rolled back. The backup's own copy is used, and the Channel Backup health check says so until the next successful copy replaces the rolled-back one.
-- **A target cannot be compared** — unreachable, or its marker unreadable — it is skipped here and, below, never overwritten.
+On a restore the `restore` oneshot waits for LND to reach `SERVER_ACTIVE`, bounded at an hour per attempt, because `restorechanbackup` answers _server is still in the process of starting_ until then. It then asks the agent for one candidate at a time and hands each to `restorechanbackup`. Every target with complete credentials, enabled or not, is listed; from each, the newest record of every node that has written there is a candidate, then any copy without an identity (`channel.backup.unknown-<time>`, a bare `channel.backup`), and last the `channel.backup` the StartOS backup itself carried. Candidates are offered newest first, but order is not what makes this safe: LND skips channels it already holds, so what is recovered is the union of every copy found. A candidate is known by the hash of its bytes, so a rewritten convenience copy never stands in for the record its marker names, and one LND refuses is remembered by that hash. Only an answer about the file itself — it could not be unpacked or decrypted — rejects a candidate; any other failure fails the oneshot, and the SDK retries it with the flag still set. A target that cannot be listed keeps the search open: the restore notice names it and the oneshot retries, and clearing that target's saved credentials is how to stop waiting for it. Only when every copy that could be found has been offered does the oneshot clear the restore flag, itself, as the last step.
 
 A restore finds a target where the StartOS backup's `channel-backup.json` says it is, so after changing a target's location, take a new StartOS backup.
 
@@ -278,12 +274,12 @@ The oneshot runs after the wallet unlocks, because LND rewrites its own `channel
 **Nothing this node did not write is overwritten without a trace.** Before every upload the agent lists the target and reads its marker:
 
 - A marker carrying this node's id means a record of its own is current; the copy and marker are replaced in place.
-- Another node's marker at or below the generation this node last accepted from a restore — the copy a restore was taken from, a rolled-back one — is kept aside under its record name if that record is missing, then replaced.
-- Another node's marker above anything this node has seen holds channels it does not know about: a restore that could not reach that target left it behind, or two nodes share a folder. The upload is skipped, every other target is still served, and the health check names the target and says what to do: retrieve the file and run `restorechanbackup` with it, or run Back Up Channels Now, which keeps it under its record name and continues.
+- Another node's marker at or below the newest generation this node has restored from that node is kept aside under its record name if that record is missing, then replaced.
+- Another node's marker above anything this node has restored from it holds channels it does not know about: a restore that could not reach that target left it behind, or two nodes share a folder. The upload is skipped, every other target is still served, and the health check names the target and says what to do: retrieve the file and run `restorechanbackup` with it, or run Back Up Channels Now, which keeps it under its record name and continues.
 - A copy with no marker is kept as `channel.backup.unknown-<time>`, then replaced.
 - A marker that cannot be read, or a target that cannot be listed, is left untouched and reported.
 
-The daemon re-sends every copy daily even when nothing changed, so a deleted copy or a revoked credential surfaces within a day. The watcher, Back Up Channels Now and the restore steps share one lock; the manual run does not wait for it and reports when a cycle is already running.
+The daemon re-sends every copy daily even when nothing changed, so a deleted copy or a revoked credential surfaces within a day. The watcher, Back Up Channels Now and the restore steps share one lock; the manual run does not wait for it and reports when a cycle is already running. Every run reads one validated snapshot of `channel-backup.json`, so a save landing mid-run cannot mix two configurations, and a half-written file is retried rather than acted on. The agent's own files — the state file and the watermark — are written beside their destination and renamed into place, and a run that cannot record its outcome reports failure. Back Up Channels Now stops starting work after 95 seconds and records the targets it did not reach, so its result always describes what actually happened.
 
 ## Limitations and Differences
 

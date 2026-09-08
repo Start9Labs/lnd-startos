@@ -1,6 +1,6 @@
 import { FileHelper, utils } from '@start9labs/start-sdk'
 import { manifest as bitcoinManifest } from 'bitcoin-core-startos/startos/manifest'
-import { access, readFile } from 'node:fs/promises'
+import { readFile } from 'node:fs/promises'
 import { request } from 'node:https'
 import { base64 } from 'rfc4648'
 import { initializeWallet } from './actions/initializeWallet'
@@ -16,11 +16,10 @@ import { channelBackupJson } from './fileModels/channel-backup.json'
 import {
   backupAgentScript,
   bitcoindMnt,
-  channelBackupHostPath,
-  channelBackupPath,
   channelBackupRestoredPath,
   getBitcoindBundle,
   GetInfo,
+  literal,
   lndDataDir,
   mainMounts,
   neutrinoBundle,
@@ -637,14 +636,17 @@ export const main = sdk.setupMain(async ({ effects }) => {
                 // channel.backup shortly after unlocking; the agent pulls each
                 // candidate to a separate path so that rewrite cannot race it.
                 fn: async (subcontainer, abort) => {
-                  await sdk.setHealth(effects, {
-                    id: 'restored',
-                    name: i18n('Backup Restoration Detected'),
-                    message: i18n(
-                      'Lightning Labs strongly recommends against continuing to use a LND node after running restorechanbackup. Please recover and sweep any remaining funds to another wallet. Afterwards LND should be uninstalled. LND can then be re-installed fresh if you would like to continue using LND.',
-                    ),
-                    result: 'failure',
-                  })
+                  const warning = i18n(
+                    'Lightning Labs strongly recommends against continuing to use a LND node after running restorechanbackup. Please recover and sweep any remaining funds to another wallet. Afterwards LND should be uninstalled. LND can then be re-installed fresh if you would like to continue using LND.',
+                  )
+                  const notice = (message: string) =>
+                    sdk.setHealth(effects, {
+                      id: 'restored',
+                      name: i18n('Backup Restoration Detected'),
+                      message,
+                      result: 'failure',
+                    })
+                  await notice(warning)
                   const tail = (out: unknown) =>
                     String(out).trim().split('\n').slice(-2).join(' ')
                   const agent = (mode: string, timeoutMs: number) =>
@@ -661,40 +663,48 @@ export const main = sdk.setupMain(async ({ effects }) => {
                       throw new Error(`${mode} failed: ${tail(res.stderr)}`)
                     }
                   }
-                  // restorechanbackup is served by the main RPC server, which
-                  // comes up a little after the unlock; asking earlier fails
-                  // for a reason that says nothing about the candidate.
-                  while (
-                    !/^(RPC_ACTIVE|SERVER_ACTIVE)$/.test(
-                      (await getLndState()) ?? '',
-                    )
-                  ) {
+                  // restorechanbackup answers "server is still in the process
+                  // of starting" until SERVER_ACTIVE, which waits on the chain
+                  // sync.
+                  const deadline = Date.now() + 60 * 60_000
+                  while ((await getLndState()) !== 'SERVER_ACTIVE') {
                     if (abort.aborted)
-                      throw new Error('aborted before LND served RPC')
-                    await sleep(2_000)
+                      throw new Error('aborted before LND finished starting')
+                    if (Date.now() > deadline)
+                      throw new Error(
+                        'LND did not finish starting within an hour',
+                      )
+                    await sleep(5_000)
                   }
-                  // Newest target copy first; one LND rejects is marked and the
-                  // next tried; the backup's own copy is last. Only what LND
-                  // accepts is recorded, so an interrupted run starts over.
+                  // Every copy that can be found is offered, newest first, and
+                  // LND skips the channels it already knows. Only LND's answer
+                  // decides a candidate; only a completed search ends the
+                  // restore.
                   while (true) {
                     const pull = await agent('--restore', 600_000)
-                    if (pull.exitCode !== 0 && pull.exitCode !== 3) {
+                    if (pull.exitCode === 3) {
+                      await record('--finish-restore')
+                      await startupFlagsJson.merge(effects, { restore: false })
+                      return null
+                    }
+                    if (pull.exitCode === 6) {
+                      const failures =
+                        (await channelBackupStateJson.read().once())
+                          ?.failures ?? []
+                      await notice(
+                        `${warning} ${i18n(
+                          'A backup target has not answered, so the search for the newest channel.backup continues: ${detail} To stop waiting for it, clear its saved credentials in Configure Channel Backups.',
+                          { detail: literal(describeFailures(failures)) },
+                        )}`,
+                      )
+                      throw new Error(
+                        `candidate search incomplete: ${tail(pull.stderr)}`,
+                      )
+                    }
+                    if (pull.exitCode !== 0) {
                       throw new Error(
                         `candidate search failed: ${tail(pull.stderr)}`,
                       )
-                    }
-                    const candidate = pull.exitCode === 0
-                    if (
-                      !candidate &&
-                      !(await access(channelBackupHostPath).then(
-                        () => true,
-                        () => false,
-                      ))
-                    ) {
-                      // A backup of a node that never had a channel carries no
-                      // file; there is nothing to restore.
-                      await record('--commit-restore')
-                      return null
                     }
                     const res = await subcontainer.exec(
                       [
@@ -702,59 +712,35 @@ export const main = sdk.setupMain(async ({ effects }) => {
                         `--rpcserver=${selfGrpcHost}`,
                         'restorechanbackup',
                         '--multi_file',
-                        candidate
-                          ? channelBackupRestoredPath
-                          : channelBackupPath,
+                        channelBackupRestoredPath,
                       ],
                       {},
                       120_000,
                     )
-                    const reason = tail(res.stderr)
-                    // "already exists" is a retry after an accepted restore
-                    // whose commit did not land.
-                    if (res.exitCode === 0 || /already exists/i.test(reason)) {
+                    if (res.exitCode === 0) {
                       await record('--commit-restore')
-                      return null
+                      continue
                     }
-                    // LND not ready or unreachable says nothing about the file.
+                    const reason = tail(res.stderr)
+                    // Only a file LND could not open is the candidate's fault.
                     if (
-                      /starting up|waiting to start|not yet ready|unavailable|connection refused|deadline exceeded|wallet locked|unimplemented/i.test(
+                      /unable to (unpack|decrypt|read nonce)|message authentication failed|unknown multi-version|unexpected EOF/i.test(
                         reason,
                       )
                     ) {
-                      throw new Error(`restorechanbackup not ready: ${reason}`)
+                      console.warn(
+                        `restorechanbackup refused a candidate: ${reason}`,
+                      )
+                      await record('--reject-restore')
+                      continue
                     }
-                    if (!candidate) {
-                      throw new Error(`restorechanbackup failed: ${reason}`)
-                    }
-                    console.warn(
-                      `restorechanbackup refused the target copy: ${reason}`,
+                    throw new Error(
+                      `restorechanbackup did not accept the candidate: ${reason}`,
                     )
-                    await record('--reject-restore')
                   }
                 },
               },
               requires: ['lnd', 'unlock-wallet'],
-            }
-          : null,
-      )
-      .addOneshot('clear-restore-flag', () =>
-        // Clear the restore flag once restorechanbackup has run, so it isn't
-        // re-run on every restart. `requires: ['restore']` gates this on that
-        // oneshot completing successfully — if restorechanbackup fails the flag
-        // stays set and the restore is retried on the next startup. The flag
-        // lives outside store.json (read with `.once`), so clearing it doesn't
-        // trip a const watch and restart main.
-        restore
-          ? {
-              subcontainer: null,
-              exec: {
-                fn: async () => {
-                  await startupFlagsJson.merge(effects, { restore: false })
-                  return null
-                },
-              },
-              requires: ['restore'],
             }
           : null,
       )

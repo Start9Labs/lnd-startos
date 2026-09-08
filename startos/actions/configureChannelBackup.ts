@@ -63,9 +63,10 @@ function hostOf(addr: string): string {
   return host.replace(/^\[|\]$/g, '')
 }
 
-// A backup that lives on this same server does not survive losing it, which is
-// the case these backups exist for; a Tor target needs a proxy the agent has no
-// route to.
+// A copy on this same server dies with it. Only a loopback address can be
+// recognized as this server, so the user is asked to pick another machine and
+// the check catches the plain mistake. A Tor target needs a proxy the agent has
+// no route to.
 function rejectLocalOrOnion(addr: string, label: string): void {
   const host = hostOf(addr)
   if (host.endsWith('.onion'))
@@ -158,6 +159,9 @@ function httpsPostJson(
             }
         })
       },
+    )
+    req.setTimeout(30_000, () =>
+      req.destroy(new Error(`${hostname} did not answer within 30 s`)),
     )
     req.on('error', reject)
     req.write(body)
@@ -302,13 +306,27 @@ async function scanHostKeys(
         {},
         40_000,
       )
+      // Only whole key lines from a scan that finished: a cut-off run leaves
+      // partial lines that ssh-keygen and rclone reject, or none at all.
       const lines = String(scan.stdout)
         .split('\n')
         .filter((l) => l && !l.startsWith('#'))
-      if (!lines.length)
+      const unreachable = i18n(
+        'SFTP: ${host} did not answer with a host key. Check the address and port, and that the server is reachable from here.',
+        { host: literal(`${host}:${port}`) },
+      )
+      if (!lines.length) throw new Error(unreachable)
+      if (
+        scan.exitCode !== 0 ||
+        !lines.every((l) =>
+          /^\S+ (ssh-(rsa|ed25519|dss)|ecdsa-sha2-nistp(256|384|521)|sk-\S+) [A-Za-z0-9+/]+={0,2}$/.test(
+            l,
+          ),
+        )
+      )
         throw new Error(
           i18n(
-            'SFTP: ${host} did not answer with a host key. Check the address and port, and that the server is reachable from here.',
+            'SFTP: the host key ${host} presented could not be read. Try saving again.',
             { host: literal(`${host}:${port}`) },
           ),
         )
@@ -316,10 +334,17 @@ async function scanHostKeys(
       const fp = await sub.exec(['ssh-keygen', '-lf', '-'], {
         input: knownHosts + '\n',
       })
-      return {
-        knownHosts,
-        fingerprints: fp.exitCode === 0 ? String(fp.stdout).trim() : knownHosts,
-      }
+      const fingerprints = String(fp.stdout)
+        .split('\n')
+        .filter((l) => l.trim())
+      if (fp.exitCode !== 0 || fingerprints.length !== lines.length)
+        throw new Error(
+          i18n(
+            'SFTP: the host key ${host} presented could not be read. Try saving again.',
+            { host: literal(`${host}:${port}`) },
+          ),
+        )
+      return { knownHosts, fingerprints: fingerprints.join('\n') }
     },
   )
 }
@@ -703,11 +728,12 @@ export const configureChannelBackup = sdk.Action.withInput(
         const pass =
           secret(o['nextcloud-pass'], 'Nextcloud') || prev.pass || null
         const path = folder(o['nextcloud-path'], 'Nextcloud', prev.path)
-        if (enabled) {
-          if (!url || !user || !pass)
-            throw new Error(
-              i18n('Nextcloud: URL, username, and password are required.'),
-            )
+        if (enabled && (!url || !user || !pass))
+          throw new Error(
+            i18n('Nextcloud: URL, username, and password are required.'),
+          )
+        // Checked whenever a URL is saved: a restore reads disabled targets too.
+        if (url) {
           if (!/^https:\/\//i.test(url))
             throw new Error(
               i18n(
@@ -741,11 +767,9 @@ export const configureChannelBackup = sdk.Action.withInput(
           throw new Error(
             i18n('SFTP: the port must be a number between 1 and 65535.'),
           )
-        if (enabled) {
-          if (!host || !user)
-            throw new Error(i18n('SFTP: host and username are required.'))
-          rejectLocalOrOnion(host, 'SFTP')
-        }
+        if (enabled && (!host || !user))
+          throw new Error(i18n('SFTP: host and username are required.'))
+        if (host) rejectLocalOrOnion(host, 'SFTP')
         let pass: string | null = null
         let keyPem: string | null = null
         if (authType === 'password') {
@@ -763,7 +787,6 @@ export const configureChannelBackup = sdk.Action.withInput(
         // them now, so a scan made in this save never activates in it.
         let knownHosts: string | null = prev.knownHosts || null
         let fingerprints: string = prev.hostKeyFingerprints || ''
-        let hostKeyVerified = !!prev.hostKeyVerified
         if (
           host !== (prev.host || '') ||
           port !== (prev.port || '22') ||
@@ -771,7 +794,6 @@ export const configureChannelBackup = sdk.Action.withInput(
         ) {
           knownHosts = null
           fingerprints = ''
-          hostKeyVerified = false
         }
         let scanned = false
         if (enabled && !knownHosts) {
@@ -780,8 +802,8 @@ export const configureChannelBackup = sdk.Action.withInput(
           fingerprints = scan.fingerprints
           scanned = true
         }
-        if (!scanned && knownHosts && v['sftp-host-key-verified'])
-          hostKeyVerified = true
+        const hostKeyVerified =
+          !scanned && !!knownHosts && !!v['sftp-host-key-verified']
         if (enabled && !hostKeyVerified)
           hostKeyNote = i18n(
             'The SFTP server identified itself as ${fingerprint}. Compare it with your server, then save again with Host key verified turned on; nothing is sent to it until then.',

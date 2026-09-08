@@ -445,7 +445,6 @@ const dict = {
   '${target}: holds a channel.backup newer than any this node has seen, so it was left untouched. Retrieve it and run restorechanbackup with it, or run Back Up Channels Now to keep it on the target as an archived copy and continue.': 451,
   '${target}: the existing copy could not be archived before replacing it: ${detail}': 452,
   '${target}: no host key is recorded for this server. Save the SFTP target again to record it.': 453,
-  '${target}: its newest channel.backup is older than the one this node last shipped, so the restore used the copy from the StartOS backup.': 454,
   'A restore is in progress. channel.backup is not sent until it completes.': 455,
   'No backup target is enabled. Run Configure Channel Backups first.': 456,
   'SFTP: the port must be a number between 1 and 65535.': 457,
@@ -454,6 +453,12 @@ const dict = {
   '${target}: its host key has not been confirmed. Compare the fingerprint shown when the target was saved, then save it again with Host key verified turned on.': 464,
   '${label}: the folder path must be relative, without a leading slash or ".." segments.': 465,
   'A backup is already running. Try again in a moment.': 466,
+  '${target}: the copy went out, but its record could not be written here.': 474,
+  '${target}: not reached before the run ran out of time. The watcher retries on its own.': 475,
+  '${target}: a copy could not be downloaded: ${detail}': 476,
+  'The backup settings could not be read. Try again in a moment.': 477,
+  'A backup target has not answered, so the search for the newest channel.backup continues: ${detail} To stop waiting for it, clear its saved credentials in Configure Channel Backups.': 478,
+  'SFTP: the host key ${host} presented could not be read. Try saving again.': 479,
 } as const
 
 /**

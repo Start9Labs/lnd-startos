@@ -96,16 +96,9 @@ export function sleep(ms: number) {
 
 // Continuous channel-backup paths. backup-agent.sh hardcodes the matching
 // absolute paths — keep the two in sync.
-export const channelBackupPath = `${lndDataDir}/data/chain/bitcoin/mainnet/channel.backup`
-export const channelBackupHostPath = `${mainVolumeHost}/data/chain/bitcoin/mainnet/channel.backup`
 // The candidate a restore pulls. Kept beside LND's own copy rather than
 // replacing it: LND rewrites channel.backup shortly after unlocking, which
 // would race a pull that wrote in place.
 export const channelBackupRestoredPath = `${lndDataDir}/channel.backup.restored`
 export const backupAgentScript = '/usr/local/bin/backup-agent.sh'
-export const backupConfigSubpath = 'channel-backup.json'
-export const backupStateSubpath = '.channel-backup-state.json'
-// Generation of the newest copy shipped. Rides inside the StartOS backup, so a
-// restore can tell a target that has been rolled back from a current one.
-export const backupWatermarkSubpath = 'channel-backup-watermark.json'
 export const backupFolderDefault = 'lnd-channel-backups'

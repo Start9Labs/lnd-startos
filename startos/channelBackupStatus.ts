@@ -47,11 +47,21 @@ function describeFailure(f: BackupFailure): string {
         '${target}: its host key has not been confirmed. Compare the fingerprint shown when the target was saved, then save it again with Host key verified turned on.',
         { target },
       )
-    case 'rolled-back':
+    case 'state':
       return i18n(
-        '${target}: its newest channel.backup is older than the one this node last shipped, so the restore used the copy from the StartOS backup.',
+        '${target}: the copy went out, but its record could not be written here.',
         { target },
       )
+    case 'timeout':
+      return i18n(
+        '${target}: not reached before the run ran out of time. The watcher retries on its own.',
+        { target },
+      )
+    case 'pull':
+      return i18n('${target}: a copy could not be downloaded: ${detail}', {
+        target,
+        detail,
+      })
     default:
       return `${target}: ${f.code} ${f.detail}`.trim()
   }

@@ -19,13 +19,23 @@ export const channelBackupStateShape = z.object({
   // Minted once; a restored node starts without one and so never mistakes the
   // copies of the node it came from for its own.
   node: z.string().nullable().catch(null),
-  // The generation this node last wrote to each destination.
-  shipped: z.record(z.string(), z.number()).catch({}),
-  // The newest generation restorechanbackup accepted, or the backup's own
-  // watermark when it used the backup's copy.
-  incorporated: z.number().catch(0),
-  // Candidates LND refused, as destination:generation:node.
-  restoreRejected: z.array(z.string()).catch([]),
+  // Per node (its 8-character prefix), the newest generation of its records
+  // restorechanbackup has accepted here; that node's copies at or below it
+  // may be replaced.
+  incorporated: z.record(z.string(), z.number()).catch({}),
+  // The candidates of the restore in progress, by the hash of their bytes.
+  restoreAccepted: z
+    .array(
+      z.object({
+        dest: z.string(),
+        file: z.string(),
+        hash: z.string(),
+        node: z.string().nullable(),
+        gen: z.number().nullable(),
+      }),
+    )
+    .catch([]),
+  restoreRejected: z.array(z.object({ hash: z.string() })).catch([]),
 })
 
 export type ChannelBackupStateJson = z.infer<typeof channelBackupStateShape>

@@ -60,6 +60,10 @@ export const backupChannelsNow = sdk.Action.withoutInput(
         throw new Error(
           i18n('A backup is already running. Try again in a moment.'),
         )
+      case 6:
+        throw new Error(
+          i18n('The backup settings could not be read. Try again in a moment.'),
+        )
     }
 
     // The agent leaves each target's outcome in the state file, so the action
