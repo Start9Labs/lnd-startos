@@ -1,5 +1,7 @@
 import { sdk } from '../sdk'
 import { autoconfig } from './config/autoconfig'
+import { backupChannelsNow } from './backupChannelsNow'
+import { configureChannelBackup } from './configureChannelBackup'
 import { backendConfig } from './backend'
 import { autopilotConfig } from './config/autopilot'
 import { channelsConfig } from './config/channels'
@@ -33,3 +35,5 @@ export const actions = sdk.Actions.of()
   .addAction(initializeWallet)
   .addAction(revokeMacaroons)
   .addAction(autoconfig)
+  .addAction(configureChannelBackup)
+  .addAction(backupChannelsNow)

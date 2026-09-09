@@ -1,4 +1,4 @@
-import { FileHelper, utils } from '@start9labs/start-sdk'
+import { FileHelper, utils, z } from '@start9labs/start-sdk'
 import { manifest as bitcoinManifest } from 'bitcoin-core-startos/startos/manifest'
 import { readFile } from 'node:fs/promises'
 import { request } from 'node:https'
@@ -10,11 +10,23 @@ import { shape, storeJson } from './fileModels/store.json'
 import { i18n } from './i18n'
 import { sdk } from './sdk'
 import { migrateOnStart, needsSqliteMigration } from './sqliteBackend'
+import { describeFailures } from './channelBackupStatus'
 import {
+  backupFailureShape,
+  channelBackupStateJson,
+} from './fileModels/channel-backup-state.json'
+import { channelBackupJson } from './fileModels/channel-backup.json'
+import {
+  backupAgentScript,
   bitcoindMnt,
+  channelBackupPath,
   getBitcoindBundle,
   GetInfo,
+  literal,
   lndDataDir,
+  localRestoreBackupPath,
+  localRestoreBackupTempPath,
+  remoteRestoreDir,
   mainMounts,
   neutrinoBundle,
   selfGrpcHost,
@@ -51,6 +63,20 @@ function graphSyncMessage(info: GetInfo, pendingSince: number | null) {
     'Graph sync has not completed in ${minutes} min (peers: ${peers}). LND retries with another peer every hour.',
     { minutes: Math.floor(elapsed / 60_000), peers: info.num_peers },
   )
+}
+
+// What `backup-agent.sh --pull` prints.
+const pullSummary = z.object({
+  retrieved: z.array(z.enum(['gdrive', 'dropbox', 'nextcloud', 'sftp'])),
+  unreachable: z.array(backupFailureShape),
+})
+
+/** Coarse age for a health message: seconds -> "3m" / "5h" / "2d". */
+function ago(seconds: number): string {
+  if (seconds < 90) return `${seconds}s`
+  if (seconds < 5400) return `${Math.round(seconds / 60)}m`
+  if (seconds < 172800) return `${Math.round(seconds / 3600)}h`
+  return `${Math.round(seconds / 86400)}d`
 }
 
 /** Hit LND's /v1/state REST endpoint on loopback using its TLS cert. */
@@ -97,10 +123,6 @@ function parseGatewayReply(stdout: string): Record<string, unknown> | null {
   } catch {
     return null
   }
-}
-
-function escapeI18nReplacement(value: string): string {
-  return value.replace(/\$/g, '$$$$')
 }
 
 export const main = sdk.setupMain(async ({ effects }) => {
@@ -423,6 +445,34 @@ export const main = sdk.setupMain(async ({ effects }) => {
 
   const lndChain = () =>
     sdk.Daemons.of(effects)
+      .addOneshot('stage-local-restore', () =>
+        restore
+          ? {
+              subcontainer: lndSub,
+              exec: {
+                fn: async (subcontainer, abort) => {
+                  const res = await subcontainer.exec(
+                    [
+                      'sh',
+                      '-c',
+                      `rm -f '${localRestoreBackupTempPath}'; if [ -s '${channelBackupPath}' ]; then cp '${channelBackupPath}' '${localRestoreBackupTempPath}' && mv -f '${localRestoreBackupTempPath}' '${localRestoreBackupPath}'; elif [ -e '${channelBackupPath}' ]; then echo 'channel.backup is empty' >&2; exit 1; else rm -f '${localRestoreBackupPath}'; fi`,
+                    ],
+                    {},
+                    60_000,
+                    { abort: abort.reason, signal: abort },
+                  )
+                  if (res.exitCode !== 0) {
+                    throw new Error(
+                      `failed to stage the StartOS channel backup: ${String(res.stderr).trim()}`,
+                    )
+                  }
+                  return null
+                },
+              },
+              requires: [],
+            }
+          : null,
+      )
       .addDaemon('lnd', {
         exec: { command: ['lnd', ...lndArgs] },
         subcontainer: lndSub,
@@ -440,7 +490,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
             return { result: 'success', message: i18n('LND is ready') }
           },
         },
-        requires: [],
+        requires: restore ? ['stage-local-restore'] : [],
       })
       .addOneshot('unlock-wallet', {
         exec: {
@@ -566,10 +616,10 @@ export const main = sdk.setupMain(async ({ effects }) => {
                 message:
                   unlockError.kind === 'passphrase'
                     ? i18n('LND refused the stored wallet password: ${error}', {
-                        error: escapeI18nReplacement(unlockError.message),
+                        error: literal(unlockError.message),
                       })
                     : i18n('LND could not unlock the wallet: ${error}', {
-                        error: escapeI18nReplacement(unlockError.message),
+                        error: literal(unlockError.message),
                       }),
               }
             }
@@ -684,47 +734,149 @@ export const main = sdk.setupMain(async ({ effects }) => {
           ? {
               subcontainer: lndSub,
               exec: {
-                fn: async () => {
-                  await sdk.setHealth(effects, {
-                    id: 'restored',
-                    name: i18n('Backup Restoration Detected'),
-                    message: i18n(
-                      'Lightning Labs strongly recommends against continuing to use a LND node after running restorechanbackup. Please recover and sweep any remaining funds to another wallet. Afterwards LND should be uninstalled. LND can then be re-installed fresh if you would like to continue using LND.',
-                    ),
-                    result: 'failure',
-                  })
-                  return {
-                    command: [
-                      'lncli',
-                      `--rpcserver=${selfGrpcHost}`,
-                      'restorechanbackup',
-                      '--multi_file',
-                      `${lndDataDir}/data/chain/bitcoin/mainnet/channel.backup`,
-                    ],
+                fn: async (subcontainer, abort) => {
+                  const run = (command: string[], timeout: number) =>
+                    subcontainer.exec(command, {}, timeout, {
+                      abort: abort.reason,
+                      signal: abort,
+                    })
+                  const tail = (out: unknown) =>
+                    String(out).trim().split('\n').slice(-2).join(' ')
+                  const warning = i18n(
+                    'Lightning Labs strongly recommends against continuing to use a LND node after running restorechanbackup. Please recover and sweep any remaining funds to another wallet. Afterwards LND should be uninstalled. LND can then be re-installed fresh if you would like to continue using LND.',
+                  )
+                  const notice = (message: string) =>
+                    sdk.setHealth(effects, {
+                      id: 'restored',
+                      name: i18n('Backup Restoration Detected'),
+                      message,
+                      result: 'failure',
+                    })
+
+                  // restorechanbackup answers "server is still in the process
+                  // of starting" until SERVER_ACTIVE, which waits on the chain
+                  // sync.
+                  const deadline = Date.now() + 60 * 60_000
+                  while ((await getLndState()) !== 'SERVER_ACTIVE') {
+                    if (abort.aborted)
+                      throw new Error('aborted before LND finished starting')
+                    if (Date.now() > deadline)
+                      throw new Error(
+                        'LND did not finish starting within an hour',
+                      )
+                    await sleep(5_000, abort)
                   }
-                },
-              },
-              requires: ['lnd', 'unlock-wallet'],
-            }
-          : null,
-      )
-      .addOneshot('clear-restore-flag', () =>
-        // Clear the restore flag once restorechanbackup has run, so it isn't
-        // re-run on every restart. `requires: ['restore']` gates this on that
-        // oneshot completing successfully — if restorechanbackup fails the flag
-        // stays set and the restore is retried on the next startup. The flag
-        // lives outside store.json (read with `.once`), so clearing it doesn't
-        // trip a const watch and restart main.
-        restore
-          ? {
-              subcontainer: null,
-              exec: {
-                fn: async () => {
+
+                  // Every copy is offered and LND keeps the union: it skips
+                  // channels it already holds, so nothing has to be compared.
+                  let noticed = false
+                  const offer = async (path: string, label: string) => {
+                    if (!noticed) {
+                      await notice(warning)
+                      noticed = true
+                    }
+                    const res = await run(
+                      [
+                        'lncli',
+                        `--rpcserver=${selfGrpcHost}`,
+                        'restorechanbackup',
+                        '--multi_file',
+                        path,
+                      ],
+                      3_600_000,
+                    )
+                    if (res.exitCode === 0) {
+                      console.log(`restored channels from ${label}`)
+                      return
+                    }
+                    const reason = tail(res.stderr)
+                    // Only a file LND cannot open is the copy's own fault:
+                    // another seed's, or damaged.
+                    if (
+                      /unable to (unpack|decrypt|read nonce)|message authentication failed|unknown multi-version|unexpected EOF/i.test(
+                        reason,
+                      )
+                    ) {
+                      console.warn(
+                        `skipped the channel.backup from ${label}: ${reason}`,
+                      )
+                      return
+                    }
+                    throw new Error(
+                      `restorechanbackup failed for ${label}: ${reason}`,
+                    )
+                  }
+
+                  const staged = await run(
+                    ['test', '-s', localRestoreBackupPath],
+                    30_000,
+                  )
+                  if (staged.exitCode === 0) {
+                    await offer(localRestoreBackupPath, 'the StartOS backup')
+                  } else if (staged.exitCode !== 1) {
+                    throw new Error(
+                      `failed to check the staged channel backup: ${tail(staged.stderr)}`,
+                    )
+                  }
+
+                  // A target that cannot be reached is waited for: its copy may
+                  // be the only one holding a channel opened since the StartOS
+                  // backup. Clearing the target's credentials ends the wait.
+                  const offered = new Set<string>()
+                  while (true) {
+                    const pull = await run(
+                      ['sh', backupAgentScript, '--pull'],
+                      600_000,
+                    )
+                    if (pull.exitCode !== 0 && pull.exitCode !== 6) {
+                      throw new Error(
+                        `could not retrieve the channel backups: ${tail(pull.stderr)}`,
+                      )
+                    }
+                    const summary = pullSummary.parse(
+                      JSON.parse(String(pull.stdout).trim()),
+                    )
+                    for (const provider of summary.retrieved) {
+                      if (offered.has(provider)) continue
+                      await offer(`${remoteRestoreDir}/${provider}`, provider)
+                      offered.add(provider)
+                    }
+                    if (pull.exitCode === 0) break
+                    await notice(
+                      `${warning} ${i18n(
+                        'A backup target has not answered, so the channel.backup it holds has not been restored yet: ${detail} To stop waiting for it, clear its saved credentials in Configure Channel Backups.',
+                        {
+                          detail: literal(
+                            describeFailures(summary.unreachable),
+                          ),
+                        },
+                      )}`,
+                    )
+                    await sleep(300_000, abort)
+                    if (abort.aborted)
+                      throw new Error('aborted while waiting for a target')
+                  }
+
+                  const removed = await run(
+                    [
+                      'rm',
+                      '-rf',
+                      localRestoreBackupPath,
+                      localRestoreBackupTempPath,
+                      remoteRestoreDir,
+                    ],
+                    30_000,
+                  )
+                  if (removed.exitCode !== 0) {
+                    throw new Error(
+                      `failed to remove the staged channel backups: ${tail(removed.stderr)}`,
+                    )
+                  }
                   await startupFlagsJson.merge(effects, { restore: false })
                   return null
                 },
               },
-              requires: ['restore'],
+              requires: ['lnd', 'unlock-wallet'],
             }
           : null,
       )
@@ -789,6 +941,75 @@ export const main = sdk.setupMain(async ({ effects }) => {
             } as const)
           : null,
       )
+      .addDaemon('channel-backup-agent', {
+        subcontainer: sdk.SubContainer.of(
+          effects,
+          { imageId: 'lnd' },
+          mounts,
+          'channel-backup-sub',
+        ),
+        exec: { command: ['sh', backupAgentScript] },
+        ready: {
+          display: null,
+          fn: async () => ({ result: 'success', message: null }),
+        },
+        requires: restore
+          ? ['lnd', 'unlock-wallet', 'restore']
+          : ['lnd', 'unlock-wallet'],
+      })
+      .addHealthCheck('channel-backup', {
+        ready: {
+          display: i18n('Channel Backup'),
+          // The backup agent retries a failing target every five minutes.
+          trigger: sdk.trigger.statusTrigger(30_000, {
+            starting: 5_000,
+            waiting: 5_000,
+            failure: 300_000,
+          }),
+          fn: async () => {
+            const cfg = await channelBackupJson.read().once()
+            if (
+              ![cfg?.gdrive, cfg?.dropbox, cfg?.nextcloud, cfg?.sftp].some(
+                (t) => t?.enabled,
+              )
+            ) {
+              return {
+                result: 'disabled',
+                message: i18n(
+                  'No off-server target. channel.backup travels only inside the StartOS backups you take yourself, so channels opened since your last one are not covered.',
+                ),
+              }
+            }
+            const state = await channelBackupStateJson.read().once()
+            if (state?.failures.length) {
+              return {
+                result: 'failure',
+                message: describeFailures(state.failures),
+              }
+            }
+            if (state?.lastSuccess) {
+              return {
+                result: 'success',
+                message: i18n('Copied to every enabled target ${ago} ago', {
+                  ago: ago(
+                    Math.max(
+                      0,
+                      Math.floor(Date.now() / 1000) - state.lastSuccess,
+                    ),
+                  ),
+                }),
+              }
+            }
+            return {
+              result: 'starting',
+              message: i18n(
+                'No channel.backup yet: LND writes it when your first channel opens.',
+              ),
+            }
+          },
+        },
+        requires: ['channel-backup-agent'],
+      })
 
   return sdk.Daemons.dynamic(effects, async ({ effects: dynEffects }) => {
     const importPending = await startupFlagsJson

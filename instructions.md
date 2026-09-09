@@ -16,7 +16,7 @@ LND posts two critical tasks on install; you can't start it until both are done:
 1. **Initialize Wallet** — **Start Fresh** for a new wallet, or **Migrate from Umbrel** / **Migrate from myNode** / **Migrate from StartOS** to import one from a node on your local network. Start Fresh shows your 24-word seed **once** — write it down. **The seed alone is not enough:** it recovers _on-chain_ funds only; funds in channels can be recovered only from the **Static Channel Backup** in your StartOS backups, so keep backups (see [Backups](#backups)). Choosing a migration option checks that your address and password reach the origin node and schedules the migration; the migration itself runs **when you start LND** — it shuts the origin down, copies its data, and converts the database before LND comes online, which can take hours on a large node. Watch it under **Health Checks**. If the migration fails repeatedly, LND stops itself and re-posts the **Initialize Wallet** task — run it again to correct the address or password and retry. Once the migration has finished, **never start LND on the origin device again** — two nodes sharing one seed loses funds. The full walkthrough is in the [LND migration guide](https://docs.start9.com/bitcoin-guides/lnd-migration).
 2. **Bitcoin Backend** — **Bitcoin** (recommended if you run it on this server) or **Neutrino** (built-in light client). Choosing Bitcoin posts a task on it to enable ZMQ.
 
-Then start LND.
+Then start LND. A third, non-blocking task suggests setting up **Configure Channel Backups** (see [Backups](#backups)); you can do that at any time.
 
 On every start, **Network and Graph Sync** goes through _Syncing to graph_ before it reaches _Synced_ — usually well under three minutes. If it reads _Waiting for peers_, LND has not connected to any yet. LND depends on a single peer it picks at startup to hand over the channel graph, and if that peer stops responding the sync waits on it; the check then tells you how long it has been pending. LND retries with a different peer within the hour on its own, so this normally clears itself. If you would rather not wait, restart LND — it picks a different peer. A node with no channels sees this most often, because it has no regular peers to reconnect to.
 
@@ -54,9 +54,21 @@ Run **Revoke Macaroons** if a macaroon may have been copied or exposed — for e
 
 StartOS backs up LND with its system backup. **For a Lightning node this is essential:** your seed recovers on-chain funds only, while channel funds can be recovered only by force-closing from LND's **Static Channel Backup**, which is included in StartOS backups. Back up regularly.
 
+**Configure Channel Backups** adds to this and does not replace it: only a StartOS backup holds your wallet, and a StartOS restore is what uses the copies.
+
+### Keeping the channel backup current
+
+A StartOS backup holds the channel backup as it was the moment you took it. Open a channel afterwards and that channel is missing from it, so its funds are not recovered.
+
+**Configure Channel Backups** closes that gap. Pick any combination of Google Drive, Dropbox, Nextcloud and SFTP, and a copy is sent there every time your channels change. The agent publishes the current copy under the stable name `channel.backup` on each provider. The backup is encrypted by LND with a key derived from your seed. Prefer somewhere you control, and use two targets if you can. A copy on this same server dies with it, so choose another machine. Only loopback addresses can be detected and refused; a folder elsewhere on the same disk cannot be told apart from a real target.
+
+Google Drive and Dropbox need approving in a browser: fill in the client credentials and submit once to get a link, approve it, then paste the code it gives you back into the form and submit again. For Nextcloud, use an app password from **Settings → Security** and an `https://` address. For SFTP, either a password or an SSH private key without a passphrase works. Saving records the server's host key and shows its fingerprint; compare it with your server, then save again with **Host key verified** turned on. Nothing is sent to the server until you do. Turning a target off keeps its settings; turn it off and select **Forget saved credentials** to remove them.
+
+Once your first channel has opened and LND has created its Static Channel Backup, run **Back Up Channels Now**. It reports what each target said, so you find a typo immediately rather than at restore time. The **Channel Backup** health check then shows how long ago every enabled target last succeeded, and names any target that starts failing.
+
 ### Restoring from backup
 
-Restoring force-closes every channel from the Static Channel Backup and shows a persistent warning. **Lightning Labs strongly recommends against continued use of a restored node:** once funds are back on-chain, sweep them to another wallet, then uninstall and reinstall LND fresh.
+Restoring asks each peer to force-close from the Static Channel Backup, and shows a persistent warning. If you configured channel backups, the restore also fetches the copy from every target that has saved credentials, disabled ones included, and recovers channels from all of them together, so a channel opened after that StartOS backup is recovered too. You restore from your StartOS backup as usual; nothing has to be fetched from a provider by hand. The restore waits for every target to answer; if one is gone for good, clear its saved credentials in **Configure Channel Backups** so the restore can finish, and the restore notice names the target it is waiting on. Copies are not sent to your targets again until the restore has finished. **Lightning Labs strongly recommends against continued use of a restored node:** once funds are back on-chain, sweep them to another wallet, then uninstall and reinstall LND fresh.
 
 ## Limitations
 

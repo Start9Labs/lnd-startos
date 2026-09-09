@@ -6,6 +6,7 @@ import { setInterfaces } from '../interfaces'
 import { sdk } from '../sdk'
 import { seedFiles } from './seedFiles'
 import { setupCerts } from './setupCerts'
+import { taskConfigureChannelBackup } from './taskConfigureChannelBackup'
 import { tasksOnInstall } from './tasksOnInstall'
 import { watchHosts } from './watchHosts'
 import { watchTorDns } from './watchTorDns'
@@ -23,6 +24,7 @@ export const init = sdk.setupInit(
   watchTorSocks,
   watchTorDns,
   tasksOnInstall,
+  taskConfigureChannelBackup,
 )
 
 export const uninit = sdk.setupUninit(versionGraph)

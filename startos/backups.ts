@@ -18,6 +18,11 @@ export const { createBackup, restoreInit } = sdk.setupBackups(
           'data/chain/bitcoin/mainnet/block_headers.bin',
           'data/chain/bitcoin/mainnet/reg_filter_headers.bin',
           'logs',
+          '.channel-backup-state.json',
+          '.channel-backup.lock',
+          'channel.backup.startos-restore',
+          'channel.backup.startos-restore.tmp',
+          '.channel-backup-restore',
         ],
       })
       .setPostRestore(async (effects) => {
