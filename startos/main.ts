@@ -81,6 +81,28 @@ async function getLndState(): Promise<string | null> {
   })
 }
 
+const isPastUnlock = (state: string | null) =>
+  state === 'UNLOCKED' || state === 'RPC_ACTIVE' || state === 'SERVER_ACTIVE'
+
+const refusedWalletPassword = /^invalid passphrase for master public key$/i
+
+type UnlockError = { kind: 'passphrase' | 'lnd'; message: string }
+
+function parseGatewayReply(stdout: string): Record<string, unknown> | null {
+  try {
+    const parsed: unknown = JSON.parse(stdout)
+    return parsed && typeof parsed === 'object'
+      ? (parsed as Record<string, unknown>)
+      : null
+  } catch {
+    return null
+  }
+}
+
+function escapeI18nReplacement(value: string): string {
+  return value.replace(/\$/g, '$$$$')
+}
+
 export const main = sdk.setupMain(async ({ effects }) => {
   /**
    * ======================== Setup (optional) ========================
@@ -104,6 +126,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
     startupFlags
   let notified = startupFlags.notified
   let graphSyncPendingSince: number | null = null
+  let unlockError: UnlockError | null = null
 
   const conf = await lndConfFile.read().const(effects)
   if (!conf) {
@@ -434,12 +457,9 @@ export const main = sdk.setupMain(async ({ effects }) => {
               //   SERVER_ACTIVE=4, WAITING_TO_START=255.
               // WAITING_TO_START means "not started yet" — keep polling.
               const state = await getLndState()
-              if (
-                state === 'UNLOCKED' ||
-                state === 'RPC_ACTIVE' ||
-                state === 'SERVER_ACTIVE'
-              ) {
+              if (isPastUnlock(state)) {
                 console.log(`wallet-unlock skipped, state=${state}`)
+                unlockError = null
                 break
               }
               if (state !== 'LOCKED') {
@@ -457,49 +477,64 @@ export const main = sdk.setupMain(async ({ effects }) => {
               // rather than joining it. Passing the same password back is what
               // keeps this a macaroon rotation and not a password change; LND
               // regenerates the root key and rewrites every macaroon file.
-              const res = await subcontainer.exec([
-                'curl',
-                '--no-progress-meter',
-                '-X',
-                'POST',
-                '--cacert',
-                `${lndDataDir}/tls.cert`,
-                rotateMacaroonRootKey
-                  ? `${selfRestUrl}/v1/changepassword`
-                  : `${selfRestUrl}/v1/unlockwallet`,
-                '-d',
-                rotateMacaroonRootKey
+              const body = rotateMacaroonRootKey
+                ? JSON.stringify({
+                    current_password: pw,
+                    new_password: pw,
+                    new_macaroon_root_key: true,
+                  })
+                : restore
                   ? JSON.stringify({
-                      current_password: pw,
-                      new_password: pw,
-                      new_macaroon_root_key: true,
+                      wallet_password: pw,
+                      recovery_window: 2_500,
                     })
-                  : restore
-                    ? JSON.stringify({
-                        wallet_password: pw,
-                        recovery_window: 2_500,
-                      })
-                    : JSON.stringify({ wallet_password: pw }),
-              ])
+                  : JSON.stringify({ wallet_password: pw })
+              const res = await subcontainer.exec(
+                [
+                  'curl',
+                  '--no-progress-meter',
+                  '-X',
+                  'POST',
+                  '--cacert',
+                  `${lndDataDir}/tls.cert`,
+                  rotateMacaroonRootKey
+                    ? `${selfRestUrl}/v1/changepassword`
+                    : `${selfRestUrl}/v1/unlockwallet`,
+                  '--data-binary',
+                  '@-',
+                ],
+                { input: body },
+              )
               const stdout = res.stdout.toString().trim()
-              // On the rotate path the body carries the new admin_macaroon —
-              // never log it.
+              const reply = parseGatewayReply(stdout)
+              const message =
+                typeof reply?.message === 'string' && reply.message.trim()
+                  ? reply.message.trim()
+                  : null
+
+              // A successful rotation response carries the new admin macaroon.
               console.log('wallet-unlock response', {
                 exitCode: res.exitCode,
                 stdout: rotateMacaroonRootKey ? '(redacted)' : stdout,
                 stderr: String(res.stderr).trim(),
               })
-              // `{}` = unlock succeeded. "wallet already unlocked" = wallet is
-              // already past the LOCKED state (e.g. because /v1/state raced
-              // with the oneshot). Both mean we're done. changepassword answers
-              // with an admin_macaroon field instead of `{}`, and only when it
-              // fails does the body carry an error.
               if (
                 stdout === '{}' ||
                 stdout.includes('wallet already unlocked') ||
                 (rotateMacaroonRootKey && !stdout.includes('"error"'))
               ) {
+                if (!rotateMacaroonRootKey) unlockError = null
                 break
+              }
+              if (!rotateMacaroonRootKey) {
+                unlockError = message
+                  ? {
+                      kind: refusedWalletPassword.test(message)
+                        ? 'passphrase'
+                        : 'lnd',
+                      message,
+                    }
+                  : null
               }
               await sleep(10_000)
             }
@@ -513,6 +548,37 @@ export const main = sdk.setupMain(async ({ effects }) => {
           },
         },
         subcontainer: lndSub,
+        requires: ['lnd'],
+      })
+      .addHealthCheck('wallet-unlock', {
+        ready: {
+          display: i18n('Wallet Unlock'),
+          trigger: sdk.trigger.statusTrigger(30_000, {
+            starting: 1_000,
+            waiting: 1_000,
+            failure: 10_000,
+          }),
+          fn: async () => {
+            const state = await getLndState()
+            if (state === 'LOCKED' && unlockError) {
+              return {
+                result: 'failure',
+                message:
+                  unlockError.kind === 'passphrase'
+                    ? i18n('LND refused the stored wallet password: ${error}', {
+                        error: escapeI18nReplacement(unlockError.message),
+                      })
+                    : i18n('LND could not unlock the wallet: ${error}', {
+                        error: escapeI18nReplacement(unlockError.message),
+                      }),
+              }
+            }
+            if (isPastUnlock(state)) {
+              return { result: 'success', message: i18n('Wallet is unlocked') }
+            }
+            return { result: 'starting', message: null }
+          },
+        },
         requires: ['lnd'],
       })
       .addHealthCheck('sync-progress', {

@@ -20,6 +20,8 @@ Then start LND.
 
 On every start, **Network and Graph Sync** goes through _Syncing to graph_ before it reaches _Synced_ — usually well under three minutes. If it reads _Waiting for peers_, LND has not connected to any yet. LND depends on a single peer it picks at startup to hand over the channel graph, and if that peer stops responding the sync waits on it; the check then tells you how long it has been pending. LND retries with a different peer within the hour on its own, so this normally clears itself. If you would rather not wait, restart LND — it picks a different peer. A node with no channels sees this most often, because it has no regular peers to reconnect to.
 
+**Wallet Unlock** reports errors from LND's normal wallet unlock request while the wallet remains locked. A refused stored password is identified separately from other errors. Unlock attempts continue automatically.
+
 ## Using LND
 
 ### Connecting wallets and apps
