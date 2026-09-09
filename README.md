@@ -193,6 +193,8 @@ Read-only, running only. The first reports the node's identity, URIs, and sync s
 
 Grouped under Backups. `channel.backup` is LND's static channel backup: the file a restore needs to ask your peers to close your channels and return your funds. LND rewrites it whenever your channel set changes, and encrypts it under a key derived from the wallet seed, so a storage provider only ever holds ciphertext.
 
+**These copies supplement StartOS backups; they do not replace them.** A StartOS backup holds the wallet, the target settings in `channel-backup.json`, and `channel.backup` as of the moment it was taken. A StartOS restore uses the target settings it carried to fetch each target's current copy and recovers channels from all of them together with its own, so a channel opened after the backup is recovered. A target's copy on its own is a bare `channel.backup`: usable by hand, with the seed and `restorechanbackup`, which is not what this is for.
+
 **Configure Channel Backups** takes any combination of Google Drive, Dropbox, Nextcloud and SFTP. Each target has its own enable toggle, so turning one off keeps its saved credentials. After turning a target off, **Forget saved credentials** removes its credentials and settings. Google and Dropbox use an authorization-code exchange: submit once with the client credentials to get a link, approve it, then paste the code back and submit again. A loopback address and a Tor `.onion` address are rejected for every saved target. A copy in another folder of this same server cannot be detected, so the warning asks for a different machine. Nextcloud must be `https://`, and an SFTP key must be an unencrypted OpenSSH key, since rclone has no way to enter a passphrase. The OAuth code exchange is bounded to 30 seconds.
 
 SFTP servers are pinned by host key, and the pin is confirmed before it is used. Saving the target records the keys the server presents (`ssh-keyscan`) and reports their fingerprints, but nothing is sent until a later save with _Host key verified_ turned on; the health check says so in the meantime, and saving with the toggle off withdraws that trust. Only a scan that finished cleanly, every line a whole key that `ssh-keygen` can fingerprint, is recorded. A changed host or port drops the pin, as does _Record a new host key_ after a server reinstall. Folder paths on every target must be relative, with no `..` segments.
@@ -263,7 +265,7 @@ The `main` volume is copied wholesale — `sdk.Backups.ofVolumes('main')` — wi
 
 ### Where the static channel backup comes from
 
-A StartOS backup carries the `channel.backup` that existed when it was taken, so a channel opened since then is not in it and its funds are not recovered. Configure Channel Backups keeps a copy off the server that is updated whenever the channel set changes, which closes that window.
+A StartOS backup carries the `channel.backup` that existed when it was taken, so a channel opened since then is not in it and its funds are not recovered. Configure Channel Backups keeps a copy off the server that is updated whenever the channel set changes, which closes that window. The copy is a supplement to the StartOS backup, and it is a StartOS restore that uses it: the backup carries the target settings, and the restore fetches each target's copy with them.
 
 The agent publishes one stable file named `channel.backup` in each configured provider folder. Every successful upload replaces it with the current copy; the agent creates no companion markers, generations, or history.
 

@@ -54,6 +54,8 @@ Run **Revoke Macaroons** if a macaroon may have been copied or exposed — for e
 
 StartOS backs up LND with its system backup. **For a Lightning node this is essential:** your seed recovers on-chain funds only, while channel funds can be recovered only by force-closing from LND's **Static Channel Backup**, which is included in StartOS backups. Back up regularly.
 
+**Configure Channel Backups** adds to this; it does not replace it. Only a StartOS backup holds your wallet and your target settings, and only a StartOS restore uses the copies on your targets.
+
 ### Keeping the channel backup current
 
 A StartOS backup holds the channel backup as it was the moment you took it. Open a channel afterwards and that channel is missing from it, so its funds are not recovered.
@@ -66,7 +68,7 @@ Once your first channel has opened and LND has created its Static Channel Backup
 
 ### Restoring from backup
 
-Restoring asks each peer to force-close from the Static Channel Backup, and shows a persistent warning. If you configured channel backups, the restore also fetches the copy from every target that has saved credentials, disabled ones included, and recovers channels from all of them together, so a channel opened after that StartOS backup is recovered too. The restore waits for every target to answer; if one is gone for good, clear its saved credentials in **Configure Channel Backups** so the restore can finish, and the restore notice names the target it is waiting on. Copies are not sent to your targets again until the restore has finished. **Lightning Labs strongly recommends against continued use of a restored node:** once funds are back on-chain, sweep them to another wallet, then uninstall and reinstall LND fresh.
+Restoring asks each peer to force-close from the Static Channel Backup, and shows a persistent warning. If you configured channel backups, the restore also fetches the copy from every target that has saved credentials, disabled ones included, and recovers channels from all of them together, so a channel opened after that StartOS backup is recovered too. You restore from your StartOS backup as usual; nothing has to be fetched from a provider by hand. The restore waits for every target to answer; if one is gone for good, clear its saved credentials in **Configure Channel Backups** so the restore can finish, and the restore notice names the target it is waiting on. Copies are not sent to your targets again until the restore has finished. **Lightning Labs strongly recommends against continued use of a restored node:** once funds are back on-chain, sweep them to another wallet, then uninstall and reinstall LND fresh.
 
 ## Limitations
 

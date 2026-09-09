@@ -990,7 +990,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
             if (state?.lastSuccess) {
               return {
                 result: 'success',
-                message: i18n('Last copied ${ago} ago', {
+                message: i18n('Copied to every enabled target ${ago} ago', {
                   ago: ago(
                     Math.max(
                       0,
@@ -1002,7 +1002,9 @@ export const main = sdk.setupMain(async ({ effects }) => {
             }
             return {
               result: 'starting',
-              message: i18n('Waiting for the first channel to back up'),
+              message: i18n(
+                'No channel.backup yet: LND writes it when your first channel opens.',
+              ),
             }
           },
         },
