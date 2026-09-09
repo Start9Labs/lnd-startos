@@ -355,9 +355,7 @@ const dict = {
   'Wallet Unlock': 305,
   'Wallet is unlocked': 306,
   'LND refused the stored wallet password: ${error}': 307,
-  'LND could not unlock the wallet: ${error}': 470,
-  'LND did not rotate the macaroon root key: ${error}. Run Revoke Macaroons again.': 472,
-  'LND did not confirm the macaroon rotation. Run Revoke Macaroons again to be sure every macaroon issued before it is revoked.': 473,
+  'LND could not unlock the wallet: ${error}': 308,
 } as const
 
 /**

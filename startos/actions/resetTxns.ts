@@ -1,5 +1,4 @@
-import { randomUUID } from 'node:crypto'
-import { updateStartupFlags } from '../fileModels/startupFlags.json'
+import { startupFlagsJson } from '../fileModels/startupFlags.json'
 import { i18n } from '../i18n'
 import { sdk } from '../sdk'
 
@@ -21,9 +20,7 @@ export const resetWalletTransactions = sdk.Action.withoutInput(
 
   // execution function
   async ({ effects }) => {
-    await updateStartupFlags(effects, () => ({
-      resetWalletTransactions: randomUUID(),
-    }))
+    await startupFlagsJson.merge(effects, { resetWalletTransactions: true })
     await sdk.restart(effects)
     return {
       version: '1',

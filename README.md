@@ -71,7 +71,7 @@ Three models, and the split between two of them is load-bearing.
 | `store.json`         | JSON   | Yes — `FileHelper.json` | Install, and the wallet and watchtower actions            |
 | `startup-flags.json` | JSON   | Yes — `FileHelper.json` | Actions, the restore hook, and `main` as it consumes them |
 
-**`startup-flags.json` is deliberately not part of `store.json`.** `main` reads the store under a watch that restarts the service on any change, so clearing a consumed flag there would restart the service in a loop — the bug that once made Reset Wallet Transactions re-run on every start. The flags file is read once instead, and cleared without triggering anything. Every write to it goes through one serialized writer, and a Reset or Revoke request carries an id, so a lifecycle clears only the request it consumed and never one armed after it started.
+**`startup-flags.json` is deliberately not part of `store.json`.** `main` reads the store under a watch that restarts the service on any change, so clearing a consumed flag there would restart the service in a loop — the bug that once made Reset Wallet Transactions re-run on every start. The flags file is read once instead, and cleared without triggering anything.
 
 ### lnd.conf
 
@@ -101,7 +101,7 @@ Two further keys are forced absent for correctness rather than preference: **`db
 
 `store.json` holds the wallet password, the seed if the package generated one, the registered watchtower clients, and any custom external hosts.
 
-`startup-flags.json` holds one-time requests: a pending wallet import (**including the origin node's password**, since nothing else persists it), a wallet-transaction reset, a macaroon rotation and the marker that its request has reached LND, a restore marker, and whether the sync notification has fired. Each is consumed by `main` and cleared once the work it asked for has run.
+`startup-flags.json` holds one-time requests: a pending wallet import (**including the origin node's password**, since nothing else persists it), a wallet-transaction reset, a macaroon rotation, a restore marker, and whether the sync notification has fired. Each is consumed by `main` and cleared once the work it asked for has run.
 
 ## Dependencies
 
@@ -177,7 +177,7 @@ Rescans the chain, rebuilding the wallet's transaction history. Run it when on-c
 
 Rotates the macaroon root key, invalidating **every** macaroon this node has issued.
 
-- **What it changes:** sets a one-time flag; the rotation happens at the next start, through `changepassword` with the unchanged password. LND deletes the macaroon files before it rotates the key, and a second request fails on their absence, so a request that has reached LND is never repeated: if LND does not confirm it, the next unlock is a plain one that regenerates the files, the request is dropped, and a notification asks you to run the action again. A password LND refuses leaves nothing changed and is retried.
+- **What it changes:** sets a one-time flag; the rotation happens at the next start.
 - **Repeat safety:** safe, but every application connected to this node must be re-paired afterwards — including through the connect interfaces above, which are regenerated with the new macaroon.
 - **When to run it:** if a macaroon may have been exposed. Note that a service reading LND's admin macaroon through a mount has full control of the node, which is why other packages' security fixes sometimes ask you to run this.
 
@@ -215,9 +215,9 @@ Which checks exist depends on what the service is doing.
 | `reachability`  | "Node Reachability"               | Normal operation                         |
 | `restored`      | Restore notice                    | After a seed restore                     |
 
-**`sync-progress` covers two different syncs** — the chain and the network graph — and a node can be caught up on one while still working through the other. It is the check to read while a node is coming up for the first time.
+**`wallet-unlock` reports errors from LND's normal wallet unlock request while the wallet remains locked.** It distinguishes LND's exact wrong-passphrase response from other errors. Unlock attempts continue automatically.
 
-**`wallet-unlock` fails when LND refuses the stored wallet password**, carrying LND's own reason. The `unlock-wallet` oneshot retries a refused password every 10 seconds indefinitely, and `sync-progress` waits on that oneshot, so this is the only check that distinguishes a bad stored password from a slow start. An unlock LND fails for another reason is reported the same way, worded as LND could not unlock the wallet. While failing, the check polls every 10 seconds.
+**`sync-progress` covers two different syncs** — the chain and the network graph — and a node can be caught up on one while still working through the other. It is the check to read while a node is coming up for the first time.
 
 **The graph half can stall on one bad peer, and the check is written to show it.** `synced_to_graph` is a per-process latch that LND sets only when the single peer it elected as the _initial historical syncer_ finishes reconciling the graph. The first peer to connect after a start gets elected, and until the latch is set every other peer is held in `PassiveSync` — passive syncers never send a `GossipTimestampRange`, so they deliver no gossip at all. One unresponsive elected peer therefore stalls the whole gossip subsystem rather than just its own sync, and LND re-elects only when that peer disconnects or `historicalsyncinterval` (default one hour) elapses. A node with no channels is the most exposed, because it keeps no persistent peers and re-draws its first peer from bootstrap on every start.
 
@@ -303,7 +303,7 @@ tasks:
   - { action: autoconfig, severity: critical } # on bitcoind, for ZeroMQ
 health_checks:
   - lnd # displayed "LND Server"
-  - wallet-unlock # displayed "Wallet Unlock"; fails when LND refuses the stored password or cannot unlock for another reason
+  - wallet-unlock # displayed "Wallet Unlock"; reports normal unlock errors while the wallet remains locked
   - sync-progress # displayed "Network and Graph Sync Progress"; synced_to_chain, synced_to_graph, num_peers
   - reachability # displayed "Node Reachability"
   - import # only while a wallet import runs

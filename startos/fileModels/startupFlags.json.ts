@@ -1,4 +1,4 @@
-import { FileHelper, T, z } from '@start9labs/start-sdk'
+import { FileHelper, z } from '@start9labs/start-sdk'
 import { sdk } from '../sdk'
 
 // A migration scheduled by the Initialize Wallet action: set once the action has
@@ -19,12 +19,6 @@ const importPending = z
 /** A scheduled import, as main's import phase receives it. */
 export type ImportPending = Exclude<z.infer<typeof importPending>, false>
 
-// A one-time request an action arms and one lifecycle of main consumes. The
-// string is the request's id, so the lifecycle that consumed it clears only
-// that request and never one armed after it started; `true` is a request from
-// before ids existed.
-const request = z.union([z.string(), z.boolean()]).catch(false)
-
 // One-time startup flags: flipped by an action (or the restore hook), consumed
 // by main at startup, then flipped back once the corresponding startup work is
 // done. Kept OUT of store.json on purpose — store.json is read in main with a
@@ -35,59 +29,30 @@ const request = z.union([z.string(), z.boolean()]).catch(false)
 // and the two the daemon-chain reconciler watches with `.const` (importPending,
 // dbMigrationComplete) re-run only the chain builder. Any restart is driven
 // explicitly by the action via sdk.restart.
-const shape = z.object({
-  resetWalletTransactions: request,
-  restore: z.boolean().catch(false),
-  notified: z.boolean().catch(false),
-  // Armed by the Revoke Macaroons action. Consumed by the unlock-wallet
-  // oneshot, which unlocks via /v1/changepassword with new_macaroon_root_key
-  // instead of /v1/unlockwallet — the only supported way to rotate the root
-  // key, which is what actually revokes (see the action).
-  rotateMacaroonRootKey: request,
-  // The request whose changepassword reached LND without a confirmed outcome.
-  // LND deletes the macaroon files before rotating and a second changepassword
-  // fails on their absence, so while this is set the unlocker sends a plain
-  // unlock, which regenerates them, and the user is told to ask again.
-  rotationSent: request,
-  // bolt → SQLite migration progress (persistent, like `notified`).
-  //   dbSchemaFinalized — LND has been run on bolt to apply pending schema
-  //     migrations, so a resumed conversion skips that step.
-  //   dbMigrationComplete — the full conversion finished; once set, the
-  //     update migration no longer runs a conversion, and main's reconciler
-  //     swaps the conversion phase out for LND.
-  // Kept here so writing them never trips main's store/lnd.conf `.const`
-  // watches — the conversion completes with no restart.
-  dbSchemaFinalized: z.boolean().catch(false),
-  dbMigrationComplete: z.boolean().catch(false),
-  importPending,
-})
-
-export type StartupFlags = z.infer<typeof shape>
-
 export const startupFlagsJson = FileHelper.json(
   {
     base: sdk.volumes.main,
     subpath: '/startup-flags.json',
   },
-  shape,
+  z.object({
+    resetWalletTransactions: z.boolean().catch(false),
+    restore: z.boolean().catch(false),
+    notified: z.boolean().catch(false),
+    // Set by the Revoke Macaroons action. Consumed by the unlock-wallet
+    // oneshot, which unlocks via /v1/changepassword with new_macaroon_root_key
+    // instead of /v1/unlockwallet — the only supported way to rotate the root
+    // key, which is what actually revokes (see the action).
+    rotateMacaroonRootKey: z.boolean().catch(false),
+    // bolt → SQLite migration progress (persistent, like `notified`).
+    //   dbSchemaFinalized — LND has been run on bolt to apply pending schema
+    //     migrations, so a resumed conversion skips that step.
+    //   dbMigrationComplete — the full conversion finished; once set, the
+    //     update migration no longer runs a conversion, and main's reconciler
+    //     swaps the conversion phase out for LND.
+    // Kept here so writing them never trips main's store/lnd.conf `.const`
+    // watches — the conversion completes with no restart.
+    dbSchemaFinalized: z.boolean().catch(false),
+    dbMigrationComplete: z.boolean().catch(false),
+    importPending,
+  }),
 )
-
-let pending: Promise<unknown> = Promise.resolve()
-
-/**
- * The one way to write this file. Every writer runs in the one runtime process,
- * so a promise chain is what keeps merge's read-modify-write from losing an
- * update. `change` sees the current flags and returns the patch, or null.
- */
-export function updateStartupFlags(
-  effects: T.Effects,
-  change: (current: StartupFlags) => Partial<StartupFlags> | null,
-): Promise<void> {
-  const next = pending.then(async () => {
-    const current = await startupFlagsJson.read().once()
-    const patch = change(current ?? shape.parse({}))
-    if (patch) await startupFlagsJson.merge(effects, patch)
-  })
-  pending = next.catch(() => {})
-  return next
-}

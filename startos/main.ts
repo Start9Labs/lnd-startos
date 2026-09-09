@@ -1,29 +1,28 @@
 import { FileHelper, utils } from '@start9labs/start-sdk'
 import { manifest as bitcoinManifest } from 'bitcoin-core-startos/startos/manifest'
+import { readFile } from 'node:fs/promises'
+import { request } from 'node:https'
+import { base64 } from 'rfc4648'
 import { initializeWallet } from './actions/initializeWallet'
 import { lndConfFile } from './fileModels/lnd.conf'
-import {
-  ImportPending,
-  startupFlagsJson,
-  updateStartupFlags,
-} from './fileModels/startupFlags.json'
+import { ImportPending, startupFlagsJson } from './fileModels/startupFlags.json'
 import { shape, storeJson } from './fileModels/store.json'
 import { i18n } from './i18n'
-import { getLndState, isPastUnlock, unlockWallet } from './lndRest'
 import { sdk } from './sdk'
 import { migrateOnStart, needsSqliteMigration } from './sqliteBackend'
 import {
   bitcoindMnt,
-  certPathHost,
   getBitcoindBundle,
   GetInfo,
-  literal,
   lndDataDir,
   mainMounts,
   neutrinoBundle,
   selfGrpcHost,
+  selfRestUrl,
   sleep,
 } from './utils'
+
+const certPath = '/media/startos/volumes/main/tls.cert'
 
 // Bounded by the channel db an origin node hands over — multi-GB on a busy
 // routing node, off a USB disk, over LAN. The SDK's 30 s exec default would
@@ -54,6 +53,56 @@ function graphSyncMessage(info: GetInfo, pendingSince: number | null) {
   )
 }
 
+/** Hit LND's /v1/state REST endpoint on loopback using its TLS cert. */
+async function getLndState(): Promise<string | null> {
+  const ca = await readFile(certPath).catch(() => null)
+  return new Promise((resolve) => {
+    const req = request(
+      `${selfRestUrl}/v1/state`,
+      { ca: ca ?? undefined, rejectUnauthorized: !!ca, timeout: 5000 },
+      (res) => {
+        let data = ''
+        res.on('data', (c) => (data += c))
+        res.on('end', () => {
+          try {
+            resolve((JSON.parse(data) as { state: string }).state)
+          } catch {
+            resolve(null)
+          }
+        })
+      },
+    )
+    req.on('error', () => resolve(null))
+    req.on('timeout', () => {
+      req.destroy()
+      resolve(null)
+    })
+    req.end()
+  })
+}
+
+const isPastUnlock = (state: string | null) =>
+  state === 'UNLOCKED' || state === 'RPC_ACTIVE' || state === 'SERVER_ACTIVE'
+
+const refusedWalletPassword = /^invalid passphrase for master public key$/i
+
+type UnlockError = { kind: 'passphrase' | 'lnd'; message: string }
+
+function parseGatewayReply(stdout: string): Record<string, unknown> | null {
+  try {
+    const parsed: unknown = JSON.parse(stdout)
+    return parsed && typeof parsed === 'object'
+      ? (parsed as Record<string, unknown>)
+      : null
+  } catch {
+    return null
+  }
+}
+
+function escapeI18nReplacement(value: string): string {
+  return value.replace(/\$/g, '$$$$')
+}
+
 export const main = sdk.setupMain(async ({ effects }) => {
   /**
    * ======================== Setup (optional) ========================
@@ -73,20 +122,11 @@ export const main = sdk.setupMain(async ({ effects }) => {
   if (!startupFlags) {
     throw new Error('No startup-flags.json')
   }
-  const {
-    resetWalletTransactions,
-    restore,
-    rotateMacaroonRootKey,
-    rotationSent,
-  } = startupFlags
+  const { resetWalletTransactions, restore, rotateMacaroonRootKey } =
+    startupFlags
   let notified = startupFlags.notified
   let graphSyncPendingSince: number | null = null
-  // LND's own reason the stored password did not open the wallet, published by
-  // the wallet-unlock health check. Null while no attempt has failed that way.
-  let unlockError: { kind: 'passphrase' | 'lnd'; message: string } | null = null
-  // changepassword carries no recovery window, so a restore takes precedence
-  // and the rotation runs in the lifecycle clear-restore-flag starts.
-  const rotateDeferred = restore && !!rotateMacaroonRootKey
+  let unlockError: UnlockError | null = null
 
   const conf = await lndConfFile.read().const(effects)
   if (!conf) {
@@ -144,7 +184,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
   // a reissued certificate — a new address on the gRPC interface — to a client.
   // Not armed ahead of a preparatory phase, which a re-run would abandon.
   if (!startupFlags.importPending && !(await needsSqliteMigration())) {
-    await FileHelper.string(certPathHost).read().const(effects)
+    await FileHelper.string(certPath).read().const(effects)
   }
 
   // Native SQL lives on the CLI, not the conf (see lnd.conf.ts).
@@ -294,7 +334,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
             })
 
             // Swaps this phase out for whatever the data needs next.
-            await updateStartupFlags(effects, () => ({ importPending: false }))
+            await startupFlagsJson.merge(effects, { importPending: false })
             return null
           } catch (e) {
             // A oneshot's own health is internal to the chain — the SDK
@@ -403,24 +443,8 @@ export const main = sdk.setupMain(async ({ effects }) => {
         requires: [],
       })
       .addOneshot('unlock-wallet', {
-        subcontainer: null,
         exec: {
-          fn: async (_, abort) => {
-            // A changepassword that reached LND is never repeated: LND deletes
-            // the macaroon files before rotating, and a second one fails on
-            // their absence. Once one is out, only plain unlocks follow, and
-            // the rotation counts as done only if nothing else could have
-            // opened the wallet.
-            let sent = rotationSent
-            let sentHere = false
-            let confirmable = true
-            let rotated = false
-            let unconfirmed = false
-            let rotationError: string | null = null
-            const walletOpened = () => {
-              if (sentHere && confirmable) rotated = true
-              else if (sent) unconfirmed = true
-            }
+          fn: async (subcontainer, abort) => {
             while (true) {
               if (abort.aborted) {
                 console.log('wallet-unlock aborted')
@@ -428,120 +452,107 @@ export const main = sdk.setupMain(async ({ effects }) => {
               }
 
               // Skip the unlock call (and its noisy LND error log) only when
-              // the wallet is strictly past LOCKED. WAITING_TO_START means
-              // "not started yet" — keep polling.
-              const state = await getLndState(abort)
+              // the wallet is strictly past LOCKED. Per stateservice.proto:
+              //   NON_EXISTING=0, LOCKED=1, UNLOCKED=2, RPC_ACTIVE=3,
+              //   SERVER_ACTIVE=4, WAITING_TO_START=255.
+              // WAITING_TO_START means "not started yet" — keep polling.
+              const state = await getLndState()
               if (isPastUnlock(state)) {
                 console.log(`wallet-unlock skipped, state=${state}`)
-                walletOpened()
+                unlockError = null
                 break
               }
               if (state !== 'LOCKED') {
                 // NON_EXISTING, WAITING_TO_START, or endpoint unreachable —
                 // wallet unlocker isn't ready for a POST yet.
-                await sleep(2_000, abort)
+                await sleep(2_000)
                 continue
               }
 
               if (!walletPassword)
                 throw new Error('Wallet Password is undefined!')
 
-              const rotate = !!rotateMacaroonRootKey && !rotateDeferred && !sent
-              if (rotate) {
-                await updateStartupFlags(effects, () => ({
-                  rotationSent: rotateMacaroonRootKey,
-                }))
-                sent = rotateMacaroonRootKey
-                sentHere = true
-              } else if (sent) {
-                confirmable = false
-              }
-              const res = await unlockWallet(
-                walletPassword,
-                {
-                  recoveryWindow: restore ? 2_500 : null,
-                  rotateMacaroonRootKey: rotate,
-                },
-                abort,
+              const pw = base64.stringify(Buffer.from(walletPassword, 'latin1'))
+              // changepassword also unlocks, so it replaces the unlock call
+              // rather than joining it. Passing the same password back is what
+              // keeps this a macaroon rotation and not a password change; LND
+              // regenerates the root key and rewrites every macaroon file.
+              const body = rotateMacaroonRootKey
+                ? JSON.stringify({
+                    current_password: pw,
+                    new_password: pw,
+                    new_macaroon_root_key: true,
+                  })
+                : restore
+                  ? JSON.stringify({
+                      wallet_password: pw,
+                      recovery_window: 2_500,
+                    })
+                  : JSON.stringify({ wallet_password: pw })
+              const res = await subcontainer.exec(
+                [
+                  'curl',
+                  '--no-progress-meter',
+                  '-X',
+                  'POST',
+                  '--cacert',
+                  `${lndDataDir}/tls.cert`,
+                  rotateMacaroonRootKey
+                    ? `${selfRestUrl}/v1/changepassword`
+                    : `${selfRestUrl}/v1/unlockwallet`,
+                  '--data-binary',
+                  '@-',
+                ],
+                { input: body },
               )
-              if (res.ok) {
-                console.log('wallet-unlock succeeded')
-                unlockError = null
-                if (rotate) rotated = true
-                else if (sent) unconfirmed = true
-                // Something else opened the wallet without the recovery window
-                // a restore needs; a restart lets this oneshot send it.
-                if (res.already && restore) {
-                  console.warn('wallet was unlocked elsewhere during a restore')
-                  await sdk.restart(effects)
-                  return null
-                }
+              const stdout = res.stdout.toString().trim()
+              const reply = parseGatewayReply(stdout)
+              const message =
+                typeof reply?.message === 'string' && reply.message.trim()
+                  ? reply.message.trim()
+                  : null
+
+              // A successful rotation response carries the new admin macaroon.
+              console.log('wallet-unlock response', {
+                exitCode: res.exitCode,
+                stdout: rotateMacaroonRootKey ? '(redacted)' : stdout,
+                stderr: String(res.stderr).trim(),
+              })
+              if (
+                stdout === '{}' ||
+                stdout.includes('wallet already unlocked') ||
+                (rotateMacaroonRootKey && !stdout.includes('"error"'))
+              ) {
+                if (!rotateMacaroonRootKey) unlockError = null
                 break
               }
-              console.log('wallet-unlock failed', res)
-              if (rotate && res.kind === 'passphrase') {
-                // Refused before anything changed: the request is still whole.
-                await updateStartupFlags(effects, (flags) =>
-                  flags.rotationSent === sent ? { rotationSent: false } : null,
-                )
-                sent = false
-                sentHere = false
-              } else if (rotate && res.kind === 'lnd') {
-                rotationError = res.message
-                if (/wallet already unlocked/i.test(res.message))
-                  confirmable = false
+              if (!rotateMacaroonRootKey) {
+                unlockError = message
+                  ? {
+                      kind: refusedWalletPassword.test(message)
+                        ? 'passphrase'
+                        : 'lnd',
+                      message,
+                    }
+                  : null
               }
-              // Only LND's own answer is reported: a request that got none says
-              // nothing about the password.
-              if (res.kind !== 'transport') {
-                unlockError = { kind: res.kind, message: res.message }
-              }
-              await sleep(10_000, abort)
+              await sleep(10_000)
             }
-            // Each flag is cleared only while it still holds the very request
-            // this run consumed, so one armed since is left to the lifecycle
-            // that will consume it.
-            const settled = rotated || unconfirmed
-            let dropped = false
-            await updateStartupFlags(effects, (flags) => {
-              dropped = settled && flags.rotationSent === sent
-              return {
-                ...(resetWalletTransactions &&
-                flags.resetWalletTransactions === resetWalletTransactions
-                  ? { resetWalletTransactions: false }
-                  : {}),
-                ...(dropped ? { rotationSent: false } : {}),
-                ...(settled && flags.rotateMacaroonRootKey === sent
-                  ? { rotateMacaroonRootKey: false }
-                  : {}),
-              }
+            // Cleared here, not from a dependent oneshot: a restart lands in
+            // the window between the two and arms the flag for every start after.
+            await startupFlagsJson.merge(effects, {
+              resetWalletTransactions: false,
+              rotateMacaroonRootKey: false,
             })
-            if (unconfirmed && dropped) {
-              await sdk.notification.create(effects, {
-                level: 'warning',
-                title: i18n('Revoke Macaroons'),
-                message: rotationError
-                  ? i18n(
-                      'LND did not rotate the macaroon root key: ${error}. Run Revoke Macaroons again.',
-                      { error: literal(rotationError) },
-                    )
-                  : i18n(
-                      'LND did not confirm the macaroon rotation. Run Revoke Macaroons again to be sure every macaroon issued before it is revoked.',
-                    ),
-              })
-            }
             return null
           },
         },
+        subcontainer: lndSub,
         requires: ['lnd'],
       })
       .addHealthCheck('wallet-unlock', {
         ready: {
           display: i18n('Wallet Unlock'),
-          // The unlock oneshot retries a refused password every 10 s forever,
-          // and sync-progress and everything behind it wait on it, so without
-          // this check a wrong stored password shows only as a service that
-          // never finishes starting.
           trigger: sdk.trigger.statusTrigger(30_000, {
             starting: 1_000,
             waiting: 1_000,
@@ -555,10 +566,10 @@ export const main = sdk.setupMain(async ({ effects }) => {
                 message:
                   unlockError.kind === 'passphrase'
                     ? i18n('LND refused the stored wallet password: ${error}', {
-                        error: literal(unlockError.message),
+                        error: escapeI18nReplacement(unlockError.message),
                       })
                     : i18n('LND could not unlock the wallet: ${error}', {
-                        error: literal(unlockError.message),
+                        error: escapeI18nReplacement(unlockError.message),
                       }),
               }
             }
@@ -660,7 +671,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
                 title: i18n('Sync Complete'),
                 message: i18n('LND is synced to chain and graph.'),
               })
-              await updateStartupFlags(effects, () => ({ notified: true }))
+              await startupFlagsJson.merge(effects, { notified: true })
               notified = true
             }
             return null
@@ -709,10 +720,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
               subcontainer: null,
               exec: {
                 fn: async () => {
-                  await updateStartupFlags(effects, () => ({ restore: false }))
-                  // The rotation this restore displaced still holds its flag;
-                  // the lifecycle this starts performs it.
-                  if (rotateDeferred) await sdk.restart(effects)
+                  await startupFlagsJson.merge(effects, { restore: false })
                   return null
                 },
               },

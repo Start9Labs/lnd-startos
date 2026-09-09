@@ -1,9 +1,6 @@
 import { T, utils } from '@start9labs/start-sdk'
 import { base64 } from 'rfc4648'
-import {
-  startupFlagsJson,
-  updateStartupFlags,
-} from '../fileModels/startupFlags.json'
+import { startupFlagsJson } from '../fileModels/startupFlags.json'
 import { storeJson } from '../fileModels/store.json'
 import { i18n } from '../i18n'
 import { sdk } from '../sdk'
@@ -222,7 +219,7 @@ async function initFresh(
 ): Promise<T.ActionResult & { version: '1' }> {
   // Drop a migration the user scheduled and then thought better of — otherwise
   // main would import over the wallet this creates on the next start.
-  await updateStartupFlags(effects, () => ({ importPending: false }))
+  await startupFlagsJson.merge(effects, { importPending: false })
 
   const cipherSeed = await sdk.SubContainer.withTemp(
     effects,
@@ -377,13 +374,13 @@ async function scheduleImport(
     )
   }
 
-  await updateStartupFlags(effects, () => ({
+  await startupFlagsJson.merge(effects, {
     importPending: {
       source: source.id,
       host: source.host,
       password: source.password,
     },
-  }))
+  })
 
   return {
     version: '1' as const,

@@ -12,12 +12,6 @@ import { sdk } from './sdk'
 export const lndDataDir = '/root/.lnd'
 export const bitcoindMnt = '/mnt/bitcoin'
 export const mainVolumeHost = '/media/startos/volumes/main'
-// LND's TLS certificate as seen from the JS process, not the container.
-export const certPathHost = `${mainVolumeHost}/tls.cert`
-
-// For untrusted text passed as an i18n parameter: the SDK substitutes with
-// String.replace, which reads `$&`, `$'` and `` $` `` in the value as patterns.
-export const literal = (text: string) => text.replace(/\$/g, '$$$$')
 // The watchtower *server* database (client sessions + their state-update
 // backups), distinct from the wtclient db under data/graph. Deleted whenever
 // the server is disabled — by the action and, as a backstop, by the migration.
@@ -92,16 +86,6 @@ export type GetInfo = {
   synced_to_graph: boolean
 }
 
-/** Resolves after `ms`, or as soon as `abort` fires. */
-export function sleep(ms: number, abort?: AbortSignal) {
-  return new Promise<void>((resolve) => {
-    if (abort?.aborted) return resolve()
-    const done = () => {
-      clearTimeout(timer)
-      abort?.removeEventListener('abort', done)
-      resolve()
-    }
-    const timer = setTimeout(done, ms)
-    abort?.addEventListener('abort', done, { once: true })
-  })
+export function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
