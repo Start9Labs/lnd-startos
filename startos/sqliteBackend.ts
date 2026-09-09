@@ -381,19 +381,23 @@ function lndinitArgs(watchtowerActive: boolean): [string, ...string[]] {
 }
 
 async function unlockWallet(sub: Sub, walletPassword: string): Promise<void> {
-  const res = await sub.exec([
-    'curl',
-    '--no-progress-meter',
-    '-X',
-    'POST',
-    '--cacert',
-    tlsCert,
-    `${selfRestUrl}/v1/unlockwallet`,
-    '-d',
-    JSON.stringify({
-      wallet_password: base64.stringify(Buffer.from(walletPassword, 'latin1')),
-    }),
-  ])
+  const body = JSON.stringify({
+    wallet_password: base64.stringify(Buffer.from(walletPassword, 'latin1')),
+  })
+  const res = await sub.exec(
+    [
+      'curl',
+      '--no-progress-meter',
+      '-X',
+      'POST',
+      '--cacert',
+      tlsCert,
+      `${selfRestUrl}/v1/unlockwallet`,
+      '--data-binary',
+      '@-',
+    ],
+    { input: body },
+  )
   const stdout = res.stdout.toString().trim()
   if (stdout !== '{}' && !stdout.includes('wallet already unlocked')) {
     throw new Error(`Failed to unlock wallet for schema migration: ${stdout}`)
