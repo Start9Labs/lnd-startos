@@ -66,7 +66,7 @@ Once your first channel has opened and LND has created its Static Channel Backup
 
 ### Restoring from backup
 
-A StartOS restore stages the Static Channel Backup carried inside that StartOS backup before LND starts. LND then asks each peer in that file to force-close and shows a persistent warning. The package does not scan storage providers or automatically restore their copies. It disables every off-server target during restore so the older local copy cannot replace a newer provider copy. Retrieve the newest copy you need before enabling targets again, then restore it following LND or Start9 support guidance. **Lightning Labs strongly recommends against continued use of a restored node:** once funds are back on-chain, sweep them to another wallet, then uninstall and reinstall LND fresh.
+Restoring asks each peer to force-close from the Static Channel Backup, and shows a persistent warning. If you configured channel backups, the restore also fetches the copy from every target that has saved credentials, disabled ones included, and recovers channels from all of them together, so a channel opened after that StartOS backup is recovered too. The restore waits for every target to answer; if one is gone for good, clear its saved credentials in **Configure Channel Backups** so the restore can finish, and the restore notice names the target it is waiting on. Copies are not sent to your targets again until the restore has finished. **Lightning Labs strongly recommends against continued use of a restored node:** once funds are back on-chain, sweep them to another wallet, then uninstall and reinstall LND fresh.
 
 ## Limitations
 

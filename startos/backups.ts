@@ -1,4 +1,3 @@
-import { channelBackupJson } from './fileModels/channel-backup.json'
 import { startupFlagsJson } from './fileModels/startupFlags.json'
 import { sdk } from './sdk'
 
@@ -23,21 +22,10 @@ export const { createBackup, restoreInit } = sdk.setupBackups(
           '.channel-backup.lock',
           'channel.backup.startos-restore',
           'channel.backup.startos-restore.tmp',
+          '.channel-backup-restore',
         ],
       })
       .setPostRestore(async (effects) => {
-        const backups = await channelBackupJson.read().once()
-        if (backups) {
-          await channelBackupJson.write(effects, {
-            gdrive: backups.gdrive && { ...backups.gdrive, enabled: false },
-            dropbox: backups.dropbox && { ...backups.dropbox, enabled: false },
-            nextcloud: backups.nextcloud && {
-              ...backups.nextcloud,
-              enabled: false,
-            },
-            sftp: backups.sftp && { ...backups.sftp, enabled: false },
-          })
-        }
         // Drop any import the backup was carrying: its origin credentials are
         // stale, and re-running a copy against the origin is never what a
         // restore means — recovery goes through the SCB flow the restore flag

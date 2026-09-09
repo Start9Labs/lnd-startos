@@ -467,7 +467,8 @@ const dict = {
   'Authorization URL': 487,
   'Channel backups are unavailable while LND is preparing imported data. Try again after LND starts normally.': 488,
   'SFTP: the host must not begin with "-".': 489,
-  'Off-server targets were disabled to protect any newer channel.backup they hold. Retrieve the newest copy you need before enabling them again.': 490,
+  'A restore is in progress. channel.backup is not sent until it completes.': 491,
+  'A backup target has not answered, so the channel.backup it holds has not been restored yet: ${detail} To stop waiting for it, clear its saved credentials in Configure Channel Backups.': 492,
 } as const
 
 /**

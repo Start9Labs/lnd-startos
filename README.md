@@ -254,7 +254,7 @@ That state is indistinguishable from a large legitimate backfill through `getinf
 
 The `main` volume is copied wholesale — `sdk.Backups.ofVolumes('main')` — with a substantial exclude list, and the exclusions are the substance.
 
-- **Excluded:** the network graph, the channel database, the sphinx replay database, the Neutrino chain data and header files, the logs, `startup-flags.json`, `.channel-backup-state.json`, `.channel-backup.lock`, and the restore staging files `channel.backup.startos-restore` and `channel.backup.startos-restore.tmp`.
+- **Excluded:** the network graph, the channel database, the sphinx replay database, the Neutrino chain data and header files, the logs, `startup-flags.json`, `.channel-backup-state.json`, `.channel-backup.lock`, and the restore's staging: `channel.backup.startos-restore`, its `.tmp`, and `.channel-backup-restore/`, where the copies retrieved from the targets land.
 - **Included:** `lnd.conf`, `store.json` with the wallet password and seed, the TLS pair, the macaroons, the wallet database, `channel.backup`, and `channel-backup.json`.
 
 **The channel database is deliberately not backed up.** Restoring a stale one claims channel states the network has moved past, which is how funds are lost — so a restore recovers the wallet and relies on the static channel backup, which asks each peer to force-close and return the funds, rather than resuming the channels.
@@ -267,7 +267,9 @@ A StartOS backup carries the `channel.backup` that existed when it was taken, so
 
 The agent publishes one stable file named `channel.backup` in each configured provider folder. Every successful upload replaces it with the current copy; the agent creates no companion markers, generations, or history.
 
-A StartOS restore uses only the `channel.backup` carried inside that StartOS backup. The restore hook stages the file before LND starts, so LND can recover its channels from the same backup as the wallet. The package does not scan storage providers or automatically restore a remote copy. It disables every off-server target during restore so an older local copy cannot overwrite a newer provider copy. Retrieve the newest copy you need before enabling targets again, then restore it following LND or Start9 support guidance.
+On a restore, LND recovers its channels from every copy that can be found. The restore hook stages the `channel.backup` carried inside the StartOS backup before LND starts, since LND rewrites its own file shortly after unlocking. Once LND reaches `SERVER_ACTIVE` (`restorechanbackup` answers _server is still in the process of starting_ until then), the `restore` oneshot hands that copy to `restorechanbackup`, then asks the agent (`backup-agent.sh --pull`) for the `channel.backup` held by every target with saved credentials, enabled or not, and hands each of those over too. Order does not matter and nothing is compared: `restorechanbackup` is additive, skipping channels LND already holds, so what it ends up with is the union of every copy, and a channel opened after the StartOS backup is recovered from the target that has it. A copy LND cannot open belongs to another seed or is damaged; it is skipped with a log line. Any other failure fails the oneshot, and the SDK retries it with the restore flag still set.
+
+A target that cannot be reached is waited for, because its copy may be the only one holding a channel opened since the StartOS backup: the restore notice names the target, the oneshot asks again every five minutes, and clearing that target's saved credentials in Configure Channel Backups is how to stop waiting. The channel-backup agent does not start, and Back Up Channels Now refuses, until the restore has finished, so the older local copy never replaces a newer one on a target. The oneshot clears the restore flag itself as its last step, after removing the staged copies.
 
 The daemon re-sends every copy daily even when nothing changed, so a deleted copy or a revoked credential surfaces within a day. Failed targets are retried on later runs. The watcher and Back Up Channels Now share one lock; the manual run does not wait for it and reports when a cycle is already running. Every run reads one validated snapshot of `channel-backup.json`, so a save landing mid-run cannot mix two configurations, and a half-written file is retried rather than acted on. The agent's state file is written beside its destination and renamed into place, and a run that cannot record its outcome reports failure. Back Up Channels Now stops starting work after 95 seconds and records the targets it did not reach, so its result always describes what actually happened.
 
@@ -305,6 +307,7 @@ file_models:
   - /root/.lnd/startup-flags.json # excluded from backups; can hold an origin password
   - /root/.lnd/channel-backup.json # backup targets and their credentials
   - /root/.lnd/.channel-backup-state.json # excluded from backups; the agent's outcomes
+  - /root/.lnd/.channel-backup-restore/ # excluded from backups; copies retrieved from the targets during a restore
 channel_backup_files:
   - /root/.lnd/data/chain/bitcoin/mainnet/channel.backup
 startos_managed_env_vars: []

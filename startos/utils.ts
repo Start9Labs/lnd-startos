@@ -90,12 +90,23 @@ export type GetInfo = {
   synced_to_graph: boolean
 }
 
-export function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
+export function sleep(ms: number, abort?: AbortSignal) {
+  return new Promise<void>((resolve) => {
+    const timer = setTimeout(resolve, ms)
+    abort?.addEventListener(
+      'abort',
+      () => {
+        clearTimeout(timer)
+        resolve()
+      },
+      { once: true },
+    )
+  })
 }
 
 export const channelBackupPath = `${lndDataDir}/data/chain/bitcoin/mainnet/channel.backup`
 export const localRestoreBackupPath = `${lndDataDir}/channel.backup.startos-restore`
 export const localRestoreBackupTempPath = `${localRestoreBackupPath}.tmp`
+export const remoteRestoreDir = `${lndDataDir}/.channel-backup-restore`
 export const backupAgentScript = '/usr/local/bin/backup-agent.sh'
 export const backupFolderDefault = 'lnd-channel-backups'

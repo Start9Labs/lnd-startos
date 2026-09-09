@@ -1,7 +1,7 @@
 import { FileHelper, z } from '@start9labs/start-sdk'
 import { sdk } from '../sdk'
 
-const backupFailureShape = z.object({
+export const backupFailureShape = z.object({
   target: z.string(),
   code: z.string(),
   detail: z.string().catch(''),

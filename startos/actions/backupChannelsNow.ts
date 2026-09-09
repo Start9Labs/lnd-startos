@@ -22,6 +22,13 @@ export const backupChannelsNow = sdk.Action.withoutInput(
 
   async ({ effects }) => {
     const flags = await startupFlagsJson.read().once()
+    if (flags?.restore) {
+      throw new Error(
+        i18n(
+          'A restore is in progress. channel.backup is not sent until it completes.',
+        ),
+      )
+    }
     if (flags?.importPending || (await needsSqliteMigration())) {
       throw new Error(
         i18n(

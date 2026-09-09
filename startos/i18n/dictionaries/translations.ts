@@ -397,7 +397,8 @@ export default {
     487: 'URL de autorización',
     488: 'Las copias de canales no están disponibles mientras LND prepara los datos importados. Vuelve a intentarlo cuando LND se inicie con normalidad.',
     489: 'SFTP: el host no debe comenzar por "-".',
-    490: 'Los destinos externos se desactivaron para proteger cualquier channel.backup más reciente que contengan. Recupera la copia más reciente que necesites antes de volver a activarlos.',
+    491: 'Hay una restauración en curso. channel.backup no se envía hasta que termine.',
+    492: 'Un destino de copia no ha respondido, así que el channel.backup que guarda aún no se ha restaurado: ${detail} Para dejar de esperarlo, borra sus credenciales guardadas en Configurar copias de canales.',
   },
   de_DE: {
     309: 'Backups',
@@ -795,7 +796,8 @@ export default {
     487: 'Autorisierungs-URL',
     488: 'Kanal-Backups sind nicht verfügbar, während LND importierte Daten vorbereitet. Versuche es erneut, nachdem LND normal gestartet wurde.',
     489: 'SFTP: Der Host darf nicht mit „-“ beginnen.',
-    490: 'Externe Ziele wurden deaktiviert, damit dort vorhandene neuere channel.backup-Dateien nicht überschrieben werden. Hole die benötigte neueste Kopie, bevor du die Ziele wieder aktivierst.',
+    491: 'Eine Wiederherstellung läuft. channel.backup wird erst gesendet, wenn sie abgeschlossen ist.',
+    492: 'Ein Backup-Ziel hat nicht geantwortet, daher wurde das dort liegende channel.backup noch nicht wiederhergestellt: ${detail} Um nicht länger darauf zu warten, lösche seine gespeicherten Zugangsdaten unter „Kanal-Backups einrichten“.',
   },
   pl_PL: {
     309: 'Kopie zapasowe',
@@ -1193,7 +1195,8 @@ export default {
     487: 'Adres URL autoryzacji',
     488: 'Kopie kanałów są niedostępne, gdy LND przygotowuje zaimportowane dane. Spróbuj ponownie po normalnym uruchomieniu LND.',
     489: 'SFTP: host nie może zaczynać się od „-”.',
-    490: 'Cele zewnętrzne zostały wyłączone, aby chronić znajdujące się na nich nowsze pliki channel.backup. Pobierz potrzebną najnowszą kopię przed ponownym włączeniem celów.',
+    491: 'Trwa przywracanie. channel.backup nie jest wysyłany, dopóki się nie zakończy.',
+    492: 'Cel kopii nie odpowiedział, więc przechowywany tam channel.backup nie został jeszcze przywrócony: ${detail} Aby przestać na niego czekać, usuń jego zapisane dane logowania w „Skonfiguruj kopie kanałów”.',
   },
   fr_FR: {
     309: 'Sauvegardes',
@@ -1591,6 +1594,7 @@ export default {
     487: "URL d'autorisation",
     488: 'Les sauvegardes de canaux sont indisponibles pendant que LND prépare les données importées. Réessayez après le démarrage normal de LND.',
     489: 'SFTP : le nom d’hôte ne doit pas commencer par « - ».',
-    490: 'Les cibles externes ont été désactivées afin de protéger toute copie channel.backup plus récente qu’elles contiennent. Récupérez la copie la plus récente dont vous avez besoin avant de les réactiver.',
+    491: "Une restauration est en cours. channel.backup n'est pas envoyé tant qu'elle n'est pas terminée.",
+    492: "Une cible de sauvegarde n'a pas répondu, le channel.backup qu'elle contient n'a donc pas encore été restauré : ${detail} Pour cesser de l'attendre, effacez ses identifiants enregistrés dans « Configurer les sauvegardes de canaux ».",
   },
 } satisfies Record<string, LangDict>

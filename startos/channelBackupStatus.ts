@@ -20,6 +20,11 @@ function describeFailure(f: BackupFailure): string {
     case 'publish':
     case 'local':
       return i18n('${target}: upload failed: ${detail}', { target, detail })
+    case 'check':
+      return i18n('${target}: could not be checked: ${detail}', {
+        target,
+        detail,
+      })
     case 'hostkey':
       return i18n(
         '${target}: no host key is recorded for this server. Save the SFTP target again to record it.',

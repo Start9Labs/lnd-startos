@@ -1,5 +1,12 @@
 #!/bin/sh
-# Continuously copies LND's current static channel backup off-box.
+# Continuously copies LND's current static channel backup off-box, and on a
+# restore retrieves the copy every configured target holds.
+#
+#   (default)  watcher daemon
+#   --once     copy now, within $ONCE_SECS (Back Up Channels Now)
+#   --pull     download each target's channel.backup into $RESTORE_DIR and
+#              print {"retrieved":[...],"unreachable":[...]}; exit 6 when a
+#              target could not be consulted
 # shellcheck disable=SC2016
 set -u
 umask 077
@@ -9,6 +16,7 @@ BACKUP="$LND_DIR/data/chain/bitcoin/mainnet/channel.backup"
 CONFIG="$LND_DIR/channel-backup.json"
 STATE="$LND_DIR/.channel-backup-state.json"
 LOCK="$LND_DIR/.channel-backup.lock"
+RESTORE_DIR="$LND_DIR/.channel-backup-restore"
 
 WORK=/tmp/lnd-channel-backup
 RCONF="$WORK/rclone.conf"
@@ -449,6 +457,81 @@ do_backup() {
   return 1
 }
 
+# Every target with credentials, enabled or not: a restore reads them all.
+do_pull() {
+  mkdir -p "$WORK" || return 1
+  lock || return 1
+  rm -rf "$RESTORE_DIR" && mkdir -p "$RESTORE_DIR" || {
+    unlock
+    return 1
+  }
+  : > "$RCONF" || {
+    unlock
+    return 1
+  }
+  snapshot_config || {
+    unlock
+    log "backup configuration could not be read"
+    return 6
+  }
+  build_conf || {
+    unlock
+    log "backup credentials could not be prepared"
+    return 1
+  }
+  : > "$FAILURES" || {
+    unlock
+    return 1
+  }
+  _retrieved=''
+  _incomplete=0
+  for _provider in gdrive dropbox nextcloud sftp; do
+    has_creds "$_provider" || continue
+    _provider_path=$(cfg ".$_provider.path // empty")
+    [ -n "$_provider_path" ] || _provider_path=lnd-channel-backups
+    target "$_provider:$_provider_path"
+    _dest="$RESTORE_DIR/$_provider"
+    rm -f "$_dest.tmp"
+    # shellcheck disable=SC2086
+    if rc --config "$RCONF" copyto "$REMOTE_NAME:$REMOTE_PATH/$OBJECT" "$_dest.tmp" $RCLONE_FLAGS $REMOTE_EXTRA --log-level NOTICE > "$WORK/remote.out" 2>&1; then
+      _size=$(wc -c < "$_dest.tmp" 2>/dev/null) || _size=0
+      if [ "$_size" -gt 0 ] && [ "$_size" -le "$MAX_SCB_BYTES" ] && mv -f "$_dest.tmp" "$_dest"; then
+        log "[$_provider] channel.backup retrieved"
+        _retrieved="$_retrieved $_provider"
+      else
+        rm -f "$_dest.tmp"
+        log "[$_provider] the copy there is empty or oversized; skipped"
+      fi
+    else
+      _rc=$?
+      rm -f "$_dest.tmp"
+      # 3 and 4: nothing at that path, which a target never written to is.
+      if [ "$_rc" -eq 3 ] || [ "$_rc" -eq 4 ]; then
+        log "[$_provider] holds no channel.backup"
+      else
+        _incomplete=1
+        fail_target "$_provider" check "$(reason_file "$WORK/remote.out")" || {
+          unlock
+          return 1
+        }
+        log "[$_provider] could not be reached"
+      fi
+    fi
+  done
+  _unreachable=$(jq -sc . "$FAILURES" 2>/dev/null) || {
+    unlock
+    return 1
+  }
+  jq -nc --arg r "$_retrieved" --argjson u "$_unreachable" \
+    '{retrieved: ($r | split(" ") | map(select(length > 0))), unreachable: $u}' || {
+    unlock
+    return 1
+  }
+  unlock
+  [ "$_incomplete" -eq 0 ] || return 6
+  return 0
+}
+
 fingerprint() {
   stat -c '%n:%i:%s:%Y' "$BACKUP" "$CONFIG" 2>/dev/null || :
 }
@@ -506,6 +589,7 @@ case "${1:-}" in
     RCLONE_FLAGS="--contimeout=8s --timeout=20s --retries=1 --low-level-retries=1"
     do_backup force
     ;;
+  --pull) do_pull ;;
   '') watch_loop ;;
   *)
     log "unknown argument"
