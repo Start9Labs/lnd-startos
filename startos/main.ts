@@ -1,15 +1,25 @@
 import { FileHelper, utils, z } from '@start9labs/start-sdk'
 import { manifest as bitcoinManifest } from 'bitcoin-core-startos/startos/manifest'
-import { readFile } from 'node:fs/promises'
-import { request } from 'node:https'
 import { base64 } from 'rfc4648'
 import { initializeWallet } from './actions/initializeWallet'
+import {
+  unlockWallet as unlockWalletAction,
+  unlockWalletTaskId,
+} from './actions/unlockWallet'
 import { lndConfFile } from './fileModels/lnd.conf'
 import { ImportPending, startupFlagsJson } from './fileModels/startupFlags.json'
 import { shape, storeJson } from './fileModels/store.json'
+import { unlockStatusJson } from './fileModels/unlock-status.json'
 import { i18n } from './i18n'
 import { sdk } from './sdk'
 import { migrateOnStart, needsSqliteMigration } from './sqliteBackend'
+import {
+  certPath,
+  getLndState,
+  isPastUnlock,
+  parseGatewayReply,
+  refusedWalletPassword,
+} from './walletUnlocker'
 import { describeFailures } from './channelBackupStatus'
 import {
   backupFailureShape,
@@ -33,8 +43,6 @@ import {
   selfRestUrl,
   sleep,
 } from './utils'
-
-const certPath = '/media/startos/volumes/main/tls.cert'
 
 // Bounded by the channel db an origin node hands over — multi-GB on a busy
 // routing node, off a USB disk, over LAN. The SDK's 30 s exec default would
@@ -79,51 +87,7 @@ function ago(seconds: number): string {
   return `${Math.round(seconds / 86400)}d`
 }
 
-/** Hit LND's /v1/state REST endpoint on loopback using its TLS cert. */
-async function getLndState(): Promise<string | null> {
-  const ca = await readFile(certPath).catch(() => null)
-  return new Promise((resolve) => {
-    const req = request(
-      `${selfRestUrl}/v1/state`,
-      { ca: ca ?? undefined, rejectUnauthorized: !!ca, timeout: 5000 },
-      (res) => {
-        let data = ''
-        res.on('data', (c) => (data += c))
-        res.on('end', () => {
-          try {
-            resolve((JSON.parse(data) as { state: string }).state)
-          } catch {
-            resolve(null)
-          }
-        })
-      },
-    )
-    req.on('error', () => resolve(null))
-    req.on('timeout', () => {
-      req.destroy()
-      resolve(null)
-    })
-    req.end()
-  })
-}
-
-const isPastUnlock = (state: string | null) =>
-  state === 'UNLOCKED' || state === 'RPC_ACTIVE' || state === 'SERVER_ACTIVE'
-
-const refusedWalletPassword = /^invalid passphrase for master public key$/i
-
 type UnlockError = { kind: 'passphrase' | 'lnd'; message: string }
-
-function parseGatewayReply(stdout: string): Record<string, unknown> | null {
-  try {
-    const parsed: unknown = JSON.parse(stdout)
-    return parsed && typeof parsed === 'object'
-      ? (parsed as Record<string, unknown>)
-      : null
-  } catch {
-    return null
-  }
-}
 
 export const main = sdk.setupMain(async ({ effects }) => {
   /**
@@ -131,9 +95,60 @@ export const main = sdk.setupMain(async ({ effects }) => {
    */
   console.info(i18n('Starting LND!'))
 
-  const store = await storeJson.read().const(effects)
+  const store = await storeJson
+    .read((s) => ({
+      walletPassword: s.walletPassword,
+      watchtowerClients: s.watchtowerClients,
+    }))
+    .const(effects)
   if (!store) {
     throw new Error('No store.json')
+  }
+  // The mode is the absence of the stored password, nothing else: one write of
+  // store.json turns it on or off, and that write already restarts main.
+  const coldStorage = !store.walletPassword
+  // One task and one notification per lock, not one per poll: each is latched
+  // only once it succeeds, and retried on the next poll until then.
+  const lockNoticed = { task: false, notified: false }
+  const attempt = (label: string, run: () => Promise<unknown>) =>
+    run().then(
+      () => true,
+      (e) => {
+        console.error(label, e)
+        return false
+      },
+    )
+
+  const onWalletLocked = async () => {
+    if (!lockNoticed.task) {
+      lockNoticed.task = await attempt('failed to post the unlock task', () =>
+        sdk.action.createOwnTask(effects, unlockWalletAction, 'important', {
+          reason: i18n('LND is locked until you enter the wallet password'),
+          replayId: unlockWalletTaskId,
+        }),
+      )
+    }
+    // Cold storage means every restart takes the node offline until someone
+    // acts, so it has to reach the user rather than only the dashboard.
+    if (!lockNoticed.notified) {
+      lockNoticed.notified = await attempt('failed to notify', () =>
+        sdk.notification.create(effects, {
+          level: 'warning',
+          title: i18n('Wallet Locked'),
+          message: i18n(
+            'LND has restarted and is waiting for its wallet password. It cannot route, send or receive until you run Unlock Wallet.',
+          ),
+        }),
+      )
+    }
+  }
+
+  // Left by a lifecycle that ran with the mode on, or re-posted by one after
+  // Turn Off had cleared it.
+  if (!coldStorage) {
+    await attempt('failed to clear the unlock task', () =>
+      sdk.action.clearTask(effects, unlockWalletTaskId),
+    )
   }
 
   // One-time startup flags live outside store.json — read with `.once`, not the
@@ -495,6 +510,13 @@ export const main = sdk.setupMain(async ({ effects }) => {
       .addOneshot('unlock-wallet', {
         exec: {
           fn: async (subcontainer, abort) => {
+            // Provenance for Turn On and Unlock Wallet: only an unlock this
+            // oneshot itself performed sets the first, and every lifecycle
+            // starts with neither.
+            await unlockStatusJson.write(effects, {
+              storedPasswordVerified: false,
+              storedPasswordRefused: false,
+            })
             while (true) {
               if (abort.aborted) {
                 console.log('wallet-unlock aborted')
@@ -509,6 +531,13 @@ export const main = sdk.setupMain(async ({ effects }) => {
               const state = await getLndState()
               if (isPastUnlock(state)) {
                 console.log(`wallet-unlock skipped, state=${state}`)
+                // Whoever opened it, the task is done.
+                if (coldStorage) {
+                  await attempt('failed to clear the unlock task', () =>
+                    sdk.action.clearTask(effects, unlockWalletTaskId),
+                  )
+                }
+                lockNoticed.task = lockNoticed.notified = false
                 unlockError = null
                 break
               }
@@ -516,6 +545,17 @@ export const main = sdk.setupMain(async ({ effects }) => {
                 // NON_EXISTING, WAITING_TO_START, or endpoint unreachable —
                 // wallet unlocker isn't ready for a POST yet.
                 await sleep(2_000)
+                continue
+              }
+
+              // Cold storage: the password is off the server, so this oneshot
+              // waits for the user to unlock rather than unlocking itself. It
+              // must keep waiting rather than return — sync-progress and what
+              // waits behind it require it, and completing here would release
+              // those against a locked wallet and skip the flag clearing below.
+              if (coldStorage) {
+                await onWalletLocked()
+                await sleep(5_000)
                 continue
               }
 
@@ -573,7 +613,15 @@ export const main = sdk.setupMain(async ({ effects }) => {
                 stdout.includes('wallet already unlocked') ||
                 (rotateMacaroonRootKey && !stdout.includes('"error"'))
               ) {
-                if (!rotateMacaroonRootKey) unlockError = null
+                if (!rotateMacaroonRootKey) {
+                  unlockError = null
+                  // A wallet found already open proves nothing about the
+                  // stored password.
+                  await unlockStatusJson.merge(effects, {
+                    storedPasswordVerified: stdout === '{}',
+                    storedPasswordRefused: false,
+                  })
+                }
                 break
               }
               if (!rotateMacaroonRootKey) {
@@ -585,6 +633,11 @@ export const main = sdk.setupMain(async ({ effects }) => {
                       message,
                     }
                   : null
+                if (unlockError?.kind === 'passphrase') {
+                  await unlockStatusJson.merge(effects, {
+                    storedPasswordRefused: true,
+                  })
+                }
               }
               await sleep(10_000)
             }
@@ -621,6 +674,15 @@ export const main = sdk.setupMain(async ({ effects }) => {
                     : i18n('LND could not unlock the wallet: ${error}', {
                         error: literal(unlockError.message),
                       }),
+              }
+            }
+            // Under cold storage a locked wallet is not a passing phase: the
+            // node stays offline until someone acts, so it has to read as a
+            // fault rather than as start-up.
+            if (state === 'LOCKED' && coldStorage) {
+              return {
+                result: 'failure',
+                message: i18n('Locked. Run Unlock Wallet to bring LND online.'),
               }
             }
             if (isPastUnlock(state)) {

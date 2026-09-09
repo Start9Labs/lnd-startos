@@ -70,6 +70,23 @@ Once your first channel has opened and LND has created its Static Channel Backup
 
 Restoring asks each peer to force-close from the Static Channel Backup, and shows a persistent warning. If you configured channel backups, the restore also fetches the copy from every target that has saved credentials, disabled ones included, and recovers channels from all of them together, so a channel opened after that StartOS backup is recovered too. You restore from your StartOS backup as usual; nothing has to be fetched from a provider by hand. The restore waits for every target to answer; if one is gone for good, clear its saved credentials in **Configure Channel Backups** so the restore can finish, and the restore notice names the target it is waiting on. Copies are not sent to your targets again until the restore has finished. **Lightning Labs strongly recommends against continued use of a restored node:** once funds are back on-chain, sweep them to another wallet, then uninstall and reinstall LND fresh.
 
+## Cold Storage Mode
+
+By default this server stores your wallet password and seed, and unlocks LND for you at every start. That is what keeps the node running through reboots without you. It also means someone who takes the disk has everything they need to spend your on-chain funds and close your channels.
+
+**Cold Storage Mode** removes both from the server. After that, LND starts locked and stays offline until you enter the password yourself.
+
+**Read this before turning it on.** LND restarts more often than people expect: whenever Bitcoin restarts, when StartOS updates, and whenever the server reboots. Each time, your node is offline until you unlock it. An offline Lightning node cannot route, cannot receive, and cannot respond when a peer closes a channel — and peers may force-close channels on a node that stays away. If you cannot check this server regularly, leave the mode off.
+
+Turning it on takes two steps, in **Actions → Cold Storage**:
+
+1. **Show Credentials** displays your wallet password and, if this server still holds it, your seed one last time, and tells you which three seed words you will be asked for. Write them down and store them offline. Nothing is deleted at this point.
+2. **Turn On** asks for the password and those three words — the password alone if no seed is held — then removes them from the server and restarts LND. It runs only while LND is running and has been unlocked with the stored password in this run, so the password it deletes is one that opened the wallet.
+
+From then on, after every restart you get a **Wallet Locked** notification and an **Unlock Wallet** task on the dashboard. Run it, enter your password, and the node comes back. Unlock Wallet also appears whenever LND refuses the password this server has stored; entering the right one there brings the node online and stores it again. The **Wallet Unlock** health check shows red the whole time it is waiting. **Revoke Macaroons** is unavailable while the mode is on: turn the mode off, run it, and turn the mode back on.
+
+**Turn Off** puts the password back, returns to unlocking automatically and clears the Unlock Wallet task. Your seed does not come back — the server never kept a copy after you turned the mode on, and it does not need one. A StartOS backup taken while the mode is on holds neither the password nor the seed, so restoring it gives you a node in Cold Storage Mode that waits for the password you recorded. The seed is needed only to recover on-chain funds outside StartOS, and you can turn the mode on again later with just the password.
+
 ## Limitations
 
 - **Mainnet only** — no testnet, signet, or regtest.
