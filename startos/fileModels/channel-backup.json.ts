@@ -2,18 +2,9 @@ import { FileHelper, z } from '@start9labs/start-sdk'
 import { sdk } from '../sdk'
 import { backupFolderDefault } from '../utils'
 
-// Where the continuous channel backup ships, and the credentials to get there.
-// Included in the StartOS backup on purpose: it is what the restore needs to
-// find the current channel.backup again.
+// Included in StartOS backups so off-server copying resumes after a restore.
 //
-// Credentials are stored verbatim. backup-agent.sh obscures them with
-// `rclone obscure` at the moment it writes rclone.conf, so nothing here has to
-// reproduce that format. Obscuring uses a fixed, public key and protects
-// nothing on its own; what protects these is the encrypted volume and the
-// encrypted backup.
-//
-// LND encrypts channel.backup under a wallet-seed-derived key. The agent adds
-// no second client-side encryption layer.
+// rclone's reversible obscuring adds no protection beyond encrypted storage.
 const CONTROL = /[\u0000-\u001f\u007f]/
 const LINE_LENGTH = 2_048
 const SECRET_LENGTH = 16_384

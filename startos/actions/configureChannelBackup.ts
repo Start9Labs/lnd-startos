@@ -2,18 +2,13 @@ import { T } from '@start9labs/start-sdk'
 import type { IncomingMessage } from 'http'
 import * as https from 'https'
 import { URLSearchParams } from 'url'
+import { channelBackupProviderName } from '../channelBackupStatus'
 import { channelBackupJson } from '../fileModels/channel-backup.json'
 import { i18n } from '../i18n'
 import { sdk } from '../sdk'
 import { backupFolderDefault, literal, mainMounts } from '../utils'
 
 const VALID_PROVIDERS = ['gdrive', 'dropbox', 'nextcloud', 'sftp'] as const
-const PROVIDER_NAMES: Record<(typeof VALID_PROVIDERS)[number], string> = {
-  gdrive: i18n('Google Drive'),
-  dropbox: i18n('Dropbox'),
-  nextcloud: i18n('Nextcloud'),
-  sftp: i18n('SFTP'),
-}
 const MAX_FIELD_LENGTH = 2_048
 const MAX_SECRET_LENGTH = 16_384
 const MAX_KEY_LENGTH = 32_768
@@ -101,7 +96,9 @@ function rejectLocalOrOnion(addr: string, label: string): void {
     host === '::1' ||
     host === '::' ||
     host === '0.0.0.0' ||
-    host.startsWith('127.')
+    host.startsWith('127.') ||
+    host.startsWith('::ffff:127.') ||
+    /^::ffff:7f[0-9a-f]{2}:[0-9a-f]{1,4}$/.test(host)
   )
     throw new Error(
       i18n(
@@ -136,15 +133,14 @@ function generateDropboxAuthUrl(clientId: string): string {
 // Accept a full redirect URL, a bare `code=…` fragment, or the raw code. Codes
 // copied out of a redirect arrive percent-encoded.
 function extractAuthCode(raw: string): string {
-  let code = (raw || '').trim()
+  const code = (raw || '').trim()
   const m = code.match(/[?&]code=([^&\s]+)/) || code.match(/^code=([^&\s]+)/)
-  if (m) code = m[1]
+  if (!m) return code
   try {
-    code = decodeURIComponent(code)
+    return decodeURIComponent(m[1])
   } catch {
-    // not valid percent-encoding — keep the raw value
+    return m[1]
   }
-  return code
 }
 
 function httpsPostJson(
@@ -340,6 +336,11 @@ async function normalizeKeyPem(
   for (let i = 0; i < body.length; i += 70) out.push(body.substring(i, i + 70))
   out.push(end)
   const normalized = out.join('\n')
+  const stored = checkedLength(
+    normalized.replace(/\n/g, '\\n'),
+    'SFTP',
+    MAX_KEY_LENGTH,
+  )
   const valid = await sdk.SubContainer.withTemp(
     effects,
     { imageId: 'lnd' },
@@ -358,7 +359,7 @@ async function normalizeKeyPem(
   )
   if (valid.exitCode !== 0)
     throw new Error(i18n('SFTP: that is not a valid OpenSSH private key.'))
-  return normalized.replace(/\n/g, '\\n')
+  return stored
 }
 
 // Record the server's host keys. They are used only once the user has
@@ -673,7 +674,7 @@ export const configureChannelBackup = sdk.Action.withInput(
       'Send a copy of channel.backup off this server whenever your channels change.',
     ),
     warning: i18n(
-      'channel.backup is encrypted by LND under a key derived from your wallet seed. Its filenames and update metadata remain visible to the storage provider. Use a target on a different machine, and prefer two independent targets. Tor .onion targets are not supported yet.',
+      'channel.backup is encrypted by LND under a key derived from your wallet seed. The storage provider can still see when it is updated. Use a target on a different machine, and prefer two independent targets. Tor .onion targets are not supported yet.',
     ),
     allowedStatuses: 'any',
     group: i18n('Backups'),
@@ -763,6 +764,13 @@ export const configureChannelBackup = sdk.Action.withInput(
   async ({ effects, input }) => {
     const cfg = await channelBackupJson.read().once()
     const patch: any = {}
+    const oauthCodes: Array<{
+      provider: 'gdrive' | 'dropbox'
+      google: boolean
+      clientId: string
+      clientSecret: string
+      authCodeRaw: string
+    }> = []
     const forgotten: string[] = []
     let hostKeyNote = ''
 
@@ -774,11 +782,11 @@ export const configureChannelBackup = sdk.Action.withInput(
         if (enabled)
           throw new Error(
             i18n('${target}: turn off Enabled before forgetting this target.', {
-              target: PROVIDER_NAMES[provider],
+              target: channelBackupProviderName(provider),
             }),
           )
         patch[provider] = null
-        forgotten.push(PROVIDER_NAMES[provider])
+        forgotten.push(channelBackupProviderName(provider))
         continue
       }
 
@@ -806,23 +814,17 @@ export const configureChannelBackup = sdk.Action.withInput(
           clientId !== (prev.clientId || '') ||
           clientSecret !== (prev.clientSecret || '')
         let token: string | null = clientChanged ? null : prev.token || null
-        if (authCodeRaw)
-          token = google
-            ? await exchangeGoogleCode(clientId, clientSecret, authCodeRaw)
-            : await exchangeDropboxCode(clientId, clientSecret, authCodeRaw)
-        else if (refreshToken) token = tokenFromRefresh(refreshToken, google)
-        if (enabled && !token)
-          throw new Error(
-            google
-              ? i18n(
-                  'Google Drive needs authorizing. Open this link, approve it, then paste the code back here and submit again:\n${url}',
-                  { url: generateGoogleAuthUrl(clientId) },
-                )
-              : i18n(
-                  'Dropbox needs authorizing. Open this link, approve it, then paste the code it shows back here and submit again:\n${url}',
-                  { url: generateDropboxAuthUrl(clientId) },
-                ),
-          )
+        if (authCodeRaw) {
+          oauthCodes.push({
+            provider,
+            google,
+            clientId,
+            clientSecret,
+            authCodeRaw,
+          })
+        } else if (refreshToken) {
+          token = tokenFromRefresh(refreshToken, google)
+        }
         patch[provider] = { enabled, clientId, clientSecret, token, path }
       } else if (provider === 'nextcloud') {
         const url = clean(o['nextcloud-url'], 'Nextcloud') || prev.url || ''
@@ -834,7 +836,7 @@ export const configureChannelBackup = sdk.Action.withInput(
           throw new Error(
             i18n('Nextcloud: URL, username, and password are required.'),
           )
-        // Checked whenever a URL is saved: a restore reads disabled targets too.
+        // Saved credentials must not permit plaintext transmission, even while disabled.
         if (url) {
           if (!/^https:\/\//i.test(url))
             throw new Error(
@@ -860,15 +862,12 @@ export const configureChannelBackup = sdk.Action.withInput(
         const port = clean(v['sftp-port'], 'SFTP') || prev.port || '22'
         const path = folder(v['sftp-path'], 'SFTP', prev.path)
         const authType = auth.selection === 'key' ? 'key' : 'password'
-        if (
-          !/^\d{1,5}$/.test(port) ||
-          Number(port) < 1 ||
-          Number(port) > 65535 ||
-          host.startsWith('-')
-        )
+        if (!/^\d{1,5}$/.test(port) || Number(port) < 1 || Number(port) > 65535)
           throw new Error(
             i18n('SFTP: the port must be a number between 1 and 65535.'),
           )
+        if (host.startsWith('-'))
+          throw new Error(i18n('SFTP: the host must not begin with "-".'))
         if (enabled && (!host || !user))
           throw new Error(i18n('SFTP: host and username are required.'))
         if (host) rejectLocalOrOnion(host, 'SFTP')
@@ -929,25 +928,75 @@ export const configureChannelBackup = sdk.Action.withInput(
       }
     }
 
-    await channelBackupJson.merge(effects, patch)
-
-    const on = VALID_PROVIDERS.filter(
-      (p) => patch[p]?.enabled && (p !== 'sftp' || patch.sftp.hostKeyVerified),
+    const exchanged = new Set<string>()
+    for (const pending of oauthCodes) {
+      const token = pending.google
+        ? await exchangeGoogleCode(
+            pending.clientId,
+            pending.clientSecret,
+            pending.authCodeRaw,
+          )
+        : await exchangeDropboxCode(
+            pending.clientId,
+            pending.clientSecret,
+            pending.authCodeRaw,
+          )
+      patch[pending.provider].token = token
+      await channelBackupJson.merge(effects, {
+        [pending.provider]: patch[pending.provider],
+      })
+      exchanged.add(pending.provider)
+    }
+    await channelBackupJson.merge(
+      effects,
+      Object.fromEntries(
+        Object.entries(patch).filter(([provider]) => !exchanged.has(provider)),
+      ),
     )
-    const message = on.length
+
+    const operational = VALID_PROVIDERS.filter((provider) => {
+      const target = patch[provider]
+      if (!target?.enabled) return false
+      if (provider === 'gdrive' || provider === 'dropbox') return !!target.token
+      if (provider === 'sftp') return !!target.hostKeyVerified
+      return true
+    })
+    const notReady = VALID_PROVIDERS.filter(
+      (provider) => patch[provider]?.enabled && !operational.includes(provider),
+    )
+    const authorization = (['gdrive', 'dropbox'] as const)
+      .filter((provider) => patch[provider]?.enabled && !patch[provider].token)
+      .map((provider) => ({
+        provider,
+        url:
+          provider === 'gdrive'
+            ? generateGoogleAuthUrl(patch[provider].clientId)
+            : generateDropboxAuthUrl(patch[provider].clientId),
+      }))
+    const operationalNote = operational.length
       ? i18n(
           'channel.backup will be copied to ${targets} whenever your channels change. Run Back Up Channels Now to check that it works.',
           {
-            targets: on.map((provider) => PROVIDER_NAMES[provider]).join(', '),
+            targets: operational.map(channelBackupProviderName).join(', '),
           },
         )
-      : forgotten.length
-        ? i18n(
-            'No target is enabled, so channel.backup travels only inside StartOS backups you take yourself.',
-          )
-        : i18n(
-            'No target is enabled, so channel.backup travels only inside StartOS backups you take yourself. Saved target settings were kept.',
-          )
+      : ''
+    const notReadyNote = notReady.length
+      ? i18n(
+          'Enabled but not ready: ${targets}. Complete the required authorization or host-key verification.',
+          { targets: notReady.map(channelBackupProviderName).join(', ') },
+        )
+      : ''
+    const disabledNote =
+      operational.length || notReady.length
+        ? ''
+        : forgotten.length
+          ? i18n(
+              'No target is enabled, so channel.backup travels only inside StartOS backups you take yourself.',
+            )
+          : i18n(
+              'No target is enabled, so channel.backup travels only inside StartOS backups you take yourself. Saved target settings were kept.',
+            )
     const forgottenNote = forgotten.length
       ? i18n('Saved settings for ${targets} were forgotten.', {
           targets: forgotten.join(', '),
@@ -956,8 +1005,29 @@ export const configureChannelBackup = sdk.Action.withInput(
     return {
       version: '1' as const,
       title: i18n('Channel Backups'),
-      message: [message, forgottenNote, hostKeyNote].filter(Boolean).join(' '),
-      result: null,
+      message: [
+        operationalNote,
+        notReadyNote,
+        disabledNote,
+        forgottenNote,
+        hostKeyNote,
+      ]
+        .filter(Boolean)
+        .join(' '),
+      result: authorization.length
+        ? {
+            type: 'group' as const,
+            value: authorization.map(({ provider, url }) => ({
+              name: channelBackupProviderName(provider),
+              description: i18n('Authorization URL'),
+              type: 'single' as const,
+              value: url,
+              copyable: true,
+              qr: false,
+              masked: false,
+            })),
+          }
+        : null,
     }
   },
 )

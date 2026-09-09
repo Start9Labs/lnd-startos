@@ -16,11 +16,13 @@ import { channelBackupJson } from './fileModels/channel-backup.json'
 import {
   backupAgentScript,
   bitcoindMnt,
-  channelBackupRestoredPath,
+  channelBackupPath,
   getBitcoindBundle,
   GetInfo,
   literal,
   lndDataDir,
+  localRestoreBackupPath,
+  localRestoreBackupTempPath,
   mainMounts,
   neutrinoBundle,
   selfGrpcHost,
@@ -433,6 +435,34 @@ export const main = sdk.setupMain(async ({ effects }) => {
 
   const lndChain = () =>
     sdk.Daemons.of(effects)
+      .addOneshot('stage-local-restore', () =>
+        restore
+          ? {
+              subcontainer: lndSub,
+              exec: {
+                fn: async (subcontainer, abort) => {
+                  const res = await subcontainer.exec(
+                    [
+                      'sh',
+                      '-c',
+                      `rm -f '${localRestoreBackupTempPath}'; if [ -s '${channelBackupPath}' ]; then cp '${channelBackupPath}' '${localRestoreBackupTempPath}' && mv -f '${localRestoreBackupTempPath}' '${localRestoreBackupPath}'; elif [ -e '${channelBackupPath}' ]; then echo 'channel.backup is empty' >&2; exit 1; else rm -f '${localRestoreBackupPath}'; fi`,
+                    ],
+                    {},
+                    60_000,
+                    { abort: abort.reason, signal: abort },
+                  )
+                  if (res.exitCode !== 0) {
+                    throw new Error(
+                      `failed to stage the StartOS channel backup: ${String(res.stderr).trim()}`,
+                    )
+                  }
+                  return null
+                },
+              },
+              requires: [],
+            }
+          : null,
+      )
       .addDaemon('lnd', {
         exec: { command: ['lnd', ...lndArgs] },
         subcontainer: lndSub,
@@ -450,7 +480,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
             return { result: 'success', message: i18n('LND is ready') }
           },
         },
-        requires: [],
+        requires: restore ? ['stage-local-restore'] : [],
       })
       .addOneshot('unlock-wallet', {
         exec: {
@@ -694,40 +724,15 @@ export const main = sdk.setupMain(async ({ effects }) => {
           ? {
               subcontainer: lndSub,
               exec: {
-                // Runs after the unlock because LND rewrites its own
-                // channel.backup shortly after unlocking; the agent pulls each
-                // candidate to a separate path so that rewrite cannot race it.
                 fn: async (subcontainer, abort) => {
-                  const warning = i18n(
-                    'Lightning Labs strongly recommends against continuing to use a LND node after running restorechanbackup. Please recover and sweep any remaining funds to another wallet. Afterwards LND should be uninstalled. LND can then be re-installed fresh if you would like to continue using LND.',
-                  )
-                  const notice = (message: string) =>
-                    sdk.setHealth(effects, {
-                      id: 'restored',
-                      name: i18n('Backup Restoration Detected'),
-                      message,
-                      result: 'failure',
+                  const run = (command: string[], timeout: number) =>
+                    subcontainer.exec(command, {}, timeout, {
+                      abort: abort.reason,
+                      signal: abort,
                     })
-                  await notice(warning)
                   const tail = (out: unknown) =>
                     String(out).trim().split('\n').slice(-2).join(' ')
-                  const agent = (mode: string, timeoutMs: number) =>
-                    subcontainer.exec(
-                      ['sh', backupAgentScript, mode],
-                      {},
-                      timeoutMs,
-                    )
-                  // A step that cannot record its outcome fails the oneshot, and
-                  // the SDK retries it with the restore flag still set.
-                  const record = async (mode: string) => {
-                    const res = await agent(mode, 60_000)
-                    if (res.exitCode !== 0) {
-                      throw new Error(`${mode} failed: ${tail(res.stderr)}`)
-                    }
-                  }
-                  // restorechanbackup answers "server is still in the process
-                  // of starting" until SERVER_ACTIVE, which waits on the chain
-                  // sync.
+
                   const deadline = Date.now() + 60 * 60_000
                   while ((await getLndState()) !== 'SERVER_ACTIVE') {
                     if (abort.aborted)
@@ -738,67 +743,57 @@ export const main = sdk.setupMain(async ({ effects }) => {
                       )
                     await sleep(5_000)
                   }
-                  // Every copy that can be found is offered, newest first, and
-                  // LND skips the channels it already knows. Only LND's answer
-                  // decides a candidate; only a completed search ends the
-                  // restore.
-                  while (true) {
-                    const pull = await agent('--restore', 600_000)
-                    if (pull.exitCode === 3) {
-                      await record('--finish-restore')
-                      await startupFlagsJson.merge(effects, { restore: false })
-                      return null
-                    }
-                    if (pull.exitCode === 6) {
-                      const failures =
-                        (await channelBackupStateJson.read().once())
-                          ?.failures ?? []
-                      await notice(
-                        `${warning} ${i18n(
-                          'A backup target has not answered, so the search for the newest channel.backup continues: ${detail} To stop waiting for it, clear its saved credentials in Configure Channel Backups.',
-                          { detail: literal(describeFailures(failures)) },
-                        )}`,
-                      )
-                      throw new Error(
-                        `candidate search incomplete: ${tail(pull.stderr)}`,
-                      )
-                    }
-                    if (pull.exitCode !== 0) {
-                      throw new Error(
-                        `candidate search failed: ${tail(pull.stderr)}`,
-                      )
-                    }
-                    const res = await subcontainer.exec(
+
+                  const staged = await run(
+                    ['test', '-s', localRestoreBackupPath],
+                    30_000,
+                  )
+                  if (staged.exitCode === 0) {
+                    await sdk.setHealth(effects, {
+                      id: 'restored',
+                      name: i18n('Backup Restoration Detected'),
+                      message: i18n(
+                        'Lightning Labs strongly recommends against continuing to use a LND node after running restorechanbackup. Please recover and sweep any remaining funds to another wallet. Afterwards LND should be uninstalled. LND can then be re-installed fresh if you would like to continue using LND.',
+                      ),
+                      result: 'failure',
+                    })
+                    const restored = await run(
                       [
                         'lncli',
                         `--rpcserver=${selfGrpcHost}`,
                         'restorechanbackup',
                         '--multi_file',
-                        channelBackupRestoredPath,
+                        localRestoreBackupPath,
                       ],
-                      {},
-                      120_000,
+                      3_600_000,
                     )
-                    if (res.exitCode === 0) {
-                      await record('--commit-restore')
-                      continue
-                    }
-                    const reason = tail(res.stderr)
-                    if (
-                      /(?:payload size too small, must be at least \d+ bytes|chacha20poly1305: message authentication failed|unable to unpack unknown multi-version of \d+)\s*$/i.test(
-                        reason,
+                    if (restored.exitCode !== 0) {
+                      throw new Error(
+                        `restorechanbackup failed: ${tail(restored.stderr)}`,
                       )
-                    ) {
-                      console.warn(
-                        `restorechanbackup refused a candidate: ${reason}`,
-                      )
-                      await record('--reject-restore')
-                      continue
                     }
+                  } else if (staged.exitCode !== 1) {
                     throw new Error(
-                      `restorechanbackup did not accept the candidate: ${reason}`,
+                      `failed to check the staged channel backup: ${tail(staged.stderr)}`,
                     )
                   }
+
+                  const removed = await run(
+                    [
+                      'rm',
+                      '-f',
+                      localRestoreBackupPath,
+                      localRestoreBackupTempPath,
+                    ],
+                    30_000,
+                  )
+                  if (removed.exitCode !== 0) {
+                    throw new Error(
+                      `failed to remove the staged channel backup: ${tail(removed.stderr)}`,
+                    )
+                  }
+                  await startupFlagsJson.merge(effects, { restore: false })
+                  return null
                 },
               },
               requires: ['lnd', 'unlock-wallet'],
@@ -878,7 +873,9 @@ export const main = sdk.setupMain(async ({ effects }) => {
           display: null,
           fn: async () => ({ result: 'success', message: null }),
         },
-        requires: ['lnd', 'unlock-wallet'],
+        requires: restore
+          ? ['lnd', 'unlock-wallet', 'restore']
+          : ['lnd', 'unlock-wallet'],
       })
       .addHealthCheck('channel-backup', {
         ready: {

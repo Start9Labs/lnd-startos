@@ -1,7 +1,9 @@
 import { describeFailures } from '../channelBackupStatus'
 import { channelBackupStateJson } from '../fileModels/channel-backup-state.json'
+import { startupFlagsJson } from '../fileModels/startupFlags.json'
 import { i18n } from '../i18n'
 import { sdk } from '../sdk'
+import { needsSqliteMigration } from '../sqliteBackend'
 import { backupAgentScript, literal, mainMounts } from '../utils'
 
 export const backupChannelsNow = sdk.Action.withoutInput(
@@ -19,8 +21,14 @@ export const backupChannelsNow = sdk.Action.withoutInput(
   }),
 
   async ({ effects }) => {
-    // StartOS caps an action at 120 s; the agent bounds its own rclone calls
-    // to fit.
+    const flags = await startupFlagsJson.read().once()
+    if (flags?.importPending || (await needsSqliteMigration())) {
+      throw new Error(
+        i18n(
+          'Channel backups are unavailable while LND is preparing imported data. Try again after LND starts normally.',
+        ),
+      )
+    }
     const res = await sdk.SubContainer.withTemp(
       effects,
       { imageId: 'lnd' },
@@ -38,12 +46,6 @@ export const backupChannelsNow = sdk.Action.withoutInput(
     switch (res.exitCode) {
       case 0:
         return done(i18n('channel.backup was copied to every enabled target.'))
-      case 2:
-        throw new Error(
-          i18n(
-            'A restore is in progress. channel.backup is not sent until it completes.',
-          ),
-        )
       case 3:
         return done(
           i18n(
@@ -66,9 +68,13 @@ export const backupChannelsNow = sdk.Action.withoutInput(
         )
     }
 
-    // The agent leaves each target's outcome in the state file, so the action
-    // fails with the same detail the health check shows.
-    const failures = (await channelBackupStateJson.read().once())?.failures
+    const attemptText = String(res.stdout).trim().split('\n')[0]
+    const attempt = /^\d+$/.test(attemptText) ? Number(attemptText) : null
+    const state = await channelBackupStateJson.read().once()
+    const failures =
+      attempt !== null && state?.attempt === attempt
+        ? state.failures
+        : undefined
     const reason = failures?.length
       ? describeFailures(failures)
       : String(res.stderr).trim().split('\n').slice(-2).join(' ')
