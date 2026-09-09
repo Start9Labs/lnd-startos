@@ -1,4 +1,4 @@
-import { BackupFailure } from './fileModels/channel-backup-state.json'
+import type { BackupFailure } from './fileModels/channel-backup-state.json'
 import { i18n } from './i18n'
 import { literal } from './utils'
 

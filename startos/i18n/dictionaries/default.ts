@@ -361,7 +361,7 @@ const dict = {
   Backups: 309,
   'Configure Channel Backups': 310,
   'Send a copy of channel.backup off this server whenever your channels change.': 311,
-  'channel.backup is encrypted by LND under a key derived from your wallet seed, so a storage provider only ever holds ciphertext. Use a target on a different machine, and prefer two independent targets. Tor .onion targets are not supported yet.': 312,
+  'channel.backup is encrypted by LND under a key derived from your wallet seed. Its filenames and update metadata remain visible to the storage provider. Use a target on a different machine, and prefer two independent targets. Tor .onion targets are not supported yet.': 312,
   'Send channel backups to this target.': 313,
   'Google Drive': 314,
   'Back up to Google Drive. Free personal accounts work.': 315,
@@ -463,6 +463,12 @@ const dict = {
   'The backup settings could not be read. Try again in a moment.': 477,
   'A backup target has not answered, so the search for the newest channel.backup continues: ${detail} To stop waiting for it, clear its saved credentials in Configure Channel Backups.': 478,
   'SFTP: the host key ${host} presented could not be read. Try saving again.': 479,
+  '${label}: must be at most ${max} characters.': 480,
+  'Forget saved credentials': 481,
+  'Remove this target and all of its saved settings. Turn off Enabled before selecting this.': 482,
+  '${target}: turn off Enabled before forgetting this target.': 483,
+  'No target is enabled, so channel.backup travels only inside StartOS backups you take yourself.': 484,
+  'Saved settings for ${targets} were forgotten.': 485,
 } as const
 
 /**

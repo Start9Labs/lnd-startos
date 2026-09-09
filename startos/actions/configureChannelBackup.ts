@@ -1,4 +1,5 @@
 import { T } from '@start9labs/start-sdk'
+import type { IncomingMessage } from 'http'
 import * as https from 'https'
 import { URLSearchParams } from 'url'
 import { channelBackupJson } from '../fileModels/channel-backup.json'
@@ -7,12 +8,31 @@ import { sdk } from '../sdk'
 import { backupFolderDefault, literal, mainMounts } from '../utils'
 
 const VALID_PROVIDERS = ['gdrive', 'dropbox', 'nextcloud', 'sftp'] as const
+const PROVIDER_NAMES: Record<(typeof VALID_PROVIDERS)[number], string> = {
+  gdrive: i18n('Google Drive'),
+  dropbox: i18n('Dropbox'),
+  nextcloud: i18n('Nextcloud'),
+  sftp: i18n('SFTP'),
+}
+const MAX_FIELD_LENGTH = 2_048
+const MAX_SECRET_LENGTH = 16_384
+const MAX_KEY_LENGTH = 32_768
+const MAX_OAUTH_RESPONSE_BYTES = 64 * 1_024
 
 // rclone.conf is line-based, so a line break in any value would start a new
 // key or section.
 const CONTROL = /[\u0000-\u001f\u007f]/
 
-function clean(value: unknown, label: string): string {
+function checkedLength(value: string, label: string, max: number): string {
+  if (value.length > max) {
+    throw new Error(
+      i18n('${label}: must be at most ${max} characters.', { label, max }),
+    )
+  }
+  return value
+}
+
+function clean(value: unknown, label: string, max = MAX_FIELD_LENGTH): string {
   const s = typeof value === 'string' ? value.trim() : ''
   if (CONTROL.test(s)) {
     throw new Error(
@@ -21,7 +41,7 @@ function clean(value: unknown, label: string): string {
       }),
     )
   }
-  return s
+  return checkedLength(s, label, max)
 }
 
 // Secrets keep every byte the user typed.
@@ -34,7 +54,7 @@ function secret(value: unknown, label: string): string {
       }),
     )
   }
-  return s
+  return checkedLength(s, label, MAX_SECRET_LENGTH)
 }
 
 // A folder under the target's root: never an absolute path, never a step up.
@@ -96,7 +116,7 @@ function generateGoogleAuthUrl(clientId: string): string {
     client_id: clientId,
     redirect_uri: 'http://localhost',
     response_type: 'code',
-    scope: 'https://www.googleapis.com/auth/drive',
+    scope: 'https://www.googleapis.com/auth/drive.file',
     access_type: 'offline',
     prompt: 'consent',
   }).toString()}`
@@ -134,7 +154,23 @@ function httpsPostJson(
   headers: Record<string, string>,
 ): Promise<any> {
   return new Promise((resolve, reject) => {
-    const req = https.request(
+    let settled = false
+    let response: IncomingMessage | undefined
+    let req: ReturnType<typeof https.request>
+    const finish = (error: Error | null, value?: unknown) => {
+      if (settled) return
+      settled = true
+      clearTimeout(deadline)
+      if (error) reject(error)
+      else resolve(value)
+    }
+    const deadline = setTimeout(() => {
+      const error = new Error(`${hostname} did not answer within 30 s`)
+      response?.destroy(error)
+      req.destroy(error)
+      finish(error)
+    }, 30_000)
+    req = https.request(
       {
         hostname,
         path,
@@ -142,28 +178,41 @@ function httpsPostJson(
         headers: { 'Content-Length': Buffer.byteLength(body), ...headers },
       },
       (res) => {
-        let data = ''
-        res.on('data', (c) => (data += c))
+        response = res
+        const chunks: Buffer[] = []
+        let size = 0
+        res.on('data', (chunk: Buffer) => {
+          size += chunk.length
+          if (size > MAX_OAUTH_RESPONSE_BYTES) {
+            const error = new Error(`${hostname} returned too much data`)
+            res.destroy(error)
+            req.destroy(error)
+            finish(error)
+            return
+          }
+          chunks.push(chunk)
+        })
         res.on('end', () => {
-          if (res.statusCode !== 200)
-            reject(
+          if (settled) return
+          const data = Buffer.concat(chunks).toString('utf8')
+          if (res.statusCode !== 200) {
+            finish(
               new Error(`${hostname} responded ${res.statusCode}: ${data}`),
             )
-          else
-            try {
-              resolve(JSON.parse(data))
-            } catch {
-              reject(
-                new Error(`Could not parse response from ${hostname}: ${data}`),
-              )
-            }
+            return
+          }
+          try {
+            finish(null, JSON.parse(data))
+          } catch {
+            finish(
+              new Error(`Could not parse response from ${hostname}: ${data}`),
+            )
+          }
         })
+        res.on('error', (error) => finish(error))
       },
     )
-    req.setTimeout(30_000, () =>
-      req.destroy(new Error(`${hostname} did not answer within 30 s`)),
-    )
-    req.on('error', reject)
+    req.on('error', (error) => finish(error))
     req.write(body)
     req.end()
   })
@@ -244,32 +293,37 @@ function tokenFromRefresh(refreshToken: string, google: boolean): string {
   })
 }
 
-// openssh-key-v1 names its cipher up front; "none" is the only one rclone can
-// open without a passphrase it has no way to ask for. Anything that is not a
-// well-formed openssh-key-v1 body is rejected outright.
 function opensshKeyIsEncrypted(body: string): boolean {
-  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(body)) throw new Error('not base64')
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(body) || body.length % 4 !== 0)
+    throw new Error('not base64')
   const raw = Buffer.from(body, 'base64')
-  const magic = 'openssh-key-v1\0'
-  if (raw.subarray(0, magic.length).toString('latin1') !== magic)
-    throw new Error('not openssh-key-v1')
-  const len = raw.readUInt32BE(magic.length)
-  return (
-    raw.subarray(magic.length + 4, magic.length + 4 + len).toString() !== 'none'
+  const magic = Buffer.from('openssh-key-v1\0', 'latin1')
+  if (
+    raw.length < magic.length + 4 ||
+    !raw.subarray(0, magic.length).equals(magic)
   )
+    throw new Error('not openssh-key-v1')
+  const length = raw.readUInt32BE(magic.length)
+  const start = magic.length + 4
+  if (length === 0 || start + length > raw.length)
+    throw new Error('truncated cipher name')
+  return raw.subarray(start, start + length).toString() !== 'none'
 }
 
-// Normalize a pasted OpenSSH key into the single-line, `\n`-escaped form
-// rclone.conf's key_pem wants; the agent writes it verbatim.
-function normalizeKeyPem(keyInput: string): string {
+async function normalizeKeyPem(
+  effects: T.Effects,
+  keyInput: string,
+): Promise<string> {
+  checkedLength(keyInput, 'SFTP', MAX_KEY_LENGTH)
   const begin = '-----BEGIN OPENSSH PRIVATE KEY-----'
   const end = '-----END OPENSSH PRIVATE KEY-----'
   const norm = keyInput.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim()
-  if (!norm.includes(begin) || !norm.includes(end))
+  const match = norm.match(
+    /^-----BEGIN OPENSSH PRIVATE KEY-----\n([A-Za-z0-9+/=\n]+)\n-----END OPENSSH PRIVATE KEY-----$/,
+  )
+  if (!match)
     throw new Error(i18n('SFTP: that is not a valid OpenSSH private key.'))
-  const body = norm
-    .substring(norm.indexOf(begin) + begin.length, norm.indexOf(end))
-    .replace(/\s+/g, '')
+  const body = match[1].replace(/\n/g, '')
   let encrypted: boolean
   try {
     encrypted = opensshKeyIsEncrypted(body)
@@ -285,7 +339,26 @@ function normalizeKeyPem(keyInput: string): string {
   const out = [begin]
   for (let i = 0; i < body.length; i += 70) out.push(body.substring(i, i + 70))
   out.push(end)
-  return out.join('\n').replace(/\n/g, '\\n')
+  const normalized = out.join('\n')
+  const valid = await sdk.SubContainer.withTemp(
+    effects,
+    { imageId: 'lnd' },
+    mainMounts,
+    'sftp-key-validate',
+    async (sub) =>
+      sub.exec(
+        [
+          'sh',
+          '-c',
+          'umask 077; key=$(mktemp); trap \'rm -f "$key"\' EXIT; cat > "$key"; ssh-keygen -y -f "$key" >/dev/null',
+        ],
+        { input: `${normalized}\n` },
+        10_000,
+      ),
+  )
+  if (valid.exitCode !== 0)
+    throw new Error(i18n('SFTP: that is not a valid OpenSSH private key.'))
+  return normalized.replace(/\n/g, '\\n')
 }
 
 // Record the server's host keys. They are used only once the user has
@@ -353,6 +426,15 @@ const enabledToggle = () =>
   sdk.Value.toggle({
     name: i18n('Enabled'),
     description: i18n('Send channel backups to this target.'),
+    default: false,
+  })
+
+const forgetToggle = () =>
+  sdk.Value.toggle({
+    name: i18n('Forget saved credentials'),
+    description: i18n(
+      'Remove this target and all of its saved settings. Turn off Enabled before selecting this.',
+    ),
     default: false,
   })
 
@@ -574,7 +656,11 @@ function storageTarget(
 ) {
   return sdk.Value.object(
     { name, description },
-    sdk.InputSpec.of({ enabled: enabledToggle(), ...fields }),
+    sdk.InputSpec.of({
+      enabled: enabledToggle(),
+      forget: forgetToggle(),
+      ...fields,
+    }),
   )
 }
 
@@ -587,7 +673,7 @@ export const configureChannelBackup = sdk.Action.withInput(
       'Send a copy of channel.backup off this server whenever your channels change.',
     ),
     warning: i18n(
-      'channel.backup is encrypted by LND under a key derived from your wallet seed, so a storage provider only ever holds ciphertext. Use a target on a different machine, and prefer two independent targets. Tor .onion targets are not supported yet.',
+      'channel.backup is encrypted by LND under a key derived from your wallet seed. Its filenames and update metadata remain visible to the storage provider. Use a target on a different machine, and prefer two independent targets. Tor .onion targets are not supported yet.',
     ),
     allowedStatuses: 'any',
     group: i18n('Backups'),
@@ -628,6 +714,7 @@ export const configureChannelBackup = sdk.Action.withInput(
     return {
       gdrive: {
         enabled: !!g?.enabled,
+        forget: false,
         'gdrive-client-id': g?.clientId || '',
         'gdrive-client-secret': '',
         'gdrive-auth-code': '',
@@ -636,6 +723,7 @@ export const configureChannelBackup = sdk.Action.withInput(
       },
       dropbox: {
         enabled: !!d?.enabled,
+        forget: false,
         'dropbox-client-id': d?.clientId || '',
         'dropbox-client-secret': '',
         'dropbox-auth-code': '',
@@ -644,6 +732,7 @@ export const configureChannelBackup = sdk.Action.withInput(
       },
       nextcloud: {
         enabled: !!n?.enabled,
+        forget: false,
         'nextcloud-url': n?.url || '',
         'nextcloud-user': n?.user || '',
         'nextcloud-pass': '',
@@ -652,6 +741,7 @@ export const configureChannelBackup = sdk.Action.withInput(
       },
       sftp: {
         enabled: !!s?.enabled,
+        forget: false,
         auth: {
           selection: s?.authType === 'key' ? 'key' : 'password',
           value: {
@@ -673,12 +763,24 @@ export const configureChannelBackup = sdk.Action.withInput(
   async ({ effects, input }) => {
     const cfg = await channelBackupJson.read().once()
     const patch: any = {}
+    const forgotten: string[] = []
     let hostKeyNote = ''
 
     for (const provider of VALID_PROVIDERS) {
       const o = (input as any)[provider] || {}
       const enabled = !!o.enabled
       const prev = (cfg as any)?.[provider] || {}
+      if (o.forget) {
+        if (enabled)
+          throw new Error(
+            i18n('${target}: turn off Enabled before forgetting this target.', {
+              target: PROVIDER_NAMES[provider],
+            }),
+          )
+        patch[provider] = null
+        forgotten.push(PROVIDER_NAMES[provider])
+        continue
+      }
 
       if (provider === 'gdrive' || provider === 'dropbox') {
         const google = provider === 'gdrive'
@@ -778,7 +880,9 @@ export const configureChannelBackup = sdk.Action.withInput(
             throw new Error(i18n('SFTP: a password is required.'))
         } else {
           const pasted = typeof v['sftp-key'] === 'string' ? v['sftp-key'] : ''
-          keyPem = pasted.trim() ? normalizeKeyPem(pasted) : prev.keyPem || null
+          keyPem = pasted.trim()
+            ? await normalizeKeyPem(effects, pasted)
+            : prev.keyPem || null
           if (enabled && !keyPem)
             throw new Error(i18n('SFTP: a private key is required.'))
         }
@@ -833,15 +937,26 @@ export const configureChannelBackup = sdk.Action.withInput(
     const message = on.length
       ? i18n(
           'channel.backup will be copied to ${targets} whenever your channels change. Run Back Up Channels Now to check that it works.',
-          { targets: on.join(', ') },
+          {
+            targets: on.map((provider) => PROVIDER_NAMES[provider]).join(', '),
+          },
         )
-      : i18n(
-          'No target is enabled, so channel.backup travels only inside StartOS backups you take yourself. Saved target settings were kept.',
-        )
+      : forgotten.length
+        ? i18n(
+            'No target is enabled, so channel.backup travels only inside StartOS backups you take yourself.',
+          )
+        : i18n(
+            'No target is enabled, so channel.backup travels only inside StartOS backups you take yourself. Saved target settings were kept.',
+          )
+    const forgottenNote = forgotten.length
+      ? i18n('Saved settings for ${targets} were forgotten.', {
+          targets: forgotten.join(', '),
+        })
+      : ''
     return {
       version: '1' as const,
       title: i18n('Channel Backups'),
-      message: hostKeyNote ? `${message} ${hostKeyNote}` : message,
+      message: [message, forgottenNote, hostKeyNote].filter(Boolean).join(' '),
       result: null,
     }
   },

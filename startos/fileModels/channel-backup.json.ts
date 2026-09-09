@@ -12,41 +12,124 @@ import { backupFolderDefault } from '../utils'
 // nothing on its own; what protects these is the encrypted volume and the
 // encrypted backup.
 //
-// channel.backup is itself encrypted by LND under a key derived from the wallet
-// seed, so a target only ever holds ciphertext, and no client-side encryption
-// layer is added here.
+// LND encrypts channel.backup under a wallet-seed-derived key. The agent adds
+// no second client-side encryption layer.
+const CONTROL = /[\u0000-\u001f\u007f]/
+const LINE_LENGTH = 2_048
+const SECRET_LENGTH = 16_384
+
+const line = (fallback = '', max = LINE_LENGTH) =>
+  z
+    .string()
+    .max(max)
+    .refine((value) => !CONTROL.test(value))
+    .catch(fallback)
+
+const nullableLine = (max = SECRET_LENGTH) =>
+  z
+    .string()
+    .max(max)
+    .refine((value) => !CONTROL.test(value))
+    .nullable()
+    .catch(null)
+
+const relativePath = z
+  .string()
+  .max(LINE_LENGTH)
+  .refine(
+    (value) =>
+      !CONTROL.test(value) &&
+      !value.startsWith('/') &&
+      !value.startsWith('\\') &&
+      !value.split(/[\\/]/).includes('..'),
+  )
+  .catch(backupFolderDefault)
+
+const oauthToken = nullableLine(64 * 1_024)
+  .refine((value) => {
+    if (value === null) return true
+    try {
+      const parsed = JSON.parse(value)
+      return (
+        parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+      )
+    } catch {
+      return false
+    }
+  })
+  .catch(null)
+
 const oauthTarget = z.object({
   enabled: z.boolean().catch(false),
-  clientId: z.string().catch(''),
-  clientSecret: z.string().catch(''),
-  token: z.string().nullable().catch(null),
-  path: z.string().catch(backupFolderDefault),
+  clientId: line(),
+  clientSecret: line('', SECRET_LENGTH),
+  token: oauthToken,
+  path: relativePath,
 })
 
 const nextcloudTarget = z.object({
   enabled: z.boolean().catch(false),
-  url: z.string().catch(''),
-  user: z.string().catch(''),
-  pass: z.string().nullable().catch(null),
+  url: line(),
+  user: line(),
+  pass: nullableLine(),
   insecureTls: z.boolean().catch(false),
-  path: z.string().catch(backupFolderDefault),
+  path: relativePath,
 })
+
+const keyPem = nullableLine(32_768)
+  .refine(
+    (value) =>
+      value === null ||
+      /^-----BEGIN OPENSSH PRIVATE KEY-----\\n(?:[A-Za-z0-9+/=]{1,70}\\n)+-----END OPENSSH PRIVATE KEY-----$/.test(
+        value,
+      ),
+  )
+  .catch(null)
+
+const knownHosts = z
+  .string()
+  .max(64 * 1_024)
+  .refine((value) =>
+    value
+      .split('\n')
+      .every((entry) =>
+        /^\S+ (ssh-(rsa|ed25519|dss)|ecdsa-sha2-nistp(256|384|521)|sk-\S+) [A-Za-z0-9+/]+={0,2}$/.test(
+          entry,
+        ),
+      ),
+  )
+  .nullable()
+  .catch(null)
+
+const fingerprints = z
+  .string()
+  .max(16 * 1_024)
+  .refine(
+    (value) =>
+      !/[\u0000-\u0009\u000b-\u001f\u007f]/.test(value) &&
+      value.split('\n').every((entry) => entry.length <= LINE_LENGTH),
+  )
+  .catch('')
 
 const sftpTarget = z.object({
   enabled: z.boolean().catch(false),
-  host: z.string().catch(''),
-  user: z.string().catch(''),
-  port: z.string().catch('22'),
+  host: line(),
+  user: line(),
+  port: z
+    .string()
+    .regex(/^\d{1,5}$/)
+    .refine((value) => Number(value) >= 1 && Number(value) <= 65_535)
+    .catch('22'),
   authType: z.enum(['password', 'key']).catch('password'),
-  pass: z.string().nullable().catch(null),
-  keyPem: z.string().nullable().catch(null),
+  pass: nullableLine(),
+  keyPem,
   // ssh-keyscan output recorded when the target was saved; rclone verifies the
   // server against it on every connection, once the user has confirmed the
   // fingerprints it was shown.
-  knownHosts: z.string().nullable().catch(null),
-  hostKeyFingerprints: z.string().catch(''),
+  knownHosts,
+  hostKeyFingerprints: fingerprints,
   hostKeyVerified: z.boolean().catch(false),
-  path: z.string().catch(backupFolderDefault),
+  path: relativePath,
 })
 
 export const channelBackupShape = z.object({

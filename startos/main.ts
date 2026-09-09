@@ -113,10 +113,6 @@ function parseGatewayReply(stdout: string): Record<string, unknown> | null {
   }
 }
 
-function escapeI18nReplacement(value: string): string {
-  return value.replace(/\$/g, '$$$$')
-}
-
 export const main = sdk.setupMain(async ({ effects }) => {
   /**
    * ======================== Setup (optional) ========================
@@ -580,10 +576,10 @@ export const main = sdk.setupMain(async ({ effects }) => {
                 message:
                   unlockError.kind === 'passphrase'
                     ? i18n('LND refused the stored wallet password: ${error}', {
-                        error: escapeI18nReplacement(unlockError.message),
+                        error: literal(unlockError.message),
                       })
                     : i18n('LND could not unlock the wallet: ${error}', {
-                        error: escapeI18nReplacement(unlockError.message),
+                        error: literal(unlockError.message),
                       }),
               }
             }
@@ -788,9 +784,8 @@ export const main = sdk.setupMain(async ({ effects }) => {
                       continue
                     }
                     const reason = tail(res.stderr)
-                    // Only a file LND could not open is the candidate's fault.
                     if (
-                      /unable to (unpack|decrypt|read nonce)|message authentication failed|unknown multi-version|unexpected EOF/i.test(
+                      /(?:payload size too small, must be at least \d+ bytes|chacha20poly1305: message authentication failed|unable to unpack unknown multi-version of \d+)\s*$/i.test(
                         reason,
                       )
                     ) {
@@ -888,12 +883,11 @@ export const main = sdk.setupMain(async ({ effects }) => {
       .addHealthCheck('channel-backup', {
         ready: {
           display: i18n('Channel Backup'),
-          // A failing target needs a person or the agent's 5-minute retry;
-          // polling faster than that shows nothing new.
+          // The backup agent retries a failing target every five minutes.
           trigger: sdk.trigger.statusTrigger(30_000, {
             starting: 5_000,
             waiting: 5_000,
-            failure: 15_000,
+            failure: 300_000,
           }),
           fn: async () => {
             const cfg = await channelBackupJson.read().once()
@@ -920,7 +914,12 @@ export const main = sdk.setupMain(async ({ effects }) => {
               return {
                 result: 'success',
                 message: i18n('Last copied ${ago} ago', {
-                  ago: ago(Math.floor(Date.now() / 1000) - state.lastSuccess),
+                  ago: ago(
+                    Math.max(
+                      0,
+                      Math.floor(Date.now() / 1000) - state.lastSuccess,
+                    ),
+                  ),
                 }),
               }
             }
