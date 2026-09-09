@@ -231,10 +231,13 @@ Which checks exist depends on what the service is doing.
 | `import`         | Wallet Import progress            | While a wallet import is running                       |
 | `db-migration`   | "Database Conversion"             | While a bolt database is being converted               |
 | `lnd`            | "LND Server"                      | Normal operation                                       |
+| `wallet-unlock`  | "Wallet Unlock"                   | Normal operation                                       |
 | `sync-progress`  | "Network and Graph Sync Progress" | Normal operation                                       |
 | `channel-backup` | "Channel Backup"                  | Normal operation; `disabled` until a target is enabled |
 | `reachability`   | "Node Reachability"               | Normal operation                                       |
 | `restored`       | Restore notice                    | After a seed restore                                   |
+
+**`wallet-unlock` reports errors from LND's normal wallet unlock request while the wallet remains locked.** It distinguishes LND's exact wrong-passphrase response from other errors. Unlock attempts continue automatically.
 
 **`sync-progress` covers two different syncs** — the chain and the network graph — and a node can be caught up on one while still working through the other. It is the check to read while a node is coming up for the first time.
 
@@ -350,6 +353,7 @@ tasks:
   - { action: configure-channel-backup, severity: important }
 health_checks:
   - lnd # displayed "LND Server"
+  - wallet-unlock # displayed "Wallet Unlock"; reports normal unlock errors while the wallet remains locked
   - sync-progress # displayed "Network and Graph Sync Progress"; synced_to_chain, synced_to_graph, num_peers
   - channel-backup # displayed "Channel Backup"; disabled until a target is configured
   - reachability # displayed "Node Reachability"

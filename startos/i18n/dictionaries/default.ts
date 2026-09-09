@@ -352,6 +352,10 @@ const dict = {
   'Spread reconnection attempts to your peers over the first 30 seconds after startup, instead of dialing them all at once. The first 10 peers always reconnect immediately, so this has no effect below 10 channel peers': 300,
   'Graph Cache Duration': 301,
   'How long to reuse the answer to a full network graph query. Apps that display the Lightning network — Mempool and Ride The Lightning — re-run this query on every refresh, and each run reads the whole graph out of the database. Reusing the answer keeps repeated or simultaneous refreshes from stalling gossip and payments. Set to 0 to read the graph fresh every time.': 302,
+  'Wallet Unlock': 305,
+  'Wallet is unlocked': 306,
+  'LND refused the stored wallet password: ${error}': 307,
+  'LND could not unlock the wallet: ${error}': 308,
 
   // channel backup
   Backups: 309,
