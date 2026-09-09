@@ -1,4 +1,5 @@
 import { startupFlagsJson } from '../fileModels/startupFlags.json'
+import { storeJson } from '../fileModels/store.json'
 import { i18n } from '../i18n'
 import { sdk } from '../sdk'
 
@@ -7,18 +8,29 @@ export const revokeMacaroons = sdk.Action.withoutInput(
   'revoke-macaroons',
 
   // metadata
-  async ({ effects }) => ({
-    name: i18n('Revoke Macaroons'),
-    description: i18n(
-      'Revokes every macaroon this node has issued by rotating the root key they are signed with, then restarts LND to write fresh ones. Deleting macaroon files alone does not revoke them, so use this if one may have been copied or exposed.',
-    ),
-    warning: i18n(
-      'This revokes every existing macaroon. Any service connected to LND loses access until it picks up the new macaroon, and may need to be restarted.',
-    ),
-    allowedStatuses: 'any',
-    group: null,
-    visibility: 'enabled',
-  }),
+  async ({ effects }) => {
+    const walletPassword = await storeJson
+      .read((s) => s.walletPassword)
+      .const(effects)
+    return {
+      name: i18n('Revoke Macaroons'),
+      description: i18n(
+        'Revokes every macaroon this node has issued by rotating the root key they are signed with, then restarts LND to write fresh ones. Deleting macaroon files alone does not revoke them, so use this if one may have been copied or exposed.',
+      ),
+      warning: i18n(
+        'This revokes every existing macaroon. Any service connected to LND loses access until it picks up the new macaroon, and may need to be restarted.',
+      ),
+      allowedStatuses: 'any',
+      group: null,
+      visibility: walletPassword
+        ? 'enabled'
+        : {
+            disabled: i18n(
+              'Turn Cold Storage Mode off first: macaroons are rotated at an automatic unlock, which the mode prevents.',
+            ),
+          },
+    }
+  },
 
   // execution function
   async ({ effects }) => {

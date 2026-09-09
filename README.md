@@ -65,13 +65,15 @@ Bitcoin's data directory is mounted **read-only** at `/mnt/bitcoin` when bitcoin
 
 Five models, and the split between two of them is load-bearing.
 
-| File                         | Format | Modelled                | Written by                                                |
-| ---------------------------- | ------ | ----------------------- | --------------------------------------------------------- |
-| `lnd.conf`                   | INI    | Yes — `FileHelper.ini`  | Every init, every start, and the config actions           |
-| `store.json`                 | JSON   | Yes — `FileHelper.json` | Install, and the wallet and watchtower actions            |
-| `startup-flags.json`         | JSON   | Yes — `FileHelper.json` | Actions, the restore hook, and `main` as it consumes them |
-| `channel-backup.json`        | JSON   | Yes — `FileHelper.json` | The Configure Channel Backups action                      |
-| `.channel-backup-state.json` | JSON   | Yes — `FileHelper.json` | `backup-agent.sh`, on every backup attempt                |
+| File                         | Format | Modelled                | Written by                                                              |
+| ---------------------------- | ------ | ----------------------- | ----------------------------------------------------------------------- |
+| `lnd.conf`                   | INI    | Yes — `FileHelper.ini`  | Every init, every start, and the config actions                         |
+| `store.json`                 | JSON   | Yes — `FileHelper.json` | Install, and the wallet and watchtower actions                          |
+| `startup-flags.json`         | JSON   | Yes — `FileHelper.json` | Actions, the restore hook, and `main` as it consumes them               |
+| `channel-backup.json`        | JSON   | Yes — `FileHelper.json` | The Configure Channel Backups action                                    |
+| `.channel-backup-state.json` | JSON   | Yes — `FileHelper.json` | `backup-agent.sh`, on every backup attempt                              |
+| `cold-storage.json`          | JSON   | Yes — `FileHelper.json` | Every init and the Cold Storage actions; nothing reads it under a watch |
+| `unlock-status.json`         | JSON   | Yes — `FileHelper.json` | `main`'s unlock oneshot; excluded from backups                          |
 
 **`channel-backup.json` holds the credentials for each backup target** — an app password, an OAuth refresh token, or an SSH private key, depending on the target. It is included in the StartOS backup so the channel-backup agent keeps its configuration after a restore. `.channel-backup-state.json` is excluded, so a restored node reports its own backup health rather than the health of the machine it came from.
 
@@ -206,20 +208,38 @@ SFTP servers are pinned by host key, and the pin is confirmed before it is used.
 
 - **Cost:** seconds to a minute; running only.
 
+### Cold Storage
+
+Four actions under Cold Storage, and the mode is off unless a user turns it on.
+
+By default LND stores its wallet password and seed in `store.json` and unlocks itself at every start. That is what makes the node self-healing across reboots, and it is also what an attacker with the disk gets. Cold Storage Mode removes both, at the cost of the node being offline from every restart until someone unlocks it by hand.
+
+The two halves are deliberately one switch. Deleting the seed while the password remains changes nothing, because the password alone opens the wallet; deleting the password while the seed remains changes nothing either. Only removing both alters what the disk yields. A wallet whose seed is not on the server — an imported one, or one that has been through the mode before — uses the mode password-only, since the seed is the half that has already left.
+
+1. **Show Credentials** displays the password, and the seed when the server holds one, and fixes which three seed words will be asked for. Nothing is deleted yet.
+2. **Turn On** runs only while LND's own chain is running with its wallet unlocked, with no import or conversion pending, and only once this lifecycle's unlock oneshot has itself opened the wallet with the stored password, which `main` records in `unlock-status.json`; a wallet found already open, an unlock made some other way, or the conversion's temporary LND does not count. It requires the password, plus those three words when a seed is held. It writes a salted scrypt hash of the password first, then removes the password and the seed from `store.json` in one write. That write is the mode: LND is in Cold Storage Mode exactly when `store.json` holds no wallet password, and nothing else records it, so an interruption leaves either a node with its password and an unused hash, or the mode on.
+3. **Unlock Wallet** sends a plain unlock to LND's wallet unlocker, through curl in a temporary subcontainer with the password on stdin, and applies a restore's rescan window when one is pending. It is offered whenever the mode is on, and also whenever LND has refused the stored password in this lifecycle, which `main` records in `unlock-status.json`; both are watched values, never a sampled LND state, and the handler checks LND's live state itself and does nothing when the wallet is already open. When the mode is off and the typed password opens the wallet, that password becomes the stored one, so the node unlocks itself from the next start: that is the way back from a stored password LND no longer accepts. It never rotates macaroons: Revoke Macaroons is unavailable while the mode is on, because the rotation runs at an automatic unlock, which the mode prevents.
+4. **Turn Off** verifies the password against the hash and, while LND is locked, against the wallet itself by unlocking it, since the wallet unlocker needs no macaroon and a `changepassword` made elsewhere would leave the hash describing a password LND no longer takes; a missing hash is refused only while the wallet cannot be asked. It clears the Unlock Wallet task first, while nothing has changed and a failure can simply be retried; then stores the password back, which is what turns the mode off; then drops the hash. The seed does not come back, and the mode can be turned on again with the password alone.
+
+A StartOS backup taken while the mode is on carries neither the password nor the seed: `store.json` holds null for both. Restoring it yields a node in Cold Storage Mode that waits for the recorded password, and the seed, which such a backup never held, is needed only to recover on-chain funds outside StartOS.
+
+**While the mode is on, `unlock-wallet` waits instead of unlocking.** It keeps polling until the wallet passes `LOCKED`, which preserves the requires graph, so `sync-progress`, the restore oneshot and the channel-backup agent stay held rather than running against a locked wallet, and the startup flags are still cleared on the way through. On each lock it raises the Unlock Wallet task and sends one notification, retrying either that failed on the next poll; when the wallet opens, whoever opened it, it clears the task, and a lifecycle that starts with the mode off clears any task a previous one left. `main` never writes `cold-storage.json` or `store.json`'s credentials, so none of its writes can race the actions'.
+
 ### Auto-Configure — hidden
 
 `visibility: 'hidden'`; how a dependent service requests configuration of this node.
 
 ## Tasks
 
-Three at install, plus one raised on Bitcoin.
+Three at install, one raised on Bitcoin, and one raised at each lock while Cold Storage Mode is on.
 
-| Task                      | Raised on | Severity    | Raised when                                        | Cleared when                                          |
-| ------------------------- | --------- | ----------- | -------------------------------------------------- | ----------------------------------------------------- |
-| Initialize Wallet         | this      | `critical`  | At install                                         | The action runs                                       |
-| Bitcoin Backend           | this      | `critical`  | At install                                         | The action runs                                       |
-| Configure Channel Backups | this      | `important` | At install                                         | The action runs                                       |
-| Auto-Configure            | Bitcoin   | `critical`  | The backend is bitcoind and its ZeroMQ is disabled | Bitcoin's config matches; it returns if changed again |
+| Task                      | Raised on | Severity    | Raised when                                                 | Cleared when                                          |
+| ------------------------- | --------- | ----------- | ----------------------------------------------------------- | ----------------------------------------------------- |
+| Initialize Wallet         | this      | `critical`  | At install                                                  | The action runs                                       |
+| Bitcoin Backend           | this      | `critical`  | At install                                                  | The action runs                                       |
+| Configure Channel Backups | this      | `important` | At install                                                  | The action runs                                       |
+| Unlock Wallet             | this      | `important` | Each time LND is found locked while Cold Storage Mode is on | The wallet opens, or Turn Off runs                    |
+| Auto-Configure            | Bitcoin   | `critical`  | The backend is bitcoind and its ZeroMQ is disabled          | Bitcoin's config matches; it returns if changed again |
 
 The Bitcoin task appears on **Bitcoin's** page with nothing there explaining which service asked for it. LND needs ZeroMQ to be told about new blocks and transactions; polling is not a substitute.
 
@@ -238,7 +258,7 @@ Which checks exist depends on what the service is doing.
 | `reachability`   | "Node Reachability"               | Normal operation                                       |
 | `restored`       | Restore notice                    | After a seed restore                                   |
 
-**`wallet-unlock` reports errors from LND's normal wallet unlock request while the wallet remains locked.** It distinguishes LND's exact wrong-passphrase response from other errors. Unlock attempts continue automatically.
+**`wallet-unlock` reports errors from LND's normal wallet unlock request while the wallet remains locked.** It distinguishes LND's exact wrong-passphrase response from other errors. Unlock attempts continue automatically. While Cold Storage Mode is on, a locked wallet is reported as a failure rather than as start-up, since the node stays offline until someone runs Unlock Wallet.
 
 **`sync-progress` covers two different syncs** — the chain and the network graph — and a node can be caught up on one while still working through the other. It is the check to read while a node is coming up for the first time.
 
@@ -256,8 +276,8 @@ That state is indistinguishable from a large legitimate backfill through `getinf
 
 The `main` volume is copied wholesale — `sdk.Backups.ofVolumes('main')` — with a substantial exclude list, and the exclusions are the substance.
 
-- **Excluded:** the network graph, the channel database, the sphinx replay database, the Neutrino chain data and header files, the logs, `startup-flags.json`, `.channel-backup-state.json`, `.channel-backup.lock`, and the restore's staging: `channel.backup.startos-restore`, its `.tmp`, and `.channel-backup-restore/`, where the copies retrieved from the targets land.
-- **Included:** `lnd.conf`, `store.json` with the wallet password and seed, the TLS pair, the macaroons, the wallet database, `channel.backup`, and `channel-backup.json`.
+- **Excluded:** the network graph, the channel database, the sphinx replay database, the Neutrino chain data and header files, the logs, `startup-flags.json`, `.channel-backup-state.json`, `.channel-backup.lock`, `unlock-status.json`, and the restore's staging: `channel.backup.startos-restore`, its `.tmp`, and `.channel-backup-restore/`, where the copies retrieved from the targets land.
+- **Included:** `lnd.conf`, `store.json` with the wallet password and seed (both null while Cold Storage Mode is on), `cold-storage.json`, the TLS pair, the macaroons, the wallet database, `channel.backup`, and `channel-backup.json`.
 
 **The channel database is deliberately not backed up.** Restoring a stale one claims channel states the network has moved past, which is how funds are lost — so a restore recovers the wallet and relies on the static channel backup, which asks each peer to force-close and return the funds, rather than resuming the channels.
 
@@ -309,6 +329,8 @@ file_models:
   - /root/.lnd/startup-flags.json # excluded from backups; can hold an origin password
   - /root/.lnd/channel-backup.json # backup targets and their credentials
   - /root/.lnd/.channel-backup-state.json # excluded from backups; the agent's outcomes
+  - /root/.lnd/cold-storage.json # the hash Turn Off checks against, and what Show Credentials fixed
+  - /root/.lnd/unlock-status.json # excluded from backups; written by main only
   - /root/.lnd/.channel-backup-restore/ # excluded from backups; copies retrieved from the targets during a restore
 channel_backup_files:
   - /root/.lnd/data/chain/bitcoin/mainnet/channel.backup
@@ -340,6 +362,10 @@ actions:
   - autoconfig # hidden; driven by dependents
   - configure-channel-backup
   - backup-channels-now # only-running
+  - cold-storage-prepare
+  - cold-storage-enable # only-running
+  - cold-storage-disable
+  - unlock-wallet # only-running; offered while Cold Storage Mode is on or the stored password was refused
 tasks:
   - { action: initialize-wallet, severity: critical }
   - { action: backend-config, severity: critical }
@@ -347,7 +373,7 @@ tasks:
   - { action: configure-channel-backup, severity: important }
 health_checks:
   - lnd # displayed "LND Server"
-  - wallet-unlock # displayed "Wallet Unlock"; reports normal unlock errors while the wallet remains locked
+  - wallet-unlock # displayed "Wallet Unlock"; reports normal unlock errors while the wallet remains locked; also fails while Cold Storage Mode waits for a manual unlock
   - sync-progress # displayed "Network and Graph Sync Progress"; synced_to_chain, synced_to_graph, num_peers
   - channel-backup # displayed "Channel Backup"; disabled until a target is enabled
   - reachability # displayed "Node Reachability"

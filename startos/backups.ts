@@ -23,6 +23,7 @@ export const { createBackup, restoreInit } = sdk.setupBackups(
           'channel.backup.startos-restore',
           'channel.backup.startos-restore.tmp',
           '.channel-backup-restore',
+          'unlock-status.json',
         ],
       })
       .setPostRestore(async (effects) => {
