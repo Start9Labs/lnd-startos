@@ -388,6 +388,9 @@ async function waitForState(
 async function fileExists(path: string): Promise<boolean> {
   return stat(path).then(
     () => true,
-    () => false,
+    (e: NodeJS.ErrnoException) => {
+      if (e.code === 'ENOENT') return false
+      throw e
+    },
   )
 }

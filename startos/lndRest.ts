@@ -109,11 +109,13 @@ export async function getLndState(
 const REFUSED = /invalid passphrase for master public key/i
 
 /**
- * `passphrase`: the wallet rejected the password. `lnd`: LND answered but did
- * not do what was asked, for another reason. `transport`: no usable answer.
+ * `already`: the wallet was open before this request, so nothing here proves
+ * the password or applied a recovery window. `passphrase`: the wallet rejected
+ * the password. `lnd`: LND answered but did not do what was asked, for another
+ * reason. `transport`: no usable answer.
  */
 type UnlockOutcome =
-  | { ok: true }
+  | { ok: true; already: boolean }
   | { ok: false; kind: 'passphrase' | 'lnd' | 'transport'; message: string }
 
 /**
@@ -167,8 +169,9 @@ export async function unlockWallet(
   }
   const answer = (parsed ?? {}) as Record<string, unknown>
   if (reply.status >= 200 && reply.status < 300) {
-    if (!rotate) return { ok: true }
-    if (typeof answer.admin_macaroon === 'string') return { ok: true }
+    if (!rotate) return { ok: true, already: false }
+    if (typeof answer.admin_macaroon === 'string')
+      return { ok: true, already: false }
     return {
       ok: false,
       kind: 'lnd',
@@ -179,10 +182,8 @@ export async function unlockWallet(
     typeof answer.message === 'string' && answer.message.trim()
       ? answer.message.trim()
       : `HTTP ${reply.status}`
-  // A state poll raced us: the wallet is open, which is all a plain unlock
-  // asks for, but a rotation did not happen.
   if (!rotate && message.includes('wallet already unlocked'))
-    return { ok: true }
+    return { ok: true, already: true }
   return {
     ok: false,
     kind: REFUSED.test(message) ? 'passphrase' : 'lnd',

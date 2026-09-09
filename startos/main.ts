@@ -469,6 +469,13 @@ export const main = sdk.setupMain(async ({ effects }) => {
                 unlockError = null
                 if (rotate) rotated = true
                 else if (sent) unconfirmed = true
+                // Something else opened the wallet without the recovery window
+                // a restore needs; a restart lets this oneshot send it.
+                if (res.already && restore) {
+                  console.warn('wallet was unlocked elsewhere during a restore')
+                  await sdk.restart(effects)
+                  return null
+                }
                 break
               }
               console.log('wallet-unlock failed', res)
