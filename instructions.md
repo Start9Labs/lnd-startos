@@ -54,7 +54,7 @@ Run **Revoke Macaroons** if a macaroon may have been copied or exposed — for e
 
 StartOS backs up LND with its system backup. **For a Lightning node this is essential:** your seed recovers on-chain funds only, while channel funds can be recovered only by force-closing from LND's **Static Channel Backup**, which is included in StartOS backups. Back up regularly.
 
-**Configure Channel Backups** adds to this; it does not replace it. Only a StartOS backup holds your wallet and your target settings, and only a StartOS restore uses the copies on your targets.
+**Configure Channel Backups** adds to this and does not replace it: only a StartOS backup holds your wallet, and a StartOS restore is what uses the copies.
 
 ### Keeping the channel backup current
 

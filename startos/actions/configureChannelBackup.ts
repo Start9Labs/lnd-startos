@@ -671,10 +671,10 @@ export const configureChannelBackup = sdk.Action.withInput(
   async ({ effects }) => ({
     name: i18n('Configure Channel Backups'),
     description: i18n(
-      'Keep a current copy of channel.backup on a storage provider, so a StartOS restore recovers channels opened after that backup was taken. A supplement to StartOS backups, not a replacement: only a StartOS backup holds the wallet, and only a StartOS restore uses these copies.',
+      'Keep a current copy of channel.backup on a storage provider. A StartOS restore uses it to recover channels opened after the backup was taken; it does not replace StartOS backups.',
     ),
     warning: i18n(
-      'channel.backup is encrypted by LND under a key derived from your wallet seed. The storage provider can still see when it is updated. Use a target on a different machine, and prefer two independent targets. Tor .onion targets are not supported yet. Keep taking StartOS backups: a copy here is used only by a StartOS restore.',
+      'channel.backup is encrypted by LND under a key derived from your wallet seed. The storage provider can still see when it is updated. Use a target on a different machine, and prefer two independent targets. Tor .onion targets are not supported yet.',
     ),
     allowedStatuses: 'any',
     group: i18n('Backups'),
@@ -975,7 +975,7 @@ export const configureChannelBackup = sdk.Action.withInput(
       }))
     const operationalNote = operational.length
       ? i18n(
-          'channel.backup will be copied to ${targets} whenever your channels change, and a StartOS restore will recover channels from those copies together with its own. Run Back Up Channels Now to check that it works.',
+          'channel.backup will be copied to ${targets} whenever your channels change. Run Back Up Channels Now to check that it works.',
           {
             targets: operational.map(channelBackupProviderName).join(', '),
           },
