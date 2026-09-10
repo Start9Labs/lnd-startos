@@ -518,6 +518,7 @@ const dict = {
   'Wallet Unlocked': 539,
   'While this is on, LND is offline from every restart until you unlock it by hand, including restarts caused by Bitcoin or a StartOS update. An offline node cannot route or respond to a channel closing, and peers may force-close. Do not turn this on for a node you cannot check regularly.': 540,
   'Write them down and store them offline before continuing. Once Cold Storage Mode is on, this server no longer holds them, and nobody can recover them for you.': 541,
+  'LND is not listening. Start the service, or wait a moment if it just started.': 542,
 } as const
 
 /**
