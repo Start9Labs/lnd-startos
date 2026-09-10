@@ -29,7 +29,7 @@ export const unlockWallet = sdk.Action.withInput(
         'Enter the wallet password to bring the node online: after every restart while Cold Storage Mode is on, or when LND refuses the stored password, which the one you enter then replaces.',
       ),
       warning: null,
-      allowedStatuses: 'only-running',
+      allowedStatuses: 'any',
       group: i18n('Cold Storage'),
       // Reactive on what main writes, never on a sampled LND state, which the
       // handler checks for itself.
@@ -61,7 +61,15 @@ export const unlockWallet = sdk.Action.withInput(
       message,
       result: null,
     })
-    if (isPastUnlock(await getLndState())) {
+    const state = await getLndState()
+    if (state === null) {
+      throw new Error(
+        i18n(
+          'LND is not listening. Start the service, or wait a moment if it just started.',
+        ),
+      )
+    }
+    if (isPastUnlock(state)) {
       return done(i18n('The wallet is already unlocked'))
     }
     const stored =

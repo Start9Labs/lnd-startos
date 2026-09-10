@@ -448,6 +448,7 @@ export default {
     539: 'Monedero desbloqueado',
     540: 'Mientras esté activo, LND queda fuera de línea desde cada reinicio hasta que lo desbloquees a mano, incluidos los reinicios provocados por Bitcoin o por una actualización de StartOS. Un nodo fuera de línea no puede enrutar ni responder al cierre de un canal, y los pares pueden forzar el cierre. No lo actives en un nodo que no puedas revisar con regularidad.',
     541: 'Anótalos y guárdalos sin conexión antes de continuar. Una vez activado el modo de almacenamiento en frío, este servidor ya no los conserva y nadie puede recuperarlos por ti.',
+    542: 'LND no responde. Inicia el servicio o, si acaba de iniciarse, espera un momento.',
   },
   de_DE: {
     309: 'Backups',
@@ -896,6 +897,7 @@ export default {
     539: 'Wallet entsperrt',
     540: 'Solange dies aktiv ist, ist LND ab jedem Neustart offline, bis du es von Hand entsperrst, auch bei Neustarts durch Bitcoin oder ein StartOS-Update. Ein Offline-Knoten kann nicht routen und nicht auf das Schließen eines Kanals reagieren, und Peers können erzwungen schließen. Aktiviere dies nicht für einen Knoten, den du nicht regelmäßig prüfen kannst.',
     541: 'Notiere sie und bewahre sie offline auf, bevor du fortfährst. Sobald der Cold-Storage-Modus aktiv ist, hält dieser Server sie nicht mehr, und niemand kann sie für dich wiederherstellen.',
+    542: 'LND antwortet nicht. Starte den Dienst oder warte einen Moment, falls er gerade erst gestartet wurde.',
   },
   pl_PL: {
     309: 'Kopie zapasowe',
@@ -1344,6 +1346,7 @@ export default {
     539: 'Portfel odblokowany',
     540: 'Gdy jest to włączone, LND pozostaje offline od każdego restartu, dopóki nie odblokujesz go ręcznie, w tym po restartach wywołanych przez Bitcoin lub aktualizację StartOS. Węzeł offline nie może trasować ani reagować na zamknięcie kanału, a partnerzy mogą wymusić zamknięcie. Nie włączaj tego dla węzła, którego nie możesz regularnie sprawdzać.',
     541: 'Zapisz je i przechowuj offline, zanim przejdziesz dalej. Gdy tryb zimnego przechowywania jest włączony, ten serwer ich nie przechowuje i nikt nie odzyska ich za Ciebie.',
+    542: 'LND nie odpowiada. Uruchom usługę lub odczekaj chwilę, jeśli dopiero została uruchomiona.',
   },
   fr_FR: {
     309: 'Sauvegardes',
@@ -1792,5 +1795,6 @@ export default {
     539: 'Portefeuille déverrouillé',
     540: "Tant que ceci est activé, LND est hors ligne dès chaque redémarrage jusqu'à ce que vous le déverrouilliez à la main, y compris les redémarrages provoqués par Bitcoin ou une mise à jour de StartOS. Un nœud hors ligne ne peut ni router ni réagir à la fermeture d'un canal, et les pairs peuvent forcer la fermeture. N'activez pas ceci pour un nœud que vous ne pouvez pas vérifier régulièrement.",
     541: 'Notez-les et conservez-les hors ligne avant de continuer. Une fois le mode stockage à froid activé, ce serveur ne les conserve plus et personne ne pourra les récupérer pour vous.',
+    542: "LND ne répond pas. Démarrez le service ou patientez un instant s'il vient de démarrer.",
   },
 } satisfies Record<string, LangDict>
