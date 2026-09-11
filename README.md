@@ -70,7 +70,7 @@ Five models, and the split between two of them is load-bearing.
 | `lnd.conf`                   | INI    | Yes — `FileHelper.ini`  | Every init, every start, and the config actions                         |
 | `store.json`                 | JSON   | Yes — `FileHelper.json` | Install, and the wallet and watchtower actions                          |
 | `startup-flags.json`         | JSON   | Yes — `FileHelper.json` | Actions, the restore hook, and `main` as it consumes them               |
-| `channel-backup.json`        | JSON   | Yes — `FileHelper.json` | The Configure Channel Backups action                                    |
+| `channel-backup.json`        | JSON   | Yes — `FileHelper.json` | The Configure Continuous Backups action                                 |
 | `.channel-backup-state.json` | JSON   | Yes — `FileHelper.json` | `backup-agent.sh`, on every backup attempt                              |
 | `cold-storage.json`          | JSON   | Yes — `FileHelper.json` | Every init and the Cold Storage actions; nothing reads it under a watch |
 | `unlock-status.json`         | JSON   | Yes — `FileHelper.json` | `main`'s unlock oneshot; excluded from backups                          |
@@ -155,7 +155,7 @@ The TLS pair is issued at init for every address LND answers on — the containe
 
 ## Actions
 
-Eighteen actions: ten configure the node, three manage its wallet and credentials, two report node information, two manage channel backups, and one serves dependent packages. Three of them are hidden from the ordinary Actions list.
+Eighteen actions: ten configure the node, three manage its wallet and credentials, two report node information, two manage continuous backups, and one serves dependent packages. Three of them are hidden from the ordinary Actions list.
 
 ### Configuration
 
@@ -191,20 +191,20 @@ Rotates the macaroon root key, invalidating **every** macaroon this node has iss
 
 Read-only, running only. The first reports the node's identity, URIs, and sync state; the second reports the watchtower server's identity, and is hidden unless that server is enabled.
 
-### Configure Channel Backups, Back Up Channels Now
+### Configure Continuous Backups, Back Up Channels Now
 
-Grouped under Backups. `channel.backup` is LND's static channel backup: the file a restore needs to ask your peers to close your channels and return your funds. LND rewrites it whenever your channel set changes, and encrypts it under a key derived from the wallet seed, so a storage provider only ever holds ciphertext.
+Grouped under Continuous Backups. `channel.backup` is LND's static channel backup: the file a restore needs to ask your peers to close your channels and return your funds. LND rewrites it whenever your channel set changes, and encrypts it under a key derived from the wallet seed, so a storage provider only ever holds ciphertext.
 
-These copies supplement StartOS backups: a StartOS restore fetches them with the target settings the backup carried and merges them with its own copy (see Backups and Restore).
+A continuous backup is a copy of that file kept current on a storage provider, as opposed to the point-in-time copy inside a StartOS backup. Continuous backups supplement StartOS backups: a StartOS restore fetches them with the target settings the backup carried and merges them with its own copy (see Backups and Restore).
 
-**Configure Channel Backups** takes any combination of Google Drive, Dropbox, Nextcloud and SFTP. Each target has its own enable toggle, so turning one off keeps its saved credentials. After turning a target off, **Forget saved credentials** removes its credentials and settings. Google and Dropbox use an authorization-code exchange: submit once with the client credentials to get a link, approve it, then paste the code back and submit again. A loopback address and a Tor `.onion` address are rejected for every saved target. A copy in another folder of this same server cannot be detected, so the warning asks for a different machine. Nextcloud must be `https://`, and an SFTP key must be an unencrypted OpenSSH key, since rclone has no way to enter a passphrase. The OAuth code exchange is bounded to 30 seconds.
+**Configure Continuous Backups** takes any combination of Google Drive, Dropbox, Nextcloud and SFTP. Each target has its own enable toggle, so turning one off keeps its saved credentials. After turning a target off, **Forget saved credentials** removes its credentials and settings. Google and Dropbox use an authorization-code exchange: submit once with the client credentials to get a link, approve it, then paste the code back and submit again. A loopback address and a Tor `.onion` address are rejected for every saved target. A copy in another folder of this same server cannot be detected, so the warning asks for a different machine. Nextcloud must be `https://`, and the saved address is completed to the `/remote.php/dav/files/USER/` endpoint rclone's `nextcloud` vendor insists on: a bare server address, the `/remote.php/dav/` interface the StartOS Nextcloud package exports, or `/remote.php/webdav` all become that, while an address already naming `/dav/files/` is kept as pasted. An SFTP key must be an unencrypted OpenSSH key, since rclone has no way to enter a passphrase. The OAuth code exchange is bounded to 30 seconds.
 
 SFTP servers are pinned by host key, and the pin is confirmed before it is used. Saving the target records the keys the server presents (`ssh-keyscan`) and reports their fingerprints, but nothing is sent until a later save with _Host key verified_ turned on; the health check says so in the meantime, and saving with the toggle off withdraws that trust. Only a scan that finished cleanly, every line a whole key that `ssh-keygen` can fingerprint, is recorded. A changed host or port drops the pin, as does _Record a new host key_ after a server reinstall. Folder paths on every target must be relative, with no `..` segments.
 
 - **What it changes:** writes `channel-backup.json`. No restart.
 - **Repeat safety:** safe; secrets are never prefilled, and left blank they keep their stored value. A changed OAuth client id or secret drops the stored token, and a fresh authorization code always replaces it.
 
-**Back Up Channels Now** runs one copy immediately and fails with whatever each target said. Once LND has created `channel.backup` by opening its first channel, use the action to check a freshly configured target without waiting for another channel change.
+**Back Up Channels Now** runs one copy immediately and fails with whatever each target said. Once LND has created `channel.backup` by opening its first channel, use the action to check a freshly configured target without waiting for another channel change. It refuses until LND has reported the node's identity, which the agent needs to name the node's folder.
 
 - **Cost:** seconds to a minute; running only.
 
@@ -233,13 +233,13 @@ A StartOS backup taken while the mode is on carries neither the password nor the
 
 Three at install, one raised on Bitcoin, and one raised at each lock while Cold Storage Mode is on.
 
-| Task                      | Raised on | Severity    | Raised when                                                 | Cleared when                                          |
-| ------------------------- | --------- | ----------- | ----------------------------------------------------------- | ----------------------------------------------------- |
-| Initialize Wallet         | this      | `critical`  | At install                                                  | The action runs                                       |
-| Bitcoin Backend           | this      | `critical`  | At install                                                  | The action runs                                       |
-| Configure Channel Backups | this      | `important` | At install                                                  | The action runs                                       |
-| Unlock Wallet             | this      | `important` | Each time LND is found locked while Cold Storage Mode is on | The wallet opens, or Turn Off runs                    |
-| Auto-Configure            | Bitcoin   | `critical`  | The backend is bitcoind and its ZeroMQ is disabled          | Bitcoin's config matches; it returns if changed again |
+| Task                         | Raised on | Severity    | Raised when                                                 | Cleared when                                          |
+| ---------------------------- | --------- | ----------- | ----------------------------------------------------------- | ----------------------------------------------------- |
+| Initialize Wallet            | this      | `critical`  | At install                                                  | The action runs                                       |
+| Bitcoin Backend              | this      | `critical`  | At install                                                  | The action runs                                       |
+| Configure Continuous Backups | this      | `important` | At install                                                  | The action runs                                       |
+| Unlock Wallet                | this      | `important` | Each time LND is found locked while Cold Storage Mode is on | The wallet opens, or Turn Off runs                    |
+| Auto-Configure               | Bitcoin   | `critical`  | The backend is bitcoind and its ZeroMQ is disabled          | Bitcoin's config matches; it returns if changed again |
 
 The Bitcoin task appears on **Bitcoin's** page with nothing there explaining which service asked for it. LND needs ZeroMQ to be told about new blocks and transactions; polling is not a substitute.
 
@@ -254,7 +254,7 @@ Which checks exist depends on what the service is doing.
 | `lnd`            | "LND Server"                      | Normal operation                                       |
 | `wallet-unlock`  | "Wallet Unlock"                   | Normal operation                                       |
 | `sync-progress`  | "Network and Graph Sync Progress" | Normal operation                                       |
-| `channel-backup` | "Channel Backup"                  | Normal operation; `disabled` until a target is enabled |
+| `channel-backup` | "Continuous Backup"               | Normal operation; `disabled` until a target is enabled |
 | `reachability`   | "Node Reachability"               | Normal operation                                       |
 | `restored`       | Restore notice                    | After a seed restore                                   |
 
@@ -285,13 +285,13 @@ The `main` volume is copied wholesale — `sdk.Backups.ofVolumes('main')` — wi
 
 ### Where the static channel backup comes from
 
-A StartOS backup carries the `channel.backup` that existed when it was taken, so a channel opened since then is not in it and its funds are not recovered. Configure Channel Backups keeps a copy off the server that is updated whenever the channel set changes, which closes that window. The copy is a supplement to the StartOS backup, and it is a StartOS restore that uses it: the backup carries the target settings, and the restore fetches each target's copy with them.
+A StartOS backup carries the `channel.backup` that existed when it was taken, so a channel opened since then is not in it and its funds are not recovered. A continuous backup is a copy kept off the server and updated whenever the channel set changes, which closes that window. The copy is a supplement to the StartOS backup, and it is a StartOS restore that uses it: the backup carries the target settings, and the restore fetches each target's copy with them.
 
-The agent publishes one stable file named `channel.backup` in each configured provider folder. Every successful upload replaces it with the current copy; the agent creates no companion markers, generations, or history.
+The agent publishes one stable file named `channel.backup` at `<folder>/<node id>/` on each target, where the folder is the target's configured path and the node id is the SHA-256 of the node's identity pubkey (`lncli getinfo`). The id keeps nodes that share one account apart, and a provider cannot map it to a node. A restored seed reproduces it, so a restore looks in its own folder on any hardware, and a reinstall with a new seed leaves the old node's copy untouched. The agent reads the identity from LND on each run and exits 7 until LND reports it, which the watcher treats as not ready and retries at the next poll. Every successful upload replaces the copy with the current one; the agent creates no companion markers, generations, or history.
 
 On a restore, LND recovers its channels from every copy that can be found. The restore hook stages the `channel.backup` carried inside the StartOS backup before LND starts, since LND rewrites its own file shortly after unlocking. Once LND reaches `SERVER_ACTIVE` (`restorechanbackup` answers _server is still in the process of starting_ until then), the `restore` oneshot hands that copy to `restorechanbackup`, then asks the agent (`backup-agent.sh --pull`) for the `channel.backup` held by every target with saved credentials, enabled or not, and hands each of those over too. Order does not matter and nothing is compared: `restorechanbackup` is additive, skipping channels LND already holds, so what it ends up with is the union of every copy, and a channel opened after the StartOS backup is recovered from the target that has it. A copy LND cannot open belongs to another seed or is damaged; it is skipped with a log line. Any other failure fails the oneshot, and the SDK retries it with the restore flag still set.
 
-A target that cannot be reached is waited for, because its copy may be the only one holding a channel opened since the StartOS backup: the restore notice names the target, the oneshot asks again every five minutes, and clearing that target's saved credentials in Configure Channel Backups is how to stop waiting. The channel-backup agent does not start, and Back Up Channels Now refuses, until the restore has finished, so the older local copy never replaces a newer one on a target. The oneshot clears the restore flag itself as its last step, after removing the staged copies.
+A target that cannot be reached is waited for, because its copy may be the only one holding a channel opened since the StartOS backup: the restore notice names the target, the oneshot asks again every five minutes, and clearing that target's saved credentials in Configure Continuous Backups is how to stop waiting. The channel-backup agent does not start, and Back Up Channels Now refuses, until the restore has finished, so the older local copy never replaces a newer one on a target. The oneshot clears the restore flag itself as its last step, after removing the staged copies.
 
 The daemon re-sends every copy daily even when nothing changed, so a deleted copy or a revoked credential surfaces within a day. Failed targets are retried on later runs. The watcher and Back Up Channels Now share one lock; the manual run does not wait for it and reports when a cycle is already running. Every run reads one validated snapshot of `channel-backup.json`, so a save landing mid-run cannot mix two configurations, and a half-written file is retried rather than acted on. The agent's state file is written beside its destination and renamed into place, and a run that cannot record its outcome reports failure. Back Up Channels Now stops starting work after 95 seconds and records the targets it did not reach, so its result always describes what actually happened.
 
@@ -375,7 +375,7 @@ health_checks:
   - lnd # displayed "LND Server"
   - wallet-unlock # displayed "Wallet Unlock"; reports normal unlock errors while the wallet remains locked; also fails while Cold Storage Mode waits for a manual unlock
   - sync-progress # displayed "Network and Graph Sync Progress"; synced_to_chain, synced_to_graph, num_peers
-  - channel-backup # displayed "Channel Backup"; disabled until a target is enabled
+  - channel-backup # displayed "Continuous Backup"; disabled until a target is enabled
   - reachability # displayed "Node Reachability"
   - import # only while a wallet import runs
   - db-migration # only while a bolt database is converted

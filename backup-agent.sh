@@ -7,6 +7,9 @@
 #   --pull     download each target's channel.backup into $RESTORE_DIR and
 #              print {"retrieved":[...],"unreachable":[...]}; exit 6 when a
 #              target could not be consulted
+#
+# Every mode exits 7 until LND reports the node's identity, which names the
+# node's folder on each target.
 # shellcheck disable=SC2016
 set -u
 umask 077
@@ -39,6 +42,7 @@ MANUAL=0
 DEADLINE=0
 OP_DEADLINE=0
 SNAPSHOT=''
+NODE_ID=''
 REMOTE_TMP=''
 REMOTE_NAME=''
 REMOTE_PATH=''
@@ -226,9 +230,20 @@ generate_remotes() {
   done
 }
 
+# The node's folder on every target is the SHA-256 of its identity pubkey: a
+# restored seed reproduces it, and a provider cannot map it to a node.
+node_id() {
+  [ -n "$NODE_ID" ] && return 0
+  _pubkey=$(timeout 30 lncli --rpcserver=127.0.0.1:10009 getinfo 2>/dev/null | jq -r '.identity_pubkey // empty' 2>/dev/null) || return 1
+  printf '%s' "$_pubkey" | grep -Eq '^0[23][0-9a-f]{64}$' || return 1
+  _id=$(printf '%s' "$_pubkey" | sha256sum | cut -c1-64) || return 1
+  printf '%s' "$_id" | grep -Eq '^[0-9a-f]{64}$' || return 1
+  NODE_ID=$_id
+}
+
 target() {
   REMOTE_NAME=${1%%:*}
-  REMOTE_PATH=${1#*:}
+  REMOTE_PATH="${1#*:}/$NODE_ID"
   REMOTE_EXTRA=''
   [ "$(cfg ".$REMOTE_NAME.insecureTls // false")" = true ] && REMOTE_EXTRA='--no-check-certificate'
 }
@@ -413,6 +428,10 @@ do_backup() {
     [ "$_announce" = force ] && log "no backup target is enabled"
     return 4
   fi
+  node_id || {
+    unlock
+    return 7
+  }
   build_conf || {
     record_preflight_failure 'backup credentials could not be prepared' || :
     unlock
@@ -478,6 +497,11 @@ do_pull() {
     unlock
     log "backup credentials could not be prepared"
     return 1
+  }
+  node_id || {
+    unlock
+    log "LND has not reported the node's identity yet"
+    return 7
   }
   : > "$FAILURES" || {
     unlock
@@ -572,7 +596,7 @@ watch_loop() {
         _last_ok=$(state_get '.lastSuccess')
         ;;
       3 | 4) _retry_at=0 ;;
-      6) _last=none ;;
+      6 | 7) _last=none ;;
       *) _retry_at=$((_now + RETRY_SECS)) ;;
     esac
   done

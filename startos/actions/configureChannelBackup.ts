@@ -6,7 +6,12 @@ import { channelBackupProviderName } from '../channelBackupStatus'
 import { channelBackupJson } from '../fileModels/channel-backup.json'
 import { i18n } from '../i18n'
 import { sdk } from '../sdk'
-import { backupFolderDefault, literal, mainMounts } from '../utils'
+import {
+  backupFolderDefault,
+  literal,
+  mainMounts,
+  nextcloudDavUrl,
+} from '../utils'
 
 const VALID_PROVIDERS = ['gdrive', 'dropbox', 'nextcloud', 'sftp'] as const
 const MAX_FIELD_LENGTH = 2_048
@@ -426,7 +431,7 @@ async function scanHostKeys(
 const enabledToggle = () =>
   sdk.Value.toggle({
     name: i18n('Enabled'),
-    description: i18n('Send channel backups to this target.'),
+    description: i18n('Keep a continuous backup on this target.'),
     default: false,
   })
 
@@ -523,8 +528,10 @@ const dropboxFields = {
 
 const nextcloudFields = {
   'nextcloud-url': sdk.Value.text({
-    name: i18n('WebDAV URL'),
-    description: i18n('e.g. https://your.host/remote.php/dav/files/USERNAME/'),
+    name: i18n('Address'),
+    description: i18n(
+      'The address you open Nextcloud at, such as https://cloud.example.com. Its WebDAV address works too.',
+    ),
     default: '',
     required: false,
   }),
@@ -669,15 +676,15 @@ export const configureChannelBackup = sdk.Action.withInput(
   'configure-channel-backup',
 
   async ({ effects }) => ({
-    name: i18n('Configure Channel Backups'),
+    name: i18n('Configure Continuous Backups'),
     description: i18n(
-      'Keep a current copy of channel.backup on a storage provider. A StartOS restore uses it to recover channels opened after the backup was taken; it does not replace StartOS backups.',
+      'Keep a current copy of channel.backup on a storage provider. A StartOS restore uses it to recover channels opened after the backup was taken; it does not replace StartOS backups. Each node gets its own folder inside the one you name, so several nodes can share a target.',
     ),
     warning: i18n(
       'channel.backup is encrypted by LND under a key derived from your wallet seed. The storage provider can still see when it is updated. Use a target on a different machine, and prefer two independent targets. Tor .onion targets are not supported yet.',
     ),
     allowedStatuses: 'any',
-    group: i18n('Backups'),
+    group: i18n('Continuous Backups'),
     visibility: 'enabled',
   }),
 
@@ -827,23 +834,24 @@ export const configureChannelBackup = sdk.Action.withInput(
         }
         patch[provider] = { enabled, clientId, clientSecret, token, path }
       } else if (provider === 'nextcloud') {
-        const url = clean(o['nextcloud-url'], 'Nextcloud') || prev.url || ''
+        let url = clean(o['nextcloud-url'], 'Nextcloud') || prev.url || ''
         const user = clean(o['nextcloud-user'], 'Nextcloud') || prev.user || ''
         const pass =
           secret(o['nextcloud-pass'], 'Nextcloud') || prev.pass || null
         const path = folder(o['nextcloud-path'], 'Nextcloud', prev.path)
         if (enabled && (!url || !user || !pass))
           throw new Error(
-            i18n('Nextcloud: URL, username, and password are required.'),
+            i18n('Nextcloud: address, username, and password are required.'),
           )
         // Saved credentials must not permit plaintext transmission, even while disabled.
         if (url) {
           if (!/^https:\/\//i.test(url))
             throw new Error(
               i18n(
-                'Nextcloud: the WebDAV URL must start with https://, or the app password would travel in clear text.',
+                'Nextcloud: the address must start with https://, or the app password would travel in clear text.',
               ),
             )
+          url = nextcloudDavUrl(url, user)
           rejectLocalOrOnion(url, 'Nextcloud')
         }
         patch.nextcloud = {
@@ -1004,7 +1012,7 @@ export const configureChannelBackup = sdk.Action.withInput(
       : ''
     return {
       version: '1' as const,
-      title: i18n('Channel Backups'),
+      title: i18n('Continuous Backups'),
       message: [
         operationalNote,
         notReadyNote,
