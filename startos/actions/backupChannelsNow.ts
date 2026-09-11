@@ -16,7 +16,7 @@ export const backupChannelsNow = sdk.Action.withoutInput(
     ),
     warning: null,
     allowedStatuses: 'only-running',
-    group: i18n('Backups'),
+    group: i18n('Continuous Backups'),
     visibility: 'enabled',
   }),
 
@@ -32,7 +32,7 @@ export const backupChannelsNow = sdk.Action.withoutInput(
     if (flags?.importPending || (await needsSqliteMigration())) {
       throw new Error(
         i18n(
-          'Channel backups are unavailable while LND is preparing imported data. Try again after LND starts normally.',
+          'Continuous backups are unavailable while LND is preparing imported data. Try again after LND starts normally.',
         ),
       )
     }
@@ -45,7 +45,7 @@ export const backupChannelsNow = sdk.Action.withoutInput(
     )
     const done = (message: string) => ({
       version: '1' as const,
-      title: i18n('Channel Backups'),
+      title: i18n('Continuous Backups'),
       message,
       result: null,
     })
@@ -62,7 +62,7 @@ export const backupChannelsNow = sdk.Action.withoutInput(
       case 4:
         throw new Error(
           i18n(
-            'No backup target is enabled. Run Configure Channel Backups first.',
+            'No backup target is enabled. Run Configure Continuous Backups first.',
           ),
         )
       case 5:
@@ -72,6 +72,12 @@ export const backupChannelsNow = sdk.Action.withoutInput(
       case 6:
         throw new Error(
           i18n('The backup settings could not be read. Try again in a moment.'),
+        )
+      case 7:
+        throw new Error(
+          i18n(
+            'LND has not reported its identity yet, which names the folder on each target. Try again in a moment.',
+          ),
         )
     }
 

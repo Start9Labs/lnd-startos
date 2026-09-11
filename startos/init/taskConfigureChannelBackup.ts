@@ -11,7 +11,7 @@ export const taskConfigureChannelBackup = sdk.setupOnInit(
       'important',
       {
         reason: i18n(
-          'A StartOS backup only holds the channels you had when you took it. An off-server copy stays current.',
+          'A StartOS backup only holds the channels you had when you took it. A continuous backup stays current.',
         ),
       },
     )

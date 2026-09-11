@@ -906,7 +906,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
                     if (pull.exitCode === 0) break
                     await notice(
                       `${warning} ${i18n(
-                        'A backup target has not answered, so the channel.backup it holds has not been restored yet: ${detail} To stop waiting for it, clear its saved credentials in Configure Channel Backups.',
+                        'A backup target has not answered, so the channel.backup it holds has not been restored yet: ${detail} To stop waiting for it, clear its saved credentials in Configure Continuous Backups.',
                         {
                           detail: literal(
                             describeFailures(summary.unreachable),
@@ -1021,7 +1021,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
       })
       .addHealthCheck('channel-backup', {
         ready: {
-          display: i18n('Channel Backup'),
+          display: i18n('Continuous Backup'),
           // The backup agent retries a failing target every five minutes.
           trigger: sdk.trigger.statusTrigger(30_000, {
             starting: 5_000,
@@ -1038,7 +1038,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
               return {
                 result: 'disabled',
                 message: i18n(
-                  'No off-server target. channel.backup travels only inside the StartOS backups you take yourself, so channels opened since your last one are not covered.',
+                  'No continuous backup target. channel.backup travels only inside the StartOS backups you take yourself, so channels opened since your last one are not covered.',
                 ),
               }
             }
