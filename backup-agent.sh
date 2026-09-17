@@ -74,12 +74,12 @@ write_atomic() {
 }
 
 state_get() { jq -r "$1 // empty" "$STATE" 2>/dev/null || true; }
-state_attempt() {
-  _attempt=$(state_get '.attempt')
-  case "$_attempt" in
+state_number() {
+  _number=$(state_get "$1")
+  case "$_number" in
     '' | *[!0-9]*) echo 0 ;;
     *)
-      if [ ${#_attempt} -le 15 ]; then echo "$_attempt"; else echo 0; fi
+      if [ ${#_number} -le 15 ]; then echo "$_number"; else echo 0; fi
       ;;
   esac
 }
@@ -397,7 +397,7 @@ do_backup() {
   lock
   _lock_result=$?
   [ "$_lock_result" -eq 0 ] || return "$_lock_result"
-  _attempt=$(($(state_attempt) + 1))
+  _attempt=$(($(state_number '.attempt') + 1))
   [ "$MANUAL" = 1 ] && printf '%s\n' "$_attempt"
   : > "$RCONF" || {
     record_preflight_failure 'temporary configuration could not be cleared' || :
@@ -566,8 +566,7 @@ watch_loop() {
   log "started"
   _last=none
   _retry_at=0
-  _last_ok=$(state_get '.lastSuccess')
-  case "$_last_ok" in '' | *[!0-9]*) _last_ok=0 ;; esac
+  _last_ok=$(state_number '.lastSuccess')
   _last_clock=$(date +%s)
   while :; do
     sleep "$POLL"
@@ -589,11 +588,12 @@ watch_loop() {
     _last=$_fp
     OP_DEADLINE=$((_now + WATCH_RUN_SECS))
     do_backup normal
+    _backup_result=$?
     OP_DEADLINE=0
-    case $? in
+    case $_backup_result in
       0)
         _retry_at=0
-        _last_ok=$(state_get '.lastSuccess')
+        _last_ok=$(state_number '.lastSuccess')
         ;;
       3 | 4) _retry_at=0 ;;
       6 | 7) _last=none ;;
