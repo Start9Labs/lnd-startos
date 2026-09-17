@@ -8,7 +8,7 @@ export const channelBackupProviderName = (target: string) =>
     dropbox: i18n('Dropbox'),
     nextcloud: i18n('Nextcloud'),
     sftp: i18n('SFTP'),
-    agent: i18n('Channel Backup'),
+    agent: i18n('Continuous Backup'),
   })[target] ?? target
 
 /** One sentence per failure record backup-agent.sh leaves in the state file. */

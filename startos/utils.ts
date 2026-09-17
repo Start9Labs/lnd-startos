@@ -6,6 +6,7 @@ import {
   zmqPortBlock as btcZmqPortBlock,
   zmqPortTransaction as btcZmqPortTransaction,
 } from 'bitcoin-core-startos/startos/utils'
+import { i18n } from './i18n'
 import { gRPCPort, restPort } from './interfaces'
 import { sdk } from './sdk'
 
@@ -110,3 +111,20 @@ export const localRestoreBackupTempPath = `${localRestoreBackupPath}.tmp`
 export const remoteRestoreDir = `${lndDataDir}/.channel-backup-restore`
 export const backupAgentScript = '/usr/local/bin/backup-agent.sh'
 export const backupFolderDefault = 'lnd-channel-backups'
+
+// rclone's nextcloud vendor refuses any address that does not end in
+// /remote.php/dav/files/USER — the form neither Nextcloud's UI nor StartOS's
+// Nextcloud interface shows.
+export function nextcloudDavUrl(address: string, user: string): string {
+  let url: URL
+  try {
+    url = new URL(address)
+  } catch {
+    throw new Error(i18n('Nextcloud: that is not a valid address.'))
+  }
+  if (!user || /\/dav\/files\/[^/]+/.test(url.pathname)) return address
+  const base = url.pathname
+    .replace(/\/+$/, '')
+    .replace(/\/(remote\.php\/(dav|webdav)|index\.php.*|apps\/.*)$/, '')
+  return `${url.origin}${base}/remote.php/dav/files/${encodeURIComponent(user)}/`
+}
