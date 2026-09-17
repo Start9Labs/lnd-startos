@@ -230,8 +230,7 @@ generate_remotes() {
   done
 }
 
-# The node's folder on every target is the SHA-256 of its identity pubkey: a
-# restored seed reproduces it, and a provider cannot map it to a node.
+# A restored seed reproduces the node's identity and therefore its folder.
 node_id() {
   [ -n "$NODE_ID" ] && return 0
   _pubkey=$(timeout 30 lncli --rpcserver=127.0.0.1:10009 getinfo 2>/dev/null | jq -r '.identity_pubkey // empty' 2>/dev/null) || return 1

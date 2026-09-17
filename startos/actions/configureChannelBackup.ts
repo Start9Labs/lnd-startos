@@ -851,7 +851,7 @@ export const configureChannelBackup = sdk.Action.withInput(
                 'Nextcloud: the address must start with https://, or the app password would travel in clear text.',
               ),
             )
-          url = nextcloudDavUrl(url, user)
+          url = nextcloudDavUrl(url, user, prev.user)
           rejectLocalOrOnion(url, 'Nextcloud')
         }
         patch.nextcloud = {
