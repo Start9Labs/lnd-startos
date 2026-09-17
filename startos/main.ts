@@ -697,6 +697,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
         ready: {
           display: i18n('Network and Graph Sync Progress'),
           fn: async () => {
+            const startedAt = Date.now()
             let res
             try {
               res = await lndSub.exec(
@@ -704,7 +705,11 @@ export const main = sdk.setupMain(async ({ effects }) => {
                 {},
                 30_000,
               )
-            } catch {
+            } catch (error) {
+              console.warn('sync-progress: lncli getinfo threw', {
+                durationMs: Date.now() - startedAt,
+                error: utils.asError(error),
+              })
               // The LND subcontainer can be momentarily absent while main is
               // re-running (e.g. Bitcoin's .cookie rotates on its restart,
               // which tears down lnd-sub to rebuild it). With no PID 1 in the
@@ -750,6 +755,23 @@ export const main = sdk.setupMain(async ({ effects }) => {
                 result: 'loading',
               }
             }
+
+            console.warn(
+              'sync-progress: lncli getinfo returned no usable output',
+              {
+                durationMs: Date.now() - startedAt,
+                exitCode: res.exitCode,
+                exitSignal: res.exitSignal,
+                stdoutBytes:
+                  typeof res.stdout === 'string'
+                    ? Buffer.byteLength(res.stdout)
+                    : null,
+                stderr:
+                  typeof res.stderr === 'string'
+                    ? res.stderr.trim().slice(-2_000)
+                    : null,
+              },
+            )
 
             // `lncli getinfo` only succeeds once LND's RPC server is fully
             // active, so any non-zero (or null) exit here means LND is still
