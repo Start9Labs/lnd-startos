@@ -128,22 +128,24 @@ export function nextcloudDavUrl(
   }
   if (!user) return address
 
-  const existing = url.pathname.match(/^(.*\/dav\/files\/)([^/]+)\/?$/)
+  const existing = url.pathname.match(/^(.*\/dav\/files\/)([^/]+)(\/.*)?$/)
   if (existing) {
     let pathUser = ''
     try {
       pathUser = decodeURIComponent(existing[2])
     } catch {}
     if (previousUser && previousUser !== user && pathUser === previousUser) {
-      url.pathname = `${existing[1]}${encodeURIComponent(user)}/`
+      url.pathname = `${existing[1]}${encodeURIComponent(user)}${existing[3] ?? '/'}`
       return url.toString()
     }
     return address
   }
-  if (/\/dav\/files\/[^/]+/.test(url.pathname)) return address
 
   const base = url.pathname
     .replace(/\/+$/, '')
-    .replace(/\/(remote\.php\/(dav|webdav)|index\.php.*|apps\/.*)$/, '')
+    .replace(
+      /\/(remote\.php\/(dav(\/files)?|webdav)|index\.php.*|apps\/.*)$/,
+      '',
+    )
   return `${url.origin}${base}/remote.php/dav/files/${encodeURIComponent(user)}/`
 }
