@@ -1,7 +1,9 @@
 import { VersionInfo } from '@start9labs/start-sdk'
+import { channelBackupJson } from '../fileModels/channel-backup.json'
+import { nextcloudDavUrl } from '../utils'
 
-export const current = VersionInfo.of({
-  version: '0.21.3-beta:5',
+export const v_0_21_3_beta_4 = VersionInfo.of({
+  version: '0.21.3-beta:4',
   releaseNotes: {
     en_US: `Adds Continuous Backups, which keep the current channel.backup on Google Drive, Dropbox, Nextcloud or an SFTP server and update it whenever your channels change. A StartOS restore recovers channels from every copy it finds there as well as from the one inside your StartOS backup.
 
@@ -20,6 +22,19 @@ Dodaje tryb zimnego przechowywania — opcjonalne ustawienie, które usuwa z ser
 Ajoute le mode stockage à froid, un réglage optionnel qui retire du serveur le mot de passe du portefeuille et la graine. Tant qu'il est actif, LND démarre verrouillé et vous le déverrouillez vous-même après chaque redémarrage, y compris ceux provoqués par Bitcoin.`,
   },
   migrations: {
-    up: async () => {},
+    up: async ({ effects }) => {
+      const nextcloud = (await channelBackupJson.read().once())?.nextcloud
+      if (!nextcloud?.url) return
+      let url: string
+      try {
+        url = nextcloudDavUrl(nextcloud.url, nextcloud.user)
+      } catch {
+        return
+      }
+      if (url !== nextcloud.url)
+        await channelBackupJson.merge(effects, {
+          nextcloud: { ...nextcloud, url },
+        })
+    },
   },
 })
