@@ -7,6 +7,9 @@
 #   --pull     download each target's channel.backup into $RESTORE_DIR and
 #              print {"retrieved":[...],"unreachable":[...]}; exit 6 when a
 #              target could not be consulted
+#
+# Every mode exits 7 until LND reports the node's identity, which names the
+# node's folder on each target.
 # shellcheck disable=SC2016
 set -u
 umask 077
@@ -39,6 +42,7 @@ MANUAL=0
 DEADLINE=0
 OP_DEADLINE=0
 SNAPSHOT=''
+NODE_ID=''
 REMOTE_TMP=''
 REMOTE_NAME=''
 REMOTE_PATH=''
@@ -70,12 +74,12 @@ write_atomic() {
 }
 
 state_get() { jq -r "$1 // empty" "$STATE" 2>/dev/null || true; }
-state_attempt() {
-  _attempt=$(state_get '.attempt')
-  case "$_attempt" in
+state_number() {
+  _number=$(state_get "$1")
+  case "$_number" in
     '' | *[!0-9]*) echo 0 ;;
     *)
-      if [ ${#_attempt} -le 15 ]; then echo "$_attempt"; else echo 0; fi
+      if [ ${#_number} -le 15 ]; then echo "$_number"; else echo 0; fi
       ;;
   esac
 }
@@ -226,9 +230,20 @@ generate_remotes() {
   done
 }
 
+# The node's folder on every target is the SHA-256 of its identity pubkey: a
+# restored seed reproduces it, and a provider cannot map it to a node.
+node_id() {
+  [ -n "$NODE_ID" ] && return 0
+  _pubkey=$(timeout 30 lncli --rpcserver=127.0.0.1:10009 getinfo 2>/dev/null | jq -r '.identity_pubkey // empty' 2>/dev/null) || return 1
+  printf '%s' "$_pubkey" | grep -Eq '^0[23][0-9a-f]{64}$' || return 1
+  _id=$(printf '%s' "$_pubkey" | sha256sum | cut -c1-64) || return 1
+  printf '%s' "$_id" | grep -Eq '^[0-9a-f]{64}$' || return 1
+  NODE_ID=$_id
+}
+
 target() {
   REMOTE_NAME=${1%%:*}
-  REMOTE_PATH=${1#*:}
+  REMOTE_PATH="${1#*:}/$NODE_ID"
   REMOTE_EXTRA=''
   [ "$(cfg ".$REMOTE_NAME.insecureTls // false")" = true ] && REMOTE_EXTRA='--no-check-certificate'
 }
@@ -382,7 +397,7 @@ do_backup() {
   lock
   _lock_result=$?
   [ "$_lock_result" -eq 0 ] || return "$_lock_result"
-  _attempt=$(($(state_attempt) + 1))
+  _attempt=$(($(state_number '.attempt') + 1))
   [ "$MANUAL" = 1 ] && printf '%s\n' "$_attempt"
   : > "$RCONF" || {
     record_preflight_failure 'temporary configuration could not be cleared' || :
@@ -413,6 +428,10 @@ do_backup() {
     [ "$_announce" = force ] && log "no backup target is enabled"
     return 4
   fi
+  node_id || {
+    unlock
+    return 7
+  }
   build_conf || {
     record_preflight_failure 'backup credentials could not be prepared' || :
     unlock
@@ -479,6 +498,11 @@ do_pull() {
     log "backup credentials could not be prepared"
     return 1
   }
+  node_id || {
+    unlock
+    log "LND has not reported the node's identity yet"
+    return 7
+  }
   : > "$FAILURES" || {
     unlock
     return 1
@@ -542,8 +566,7 @@ watch_loop() {
   log "started"
   _last=none
   _retry_at=0
-  _last_ok=$(state_get '.lastSuccess')
-  case "$_last_ok" in '' | *[!0-9]*) _last_ok=0 ;; esac
+  _last_ok=$(state_number '.lastSuccess')
   _last_clock=$(date +%s)
   while :; do
     sleep "$POLL"
@@ -565,14 +588,15 @@ watch_loop() {
     _last=$_fp
     OP_DEADLINE=$((_now + WATCH_RUN_SECS))
     do_backup normal
+    _backup_result=$?
     OP_DEADLINE=0
-    case $? in
+    case $_backup_result in
       0)
         _retry_at=0
-        _last_ok=$(state_get '.lastSuccess')
+        _last_ok=$(state_number '.lastSuccess')
         ;;
       3 | 4) _retry_at=0 ;;
-      6) _last=none ;;
+      6 | 7) _last=none ;;
       *) _retry_at=$((_now + RETRY_SECS)) ;;
     esac
   done
