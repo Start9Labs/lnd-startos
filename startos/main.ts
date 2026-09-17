@@ -163,7 +163,14 @@ export const main = sdk.setupMain(async ({ effects }) => {
     startupFlags
   let notified = startupFlags.notified
   let graphSyncPendingSince: number | null = null
+  let nextSyncProbeWarningAt = 0
   let unlockError: UnlockError | null = null
+  const warnSyncProbe = (message: string, details: Record<string, unknown>) => {
+    const now = Date.now()
+    if (now < nextSyncProbeWarningAt) return
+    nextSyncProbeWarningAt = now + 300_000
+    console.warn(message, details)
+  }
 
   const conf = await lndConfFile.read().const(effects)
   if (!conf) {
@@ -706,7 +713,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
                 30_000,
               )
             } catch (error) {
-              console.warn('sync-progress: lncli getinfo threw', {
+              warnSyncProbe('sync-progress: lncli getinfo threw', {
                 durationMs: Date.now() - startedAt,
                 error: utils.asError(error),
               })
@@ -756,7 +763,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
               }
             }
 
-            console.warn(
+            warnSyncProbe(
               'sync-progress: lncli getinfo returned no usable output',
               {
                 durationMs: Date.now() - startedAt,

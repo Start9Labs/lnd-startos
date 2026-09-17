@@ -115,14 +115,33 @@ export const backupFolderDefault = 'lnd-channel-backups'
 // rclone's nextcloud vendor refuses any address that does not end in
 // /remote.php/dav/files/USER — the form neither Nextcloud's UI nor StartOS's
 // Nextcloud interface shows.
-export function nextcloudDavUrl(address: string, user: string): string {
+export function nextcloudDavUrl(
+  address: string,
+  user: string,
+  previousUser?: string,
+): string {
   let url: URL
   try {
     url = new URL(address)
   } catch {
     throw new Error(i18n('Nextcloud: that is not a valid address.'))
   }
-  if (!user || /\/dav\/files\/[^/]+/.test(url.pathname)) return address
+  if (!user) return address
+
+  const existing = url.pathname.match(/^(.*\/dav\/files\/)([^/]+)\/?$/)
+  if (existing) {
+    let pathUser = ''
+    try {
+      pathUser = decodeURIComponent(existing[2])
+    } catch {}
+    if (previousUser && previousUser !== user && pathUser === previousUser) {
+      url.pathname = `${existing[1]}${encodeURIComponent(user)}/`
+      return url.toString()
+    }
+    return address
+  }
+  if (/\/dav\/files\/[^/]+/.test(url.pathname)) return address
+
   const base = url.pathname
     .replace(/\/+$/, '')
     .replace(/\/(remote\.php\/(dav|webdav)|index\.php.*|apps\/.*)$/, '')
