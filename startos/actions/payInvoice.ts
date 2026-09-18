@@ -101,7 +101,7 @@ export const payInvoice = sdk.Action.withInput(
     description: i18n('Pay a Lightning invoice from this node.'),
     warning: null,
     allowedStatuses: 'only-running',
-    group: null,
+    group: i18n('Payments'),
     visibility: 'enabled',
   }),
   inputSpec,

@@ -40,9 +40,11 @@ Other nodes connect to you over the **Peer** interface; run **Node Info** for yo
 - **Clearnet** — set a **Custom External Host** (e.g. a Tunnelsats or VPN endpoint) to advertise a clearnet address alongside any onion. A public domain on the Peer interface also works, but only with **Skip for clearnet peers** enabled in **Tor Settings**.
 - If no address is advertised, the **Node Reachability** health check shows _disabled_: you can still open channels outbound, but others can't open channels to you.
 
-### Paying an invoice
+### Paying and receiving
 
 **Pay Invoice** pays a Lightning invoice from your node without a wallet app: paste it, enter an amount only if the invoice leaves it open, set the most you are willing to pay in routing fees, and confirm. The result shows what was paid and the preimage. A service that needs a payment from you can raise the same prompt with the invoice filled in.
+
+**Receive Payment** creates an invoice for someone to pay you: set an amount (or leave it empty to let them choose), a description they will see, and how long it stays payable, then show them the QR code or send them the invoice text. Both live under **Payments**.
 
 ### Configuration
 
