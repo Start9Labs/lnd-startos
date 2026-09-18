@@ -43,7 +43,7 @@ The image is built here to add the migration, import, and channel-backup tools u
 | Architectures | x86_64, aarch64                                                                                           |
 | Subcontainers | `lnd-sub` — the `lnd` daemon, and the one to `attach` to; `channel-backup-sub` — the channel-backup agent |
 
-The added tools are `curl`, `sqlite3`, OpenSSH, `sshpass`, `rclone`, `flock`, `lndinit`, and `backup-agent.sh`. A separate `import-<source>` subcontainer is created when a wallet import is scheduled.
+The added tools are `curl`, `sqlite3`, OpenSSH, `sshpass`, `rclone`, `flock`, `lndinit`, and `backup-agent.sh`. `rclone` comes from its upstream release with a pinned checksum, not from Alpine's packages. A separate `import-<source>` subcontainer is created when a wallet import is scheduled.
 
 **`main` runs in one of three modes**, and only the third is the ordinary one:
 

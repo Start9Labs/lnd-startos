@@ -1,23 +1,18 @@
 import { VersionInfo } from '@start9labs/start-sdk'
 
 export const current = VersionInfo.of({
-  version: '0.21.3-beta:5',
+  version: '0.21.3-beta:6',
   releaseNotes: {
-    en_US: `Adds Continuous Backups, which keep the current channel.backup on Google Drive, Dropbox, Nextcloud or an SFTP server and update it whenever your channels change. A StartOS restore recovers channels from every copy it finds there as well as from the one inside your StartOS backup.
-
-Adds Cold Storage Mode, an opt-in setting that removes the wallet password and the seed from the server. While it is on, LND starts locked and you unlock it yourself after every restart, including restarts caused by Bitcoin.`,
-    es_ES: `Añade las copias continuas, que mantienen el channel.backup actual en Google Drive, Dropbox, Nextcloud o un servidor SFTP y lo actualizan cada vez que cambian tus canales. Una restauración de StartOS recupera los canales de todas las copias que encuentra allí, además de la incluida en tu copia de StartOS.
-
-Añade el modo de almacenamiento en frío, una opción opcional que elimina del servidor la contraseña del monedero y la semilla. Mientras está activo, LND arranca bloqueado y tú lo desbloqueas después de cada reinicio, incluidos los provocados por Bitcoin.`,
-    de_DE: `Fügt kontinuierliche Backups hinzu: Das aktuelle channel.backup wird auf Google Drive, Dropbox, Nextcloud oder einem SFTP-Server gespeichert und bei jeder Änderung deiner Kanäle aktualisiert. Eine StartOS-Wiederherstellung stellt Kanäle aus jeder dort gefundenen Kopie wieder her, zusätzlich zu der im StartOS-Backup.
-
-Fügt den Cold-Storage-Modus hinzu, eine optionale Einstellung, die das Wallet-Passwort und den Seed vom Server entfernt. Solange er aktiv ist, startet LND gesperrt und du entsperrst es nach jedem Neustart selbst, auch nach Neustarts durch Bitcoin.`,
-    pl_PL: `Dodaje kopie ciągłe, które przechowują aktualny plik channel.backup na Google Drive, Dropbox, Nextcloud lub serwerze SFTP i aktualizują go przy każdej zmianie kanałów. Przywracanie StartOS odzyskuje kanały z każdej znalezionej tam kopii, a także z tej zawartej w kopii StartOS.
-
-Dodaje tryb zimnego przechowywania — opcjonalne ustawienie, które usuwa z serwera hasło portfela i ziarno. Gdy jest włączony, LND uruchamia się zablokowany i odblokowujesz go samodzielnie po każdym restarcie, w tym po restartach wywołanych przez Bitcoin.`,
-    fr_FR: `Ajoute les sauvegardes continues, qui conservent le channel.backup actuel sur Google Drive, Dropbox, Nextcloud ou un serveur SFTP et le mettent à jour à chaque changement de vos canaux. Une restauration StartOS récupère les canaux depuis chaque copie qu'elle y trouve, en plus de celle contenue dans votre sauvegarde StartOS.
-
-Ajoute le mode stockage à froid, un réglage optionnel qui retire du serveur le mot de passe du portefeuille et la graine. Tant qu'il est actif, LND démarre verrouillé et vous le déverrouillez vous-même après chaque redémarrage, y compris ceux provoqués par Bitcoin.`,
+    en_US:
+      'Updates continuous-backup transfers to rclone 1.75.1, including upstream security and reliability fixes.',
+    es_ES:
+      'Actualiza las transferencias de copias continuas a rclone 1.75.1, incluidas correcciones de seguridad y fiabilidad de rclone.',
+    de_DE:
+      'Aktualisiert kontinuierliche Backup-Übertragungen auf rclone 1.75.1, einschließlich Sicherheits- und Zuverlässigkeitskorrekturen von rclone.',
+    pl_PL:
+      'Aktualizuje transfery kopii ciągłych do rclone 1.75.1, wprowadzając poprawki bezpieczeństwa i niezawodności rclone.',
+    fr_FR:
+      'Met à jour les transferts de sauvegarde continue vers rclone 1.75.1, avec des correctifs de sécurité et de fiabilité de rclone.',
   },
   migrations: {
     up: async () => {},
