@@ -1,11 +1,7 @@
 import { sdk } from '../sdk'
 import { autoconfig } from './config/autoconfig'
 import { backupChannelsNow } from './backupChannelsNow'
-import {
-  disableColdStorage,
-  enableColdStorage,
-  prepareColdStorage,
-} from './coldStorage'
+import { prepareColdStorage, toggleColdStorage } from './coldStorage'
 import { unlockWallet } from './unlockWallet'
 import { configureChannelBackup } from './configureChannelBackup'
 import { backendConfig } from './backend'
@@ -44,6 +40,5 @@ export const actions = sdk.Actions.of()
   .addAction(configureChannelBackup)
   .addAction(backupChannelsNow)
   .addAction(prepareColdStorage)
-  .addAction(enableColdStorage)
-  .addAction(disableColdStorage)
+  .addAction(toggleColdStorage)
   .addAction(unlockWallet)
