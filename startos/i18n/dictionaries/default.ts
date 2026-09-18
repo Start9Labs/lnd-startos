@@ -472,11 +472,7 @@ const dict = {
   'Cold Storage Mode Is Off': 494,
   'Cold Storage Mode Is On': 495,
   'Cold Storage Mode is already on': 496,
-  'Cold Storage Mode is off': 497,
   'Cold Storage Mode is off, so LND unlocks itself': 498,
-  'Cold Storage: Show Credentials': 499,
-  'Cold Storage: Turn Off': 500,
-  'Cold Storage: Turn On': 501,
   'Delete the wallet password, and the seed if it is still here, from this server. LND then starts locked and waits for you after every restart. A StartOS backup taken while the mode is on carries neither, and restores to a node that needs your password.': 502,
   'Display the wallet password, and the seed if this server still holds one, so you can record them. They are shown here because turning the mode on deletes them from this server.': 503,
   'Enter the wallet password to bring the node online: after every restart while Cold Storage Mode is on, or when LND refuses the stored password, which the one you enter then replaces.': 504,
@@ -488,7 +484,6 @@ const dict = {
   'Locked. Run Unlock Wallet to bring LND online.': 510,
   'Needed at every start once the mode is on.': 511,
   'No seed is stored on this server, so turning Cold Storage Mode on will ask you for the password only.': 512,
-  'Not needed: no seed is stored on this server. Leave this blank.': 513,
   'Record These Now': 514,
   'Recovers on-chain funds only. Channel funds come from the channel backup.': 515,
   'Run Show Credentials first': 516,
@@ -520,6 +515,9 @@ const dict = {
   'LND is not listening. Start the service, or wait a moment if it just started.': 542,
   'Nextcloud: that is not a valid address.': 543,
   'LND has not reported its identity yet, which names the folder on each target. Try again in a moment.': 544,
+  'Show Credentials': 545,
+  'Turn Off': 546,
+  'Turn On': 547,
 } as const
 
 /**

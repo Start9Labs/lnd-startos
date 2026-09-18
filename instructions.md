@@ -85,7 +85,7 @@ Turning it on takes two steps, in **Actions → Cold Storage**:
 
 From then on, after every restart you get a **Wallet Locked** notification and an **Unlock Wallet** task on the dashboard. Run it, enter your password, and the node comes back. Unlock Wallet also appears whenever LND refuses the password this server has stored; entering the right one there brings the node online and stores it again. The **Wallet Unlock** health check shows red the whole time it is waiting. **Revoke Macaroons** is unavailable while the mode is on: turn the mode off, run it, and turn the mode back on.
 
-**Turn Off** puts the password back, returns to unlocking automatically and clears the Unlock Wallet task. Your seed does not come back — the server never kept a copy after you turned the mode on, and it does not need one. A StartOS backup taken while the mode is on holds neither the password nor the seed, so restoring it gives you a node in Cold Storage Mode that waits for the password you recorded. The seed is needed only to recover on-chain funds outside StartOS, and you can turn the mode on again later with just the password.
+Once the mode is on, Turn On becomes **Turn Off**. It puts the password back, returns to unlocking automatically and clears the Unlock Wallet task. Your seed does not come back — the server never kept a copy after you turned the mode on, and it does not need one. A StartOS backup taken while the mode is on holds neither the password nor the seed, so restoring it gives you a node in Cold Storage Mode that waits for the password you recorded. The seed is needed only to recover on-chain funds outside StartOS, and you can turn the mode on again later with just the password.
 
 ## Limitations
 
