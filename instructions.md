@@ -40,6 +40,10 @@ Other nodes connect to you over the **Peer** interface; run **Node Info** for yo
 - **Clearnet** — set a **Custom External Host** (e.g. a Tunnelsats or VPN endpoint) to advertise a clearnet address alongside any onion. A public domain on the Peer interface also works, but only with **Skip for clearnet peers** enabled in **Tor Settings**.
 - If no address is advertised, the **Node Reachability** health check shows _disabled_: you can still open channels outbound, but others can't open channels to you.
 
+### Paying an invoice
+
+**Pay Invoice** pays a Lightning invoice from your node without a wallet app: paste it, set the most you are willing to pay in routing fees, and confirm. The result shows what was paid and the preimage. A service that needs a payment from you can raise the same prompt with the invoice filled in.
+
 ### Configuration
 
 Configure LND through its settings actions — General, Routing Fees, Channel Settings, Autopilot, Performance, Watchtower Server/Client, Bitcoin Backend, Tor, and Custom External Host. You can also edit `lnd.conf` directly: your settings are preserved across restarts, except for a few keys StartOS manages for you (`externalip`/`externalhosts`, `tor.socks`, and the Bitcoin backend connection settings).

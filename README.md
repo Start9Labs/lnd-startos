@@ -187,6 +187,10 @@ Rotates the macaroon root key, invalidating **every** macaroon this node has iss
 - **Repeat safety:** safe, but every application connected to this node must be re-paired afterwards — including through the connect interfaces above, which are regenerated with the new macaroon.
 - **When to run it:** if a macaroon may have been exposed. Note that a service reading LND's admin macaroon through a mount has full control of the node, which is why other packages' security fixes sometimes ask you to run this.
 
+### Pay Invoice
+
+Pays a BOLT11 invoice from the node's own funds: paste the invoice, an amount if it carries none, and the most it may spend in routing fees as a percentage. It decodes the invoice first, then pays with a 60-second route-finding limit, and returns the amount, fee, description, destination and preimage; a failure returns LND's reason. Only while running, with the wallet unlocked. Not idempotent — running it twice pays twice if the invoice allows it, which a single-use BOLT11 does not. A companion service can raise it as a task with the invoice filled in, so a payment it needs is one prompt the user accepts; the node never hands out credentials.
+
 ### Node Info, Watchtower Server Info
 
 Read-only, running only. The first reports the node's identity, URIs, and sync state; the second reports the watchtower server's identity, and is hidden unless that server is enabled.
@@ -368,6 +372,7 @@ actions:
   - reset-wallet-transactions
   - revoke-macaroons
   - node-info # only-running
+  - pay-invoice # only-running; a companion service may raise it as a task
   - tower-info # only-running; hidden unless the tower is enabled
   - autoconfig # hidden; driven by dependents
   - configure-channel-backup
