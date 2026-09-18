@@ -8,6 +8,11 @@ export const shape = z.object({
   aezeedCipherSeed: z.array(z.string()).nullable().catch(null),
   watchtowerClients: z.array(z.string()).catch([]),
   customExternalHosts: z.array(z.string()).catch([]),
+  // Verbatim: the companion's task compares it byte for byte.
+  clearnetVpn: z
+    .object({ config: z.string(), announce: z.string().nullable().catch(null) })
+    .nullable()
+    .catch(null),
 })
 
 export const storeJson = FileHelper.json(

@@ -520,6 +520,20 @@ const dict = {
   'LND is not listening. Start the service, or wait a moment if it just started.': 542,
   'Nextcloud: that is not a valid address.': 543,
   'LND has not reported its identity yet, which names the folder on each target. Try again in a moment.': 544,
+  'Clearnet VPN': 545,
+  "Route this node's clearnet traffic through a WireGuard tunnel and advertise the tunnel's public address.": 546,
+  'WireGuard Configuration': 547,
+  'The WireGuard client configuration for the tunnel. Leave it empty to turn the VPN off.': 548,
+  'Public Address': 549,
+  'The address peers reach this node at through the tunnel, as host:port.': 550,
+  'Unrecognized line in the WireGuard configuration: ${line}': 551,
+  'The WireGuard configuration needs a PrivateKey and an Address under [Interface].': 552,
+  'The WireGuard configuration needs exactly one [Peer] with a PublicKey and an Endpoint.': 553,
+  'AllowedIPs must include 0.0.0.0/0 so that all clearnet traffic uses the tunnel.': 554,
+  'The public address must be host:port.': 555,
+  'Waiting for the first WireGuard handshake.': 556,
+  'No WireGuard handshake for ${minutes} minutes. Clearnet traffic is held until the tunnel returns, not sent over your ISP connection.': 557,
+  'Tunnel up; last handshake ${seconds}s ago.': 558,
 } as const
 
 /**
