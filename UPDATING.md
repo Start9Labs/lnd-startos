@@ -24,7 +24,20 @@
   curl -fsSL "https://hub.docker.com/v2/repositories/lightninglabs/lndinit/tags?page_size=20&ordering=last_updated" | jq -r '.results[].name'
   ```
 
+- **rclone** — [rclone/rclone](https://github.com/rclone/rclone), the backup agent's transfer tool, pinned in the `Dockerfile` as `RCLONE_VERSION` with per-arch SHA-256 checks. It moves on its own cadence, independent of LND.
+  - Latest stable release:
+    ```sh
+    curl -s https://downloads.rclone.org/version.txt
+    ```
+
 ## Applying the bump
 
 - **`Dockerfile`** — bump `FROM lightninglabs/lnd:v<new version>` **and** the `COPY --from=lightninglabs/lndinit:v<lndinit>-lnd-v<new version>` tag.
 - **`startos/manifest/index.ts`** — the comment above `images.lnd` names the pinned LND version; keep it accurate. There is no tag to change here.
+- **rclone** — update `ARG RCLONE_VERSION` in the `Dockerfile` and refresh both checksums from the release `SHA256SUMS`:
+
+  ```sh
+  curl -fsSL "https://downloads.rclone.org/v<version>/SHA256SUMS" | grep -E 'linux-(amd64|arm64)\.zip'
+  ```
+
+  Put the `amd64` hash in `RCLONE_SHA256_AMD64` and the `arm64` hash in `RCLONE_SHA256_ARM64`.
