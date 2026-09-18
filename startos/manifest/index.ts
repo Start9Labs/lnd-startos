@@ -11,6 +11,7 @@ export const manifest = setupManifest({
   donationUrl: null,
   description: { short, long },
   volumes: ['main'],
+  virtualNetworking: true,
   images: {
     lnd: {
       // Built from ./Dockerfile: lnd v0.21.3-beta + the lndinit binary and the

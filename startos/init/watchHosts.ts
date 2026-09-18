@@ -43,16 +43,22 @@ export const watchHosts = sdk.setupOnInit(async (effects, _) => {
     throw new Error('No public info')
   }
 
-  // User-added hosts (e.g. a Tunnelsats/VPN endpoint) are always advertised,
-  // independent of the Tor clearnet gate. Seeding externalhosts with them also
-  // means a present custom host suppresses the public-IPv4 fallback below — if
-  // the user added a tunnel, we don't also leak their raw public IP.
-  const customExternalHosts =
-    (await storeJson.read((s) => s.customExternalHosts).const(effects)) ?? []
+  // User-added and companion-managed hosts are always advertised, independent
+  // of the Tor clearnet gate. Their presence also suppresses the public-IPv4
+  // fallback below, so a tunnel never advertises the raw public IP beside it.
+  const storedHosts = await storeJson
+    .read((s) => ({
+      custom: s.customExternalHosts,
+      vpn: s.clearnetVpn?.announce ?? null,
+    }))
+    .const(effects)
 
   // Onion is always advertised; domains/IPv4 only when the Tor clearnet gate is off.
   const externalip: string[] = [...addrs.onions]
-  const externalhosts: string[] = [...customExternalHosts]
+  const externalhosts: string[] = [
+    ...(storedHosts?.custom ?? []),
+    ...(storedHosts?.vpn ? [storedHosts.vpn] : []),
+  ]
 
   if (!useTorOnly) {
     externalhosts.push(...addrs.domains)

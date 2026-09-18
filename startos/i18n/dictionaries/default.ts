@@ -518,6 +518,20 @@ const dict = {
   'Show Credentials': 545,
   'Turn Off': 546,
   'Turn On': 547,
+  'Clearnet VPN': 548,
+  "Route this node's clearnet traffic through a WireGuard tunnel and advertise the tunnel's public address.": 549,
+  'WireGuard Configuration': 550,
+  'The WireGuard client configuration for the tunnel. Leave it empty to turn the VPN off.': 551,
+  'Public Address': 552,
+  'The address peers reach this node at through the tunnel, as host:port.': 553,
+  'Unrecognized line in the WireGuard configuration: ${line}': 554,
+  'The WireGuard configuration needs a PrivateKey and an Address under [Interface].': 555,
+  'The WireGuard configuration needs exactly one [Peer] with a PublicKey and an Endpoint.': 556,
+  'AllowedIPs must include 0.0.0.0/0 so that all clearnet traffic uses the tunnel.': 557,
+  'The public address must be host:port.': 558,
+  'Waiting for the first WireGuard handshake.': 559,
+  'No WireGuard handshake for ${minutes} minutes. Clearnet traffic is held until the tunnel returns, not sent over your ISP connection.': 560,
+  'Tunnel up; last handshake ${seconds}s ago.': 561,
 } as const
 
 /**

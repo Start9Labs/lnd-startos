@@ -23,8 +23,8 @@ FROM lightninglabs/lnd:v0.21.3-beta
 
 # curl calls LND's REST API for wallet setup and migration polling; sqlite
 # scrubs the migrated database; openssh-client and sshpass import remote wallets;
-# flock serializes copies.
-RUN apk add --no-cache curl sqlite openssh-client sshpass flock
+# flock serializes copies; wireguard-tools and iptables bring up and fence the Clearnet VPN tunnel (startos/vpn.ts).
+RUN apk add --no-cache curl sqlite openssh-client sshpass flock wireguard-tools iptables ip6tables
 
 # rclone copies channel.backup to configured providers.
 COPY --from=rclone-fetch /out/rclone /usr/local/bin/rclone
