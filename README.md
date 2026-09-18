@@ -187,6 +187,12 @@ Rotates the macaroon root key, invalidating **every** macaroon this node has iss
 - **Repeat safety:** safe, but every application connected to this node must be re-paired afterwards — including through the connect interfaces above, which are regenerated with the new macaroon.
 - **When to run it:** if a macaroon may have been exposed. Note that a service reading LND's admin macaroon through a mount has full control of the node, which is why other packages' security fixes sometimes ask you to run this.
 
+### Pay Invoice, Receive Payment
+
+Grouped under Payments. **Pay Invoice** pays a BOLT11 invoice from the node's own funds: paste the invoice, whether its amount is stated in it or entered here — an invoice that leaves the amount open requires one, one that states it refuses one — and the most it may spend in routing fees as a percentage. It decodes the invoice first, then pays with a 60-second route-finding limit, and returns the amount, fee, description, destination and preimage; a failure returns LND's reason. Only while running, with the wallet unlocked. Not idempotent — running it twice pays twice if the invoice allows it, which a single-use BOLT11 does not. A companion service can raise it as a task with the invoice filled in, so a payment it needs is one prompt the user accepts; the node never hands out credentials.
+
+**Receive Payment** creates a BOLT11 invoice for this node: an optional amount (none makes an amount-less invoice the payer fills in), an optional description carried in the invoice, and an expiry in hours, default 24. Runs `lncli addinvoice --private`, so private channels are included as route hints. Returns the invoice as text and QR code, plus the payment hash. Only while running, with the wallet unlocked. Safe to repeat — each run registers a new invoice and nothing is charged.
+
 ### Node Info, Watchtower Server Info
 
 Read-only, running only. The first reports the node's identity, URIs, and sync state; the second reports the watchtower server's identity, and is hidden unless that server is enabled.
@@ -237,13 +243,13 @@ Not user-facing, and not a general VPN facility: it exists for the TunnelSats se
 
 Three at install, one raised on Bitcoin, and one raised at each lock while Cold Storage Mode is on.
 
-| Task                         | Raised on | Severity    | Raised when                                                 | Cleared when                                          |
-| ---------------------------- | --------- | ----------- | ----------------------------------------------------------- | ----------------------------------------------------- |
-| Initialize Wallet            | this      | `critical`  | At install                                                  | The action runs                                       |
-| Bitcoin Backend              | this      | `critical`  | At install                                                  | The action runs                                       |
-| Configure Continuous Backups | this      | `important` | At install                                                  | The action runs                                       |
-| Unlock Wallet                | this      | `important` | Each time LND is found locked while Cold Storage Mode is on | The wallet opens, or Turn Off runs                    |
-| Auto-Configure               | Bitcoin   | `critical`  | The backend is bitcoind and its ZeroMQ is disabled          | Bitcoin's config matches; it returns if changed again |
+| Task                         | Raised on | Severity    | Raised when                                                            | Cleared when                                              |
+| ---------------------------- | --------- | ----------- | ---------------------------------------------------------------------- | --------------------------------------------------------- |
+| Initialize Wallet            | this      | `critical`  | At install                                                             | The action runs                                           |
+| Bitcoin Backend              | this      | `critical`  | At install                                                             | The action runs                                           |
+| Configure Continuous Backups | this      | `important` | At install                                                             | The action runs                                           |
+| Unlock Wallet                | this      | `important` | Each time LND is found locked while Cold Storage Mode is on            | The wallet opens, or Turn Off runs                        |
+| Auto-Configure               | Bitcoin   | `critical`  | The backend is bitcoind and its ZeroMQ is disabled                     | Bitcoin's config matches; it returns if changed again     |
 | Clearnet VPN                 | this      | `important` | Only when the TunnelSats service raises it with a tunnel for this node | The stored configuration matches what TunnelSats proposes |
 
 The Bitcoin task appears on **Bitcoin's** page with nothing there explaining which service asked for it. LND needs ZeroMQ to be told about new blocks and transactions; polling is not a substitute.
@@ -368,6 +374,8 @@ actions:
   - reset-wallet-transactions
   - revoke-macaroons
   - node-info # only-running
+  - pay-invoice # only-running; a companion service may raise it as a task
+  - receive-payment # only-running
   - tower-info # only-running; hidden unless the tower is enabled
   - autoconfig # hidden; driven by dependents
   - configure-channel-backup
