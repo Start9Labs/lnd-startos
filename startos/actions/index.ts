@@ -11,6 +11,7 @@ import { configureChannelBackup } from './configureChannelBackup'
 import { backendConfig } from './backend'
 import { autopilotConfig } from './config/autopilot'
 import { channelsConfig } from './config/channels'
+import { clearnetVpn } from './clearnetVpn'
 import { customExternalHostConfig } from './config/customExternalHost'
 import { general } from './config/general'
 import { performanceConfig } from './config/performance'
@@ -47,3 +48,4 @@ export const actions = sdk.Actions.of()
   .addAction(enableColdStorage)
   .addAction(disableColdStorage)
   .addAction(unlockWallet)
+  .addAction(clearnetVpn)

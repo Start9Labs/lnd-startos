@@ -43,7 +43,7 @@ The image is built here to add the migration, import, and channel-backup tools u
 | Architectures | x86_64, aarch64                                                                                           |
 | Subcontainers | `lnd-sub` — the `lnd` daemon, and the one to `attach` to; `channel-backup-sub` — the channel-backup agent |
 
-The added tools are `curl`, `sqlite3`, OpenSSH, `sshpass`, `rclone`, `flock`, `lndinit`, and `backup-agent.sh`. `rclone` comes from its upstream release with a pinned checksum, not from Alpine's packages. A separate `import-<source>` subcontainer is created when a wallet import is scheduled.
+The added tools are `curl`, `sqlite3`, OpenSSH, `sshpass`, `rclone`, `flock`, `wireguard-tools`, `lndinit`, and `backup-agent.sh`. `rclone` comes from its upstream release with a pinned checksum, not from Alpine's packages. A separate `import-<source>` subcontainer is created when a wallet import is scheduled. The manifest sets `virtualNetworking`, which is what lets the container create the tunnel interface the hidden Clearnet VPN action brings up.
 
 **`main` runs in one of three modes**, and only the third is the ordinary one:
 
@@ -105,7 +105,7 @@ Two further keys are forced absent for correctness rather than preference: **`db
 
 ### store.json and startup-flags.json
 
-`store.json` holds the wallet password, the seed if the package generated one, the registered watchtower clients, and any custom external hosts.
+`store.json` holds the wallet password, the seed if the package generated one, the registered watchtower clients, any custom external hosts, and the Clearnet VPN's WireGuard configuration and public address (`clearnetVpn`), kept verbatim. `vpn/wg0.conf` is generated from it on every start — a `wg-quick` file with `Table = off` and the policy-routing rules as `PostUp` lines — and is never hand-edited.
 
 `startup-flags.json` holds one-time requests: a pending wallet import (**including the origin node's password**, since nothing else persists it), a wallet-transaction reset, a macaroon rotation, a restore marker, and whether the sync notification has fired. Each is consumed by `main` and cleared once the work it asked for has run.
 
@@ -225,6 +225,10 @@ A StartOS backup taken while the mode is on carries neither the password nor the
 
 **While the mode is on, `unlock-wallet` waits instead of unlocking.** It keeps polling until the wallet passes `LOCKED`, which preserves the requires graph, so `sync-progress`, the restore oneshot and the channel-backup agent stay held rather than running against a locked wallet, and the startup flags are still cleared on the way through. On each lock it raises the Unlock Wallet task and sends one notification, retrying either that failed on the next poll; when the wallet opens, whoever opened it, it clears the task, and a lifecycle that starts with the mode off clears any task a previous one left. `main` never writes `cold-storage.json` or `store.json`'s credentials, so none of its writes can race the actions'.
 
+### Clearnet VPN — hidden
+
+Not user-facing, and not a general VPN facility: it exists for the TunnelSats service, which raises it as a task with its tunnel configuration and public address filled in, so the user only ever sees that prompt. It stores both, sets `customExternalHosts` to the public address so `watchHosts` advertises it, and turns on `tor.skip-proxy-for-clearnet-targets`, since clearnet peers have to be dialed directly for the tunnel to carry them. Costs a restart. A new configuration replaces the tunnel; an empty one turns it off and drops the address it had advertised. Safe to repeat.
+
 ### Auto-Configure — hidden
 
 `visibility: 'hidden'`; how a dependent service requests configuration of this node.
@@ -240,6 +244,7 @@ Three at install, one raised on Bitcoin, and one raised at each lock while Cold 
 | Configure Continuous Backups | this      | `important` | At install                                                  | The action runs                                       |
 | Unlock Wallet                | this      | `important` | Each time LND is found locked while Cold Storage Mode is on | The wallet opens, or Turn Off runs                    |
 | Auto-Configure               | Bitcoin   | `critical`  | The backend is bitcoind and its ZeroMQ is disabled          | Bitcoin's config matches; it returns if changed again |
+| Clearnet VPN                 | this      | `important` | Only when the TunnelSats service raises it with a tunnel for this node | The stored configuration matches what TunnelSats proposes |
 
 The Bitcoin task appears on **Bitcoin's** page with nothing there explaining which service asked for it. LND needs ZeroMQ to be told about new blocks and transactions; polling is not a substitute.
 
@@ -256,6 +261,7 @@ Which checks exist depends on what the service is doing.
 | `sync-progress`  | "Network and Graph Sync Progress" | Normal operation                                       |
 | `channel-backup` | "Continuous Backup"               | Normal operation; `disabled` until a target is enabled |
 | `reachability`   | "Node Reachability"               | Normal operation                                       |
+| `vpn-tunnel`     | "Clearnet VPN"                    | While TunnelSats has configured a tunnel               |
 | `restored`       | Restore notice                    | After a seed restore                                   |
 
 **`wallet-unlock` reports errors from LND's normal wallet unlock request while the wallet remains locked.** It distinguishes LND's exact wrong-passphrase response from other errors. Unlock attempts continue automatically. While Cold Storage Mode is on, a locked wallet is reported as a failure rather than as start-up, since the node stays offline until someone runs Unlock Wallet.
@@ -269,6 +275,8 @@ That state is indistinguishable from a large legitimate backfill through `getinf
 `lncli disconnect <pubkey>` on the elected peer forces an immediate re-election, and restarting LND has the same effect by drawing a new first peer.
 
 **`reachability` reports whether peers can actually open a connection to you**, which is separate from whether LND is healthy. A node that is running fine but unreachable will not receive inbound channels.
+
+**`vpn-tunnel` reads the tunnel's last handshake.** `starting` until the first one, `failure` once it is more than three minutes old — WireGuard rekeys about every two minutes under traffic. A failing tunnel does not leak: the routing rules the package installs send clearnet traffic nowhere but the tunnel, so it is held, not sent over the ISP connection. The `vpn` oneshot that brings the tunnel up runs before the `lnd` daemon and blocks it if the tunnel cannot be created.
 
 **`import` and `db-migration` are progress reporters, not fault detectors.** They exist because both phases can run for hours with the service otherwise looking idle, and both report a real failure with its message if they hit one.
 
@@ -306,6 +314,7 @@ The daemon re-sends every copy daily even when nothing changed, so a deleted cop
 7. **Onion-message protocol overrides are stripped**, since LND 0.21 advertises the feature natively and the old overrides now prevent startup.
 8. **An import is bounded at six hours** and copies over the network from the origin node.
 9. **No riscv64 build.** x86_64 and aarch64 only.
+10. **The Clearnet VPN carries everything or nothing.** The configuration's `AllowedIPs` must include `0.0.0.0/0`; `DNS =` lines are ignored (the container keeps its resolver); IPv6 is routed into the tunnel when it carries `::/0` and blackholed otherwise; and enabling it turns on **Skip for clearnet peers** in Tor Settings. Only one tunnel, and one [Peer], per node.
 
 ---
 
@@ -332,6 +341,7 @@ file_models:
   - /root/.lnd/cold-storage.json # the hash Turn Off checks against, and what Show Credentials fixed
   - /root/.lnd/unlock-status.json # excluded from backups; written by main only
   - /root/.lnd/.channel-backup-restore/ # excluded from backups; copies retrieved from the targets during a restore
+  - /root/.lnd/vpn/wg0.conf # generated from store.json's clearnetVpn on every start
 channel_backup_files:
   - /root/.lnd/data/chain/bitcoin/mainnet/channel.backup
 startos_managed_env_vars: []
@@ -366,6 +376,7 @@ actions:
   - cold-storage-enable # only-running
   - cold-storage-disable
   - unlock-wallet # only-running; offered while Cold Storage Mode is on or the stored password was refused
+  - clearnet-vpn # hidden; raised as a task by the tunnelsats service
 tasks:
   - { action: initialize-wallet, severity: critical }
   - { action: backend-config, severity: critical }
@@ -377,6 +388,7 @@ health_checks:
   - sync-progress # displayed "Network and Graph Sync Progress"; synced_to_chain, synced_to_graph, num_peers
   - channel-backup # displayed "Continuous Backup"; disabled until a target is enabled
   - reachability # displayed "Node Reachability"
+  - vpn-tunnel # displayed "Clearnet VPN"; only while a tunnel is configured; last-handshake age
   - import # only while a wallet import runs
   - db-migration # only while a bolt database is converted
   - restored # only after a seed restore
