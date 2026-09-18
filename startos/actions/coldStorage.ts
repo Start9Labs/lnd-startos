@@ -1,3 +1,4 @@
+import { T } from '@start9labs/start-sdk'
 import { randomBytes, scryptSync } from 'node:crypto'
 import { coldStorageJson } from '../fileModels/cold-storage.json'
 import { startupFlagsJson } from '../fileModels/startupFlags.json'
@@ -26,7 +27,7 @@ export const prepareColdStorage = sdk.Action.withoutInput(
       .read((s) => s.walletPassword)
       .const(effects)
     return {
-      name: i18n('Cold Storage: Show Credentials'),
+      name: i18n('Show Credentials'),
       description: i18n(
         'Display the wallet password, and the seed if this server still holds one, so you can record them. They are shown here because turning the mode on deletes them from this server.',
       ),
@@ -47,7 +48,7 @@ export const prepareColdStorage = sdk.Action.withoutInput(
       throw new Error(i18n('Cold Storage Mode is already on'))
     }
     const seed = store.aezeedCipherSeed?.length ? store.aezeedCipherSeed : null
-    // Chosen now rather than at Enable so the words asked for are fixed while
+    // Chosen now rather than at Turn On so the words asked for are fixed while
     // the user is writing them down. A wallet with no seed here is asked for
     // the password alone: the seed is the half that has already left.
     let challenge: number[] | null = null
@@ -112,18 +113,40 @@ export const prepareColdStorage = sdk.Action.withoutInput(
   },
 )
 
-export const enableColdStorage = sdk.Action.withInput(
-  'cold-storage-enable',
+const password = sdk.Value.text({
+  name: i18n('Wallet Password'),
+  description: i18n('Type the password you recorded.'),
+  required: true,
+  masked: true,
+  default: null,
+})
+
+export const toggleColdStorage = sdk.Action.withInput(
+  'cold-storage-toggle',
 
   async ({ effects }) => {
     const walletPassword = await storeJson
       .read((s) => s.walletPassword)
       .const(effects)
+    if (!walletPassword) {
+      return {
+        name: i18n('Turn Off'),
+        description: i18n(
+          'Store the wallet password on this server again so LND unlocks itself at every start.',
+        ),
+        warning: i18n(
+          'The seed stays off this server: it cannot be put back. Only the password returns.',
+        ),
+        allowedStatuses: 'any',
+        group: i18n('Cold Storage'),
+        visibility: 'enabled',
+      }
+    }
     const prepared = await coldStorageJson
       .read((c) => c.prepared)
       .const(effects)
     return {
-      name: i18n('Cold Storage: Turn On'),
+      name: i18n('Turn On'),
       description: i18n(
         'Delete the wallet password, and the seed if it is still here, from this server. LND then starts locked and waits for you after every restart. A StartOS backup taken while the mode is on carries neither, and restores to a node that needs your password.',
       ),
@@ -132,235 +155,190 @@ export const enableColdStorage = sdk.Action.withInput(
       ),
       allowedStatuses: 'only-running',
       group: i18n('Cold Storage'),
-      visibility: !walletPassword
-        ? { disabled: i18n('Cold Storage Mode is already on') }
-        : !prepared
-          ? { disabled: i18n('Run Show Credentials first') }
-          : 'enabled',
+      visibility: prepared
+        ? 'enabled'
+        : { disabled: i18n('Run Show Credentials first') },
     }
   },
 
-  sdk.InputSpec.of({
-    password: sdk.Value.text({
-      name: i18n('Wallet Password'),
-      description: i18n('Type the password you recorded.'),
-      required: true,
-      masked: true,
-      default: null,
-    }),
-    seedWords: sdk.Value.dynamicText(async () => {
-      const challenge = await coldStorageJson
-        .read((c) => c.seedChallenge)
-        .once()
-      return challenge?.length === 3
-        ? {
-            name: i18n('Seed words ${first}, ${second} and ${third}', {
-              first: challenge[0] + 1,
-              second: challenge[1] + 1,
-              third: challenge[2] + 1,
-            }),
-            description: i18n(
-              'Type those three words from the seed shown by Show Credentials, in that order, separated by spaces.',
-            ),
-            required: true,
-            default: null,
-          }
-        : {
-            name: i18n('Seed words'),
-            description: i18n(
-              'Not needed: no seed is stored on this server. Leave this blank.',
-            ),
-            required: false,
-            default: null,
-          }
-    }),
-  }),
+  async () => {
+    const store = await storeJson.read().once()
+    if (!store?.walletPassword || !store.aezeedCipherSeed?.length) {
+      return sdk.InputSpec.of({ password })
+    }
+    const challenge = await coldStorageJson.read((c) => c.seedChallenge).once()
+    return sdk.InputSpec.of({
+      password,
+      seedWords: sdk.Value.text({
+        name:
+          challenge?.length === 3
+            ? i18n('Seed words ${first}, ${second} and ${third}', {
+                first: challenge[0] + 1,
+                second: challenge[1] + 1,
+                third: challenge[2] + 1,
+              })
+            : i18n('Seed words'),
+        description: i18n(
+          'Type those three words from the seed shown by Show Credentials, in that order, separated by spaces.',
+        ),
+        required: true,
+        default: null,
+      }),
+    })
+  },
 
   async () => ({}),
 
-  async ({ effects, input }) => {
-    const store = await storeJson.read().once()
-    const cold = await coldStorageJson.read().once()
-    if (!store?.walletPassword) {
-      throw new Error(i18n('Cold Storage Mode is already on'))
-    }
-    if (!cold?.prepared) {
+  async ({ effects, input }) =>
+    (await storeJson.read((s) => s.walletPassword).once())
+      ? turnOn(effects, input)
+      : turnOff(effects, input.password),
+)
+
+async function turnOn(
+  effects: T.Effects,
+  input: { password: string; seedWords?: string },
+) {
+  const store = await storeJson.read().once()
+  const cold = await coldStorageJson.read().once()
+  if (!store?.walletPassword) {
+    throw new Error(i18n('Cold Storage Mode is already on'))
+  }
+  if (!cold?.prepared) {
+    throw new Error(i18n('Run Show Credentials first'))
+  }
+  // The password may only leave once it has proven itself: LND's own chain
+  // running unlocked (not the conversion's temporary one), opened by main's
+  // oneshot with this stored password in this lifecycle.
+  const flags = await startupFlagsJson.read().once()
+  if (
+    flags?.importPending ||
+    (await needsSqliteMigration()) ||
+    !isPastUnlock(await getLndState())
+  ) {
+    throw new Error(
+      i18n(
+        'LND must be running with its wallet unlocked before the mode can be turned on.',
+      ),
+    )
+  }
+  if (!(await unlockStatusJson.read((u) => u.storedPasswordVerified).once())) {
+    throw new Error(
+      i18n(
+        'The stored password has not opened the wallet in this run, so it cannot be deleted yet. Restart LND and try again once it is unlocked.',
+      ),
+    )
+  }
+  if (input.password !== store.walletPassword) {
+    throw new Error(i18n('That is not the wallet password'))
+  }
+  const seed = store.aezeedCipherSeed?.length ? store.aezeedCipherSeed : null
+  if (seed) {
+    const challenge = cold.seedChallenge
+    if (challenge?.length !== 3) {
       throw new Error(i18n('Run Show Credentials first'))
     }
-    // The password may only leave once it has proven itself: LND's own chain
-    // running unlocked (not the conversion's temporary one), opened by main's
-    // oneshot with this stored password in this lifecycle.
-    const flags = await startupFlagsJson.read().once()
+    const given = (input.seedWords ?? '')
+      .trim()
+      .toLowerCase()
+      .split(/[\s,]+/)
+      .filter(Boolean)
+    const wanted = challenge.map((i) => seed[i]?.trim().toLowerCase())
     if (
-      flags?.importPending ||
-      (await needsSqliteMigration()) ||
-      !isPastUnlock(await getLndState())
+      given.length !== wanted.length ||
+      given.some((w, i) => w !== wanted[i])
     ) {
-      throw new Error(
-        i18n(
-          'LND must be running with its wallet unlocked before the mode can be turned on.',
-        ),
-      )
+      throw new Error(i18n('Those seed words do not match'))
     }
-    if (
-      !(await unlockStatusJson.read((u) => u.storedPasswordVerified).once())
-    ) {
-      throw new Error(
-        i18n(
-          'The stored password has not opened the wallet in this run, so it cannot be deleted yet. Restart LND and try again once it is unlocked.',
-        ),
-      )
-    }
-    if (input.password !== store.walletPassword) {
-      throw new Error(i18n('That is not the wallet password'))
-    }
-    const seed = store.aezeedCipherSeed?.length ? store.aezeedCipherSeed : null
-    if (seed) {
-      const challenge = cold.seedChallenge
-      if (challenge?.length !== 3) {
-        throw new Error(i18n('Run Show Credentials first'))
-      }
-      const given = (input.seedWords ?? '')
-        .trim()
-        .toLowerCase()
-        .split(/[\s,]+/)
-        .filter(Boolean)
-      const wanted = challenge.map((i) => seed[i]?.trim().toLowerCase())
-      if (
-        given.length !== wanted.length ||
-        given.some((w, i) => w !== wanted[i])
-      ) {
-        throw new Error(i18n('Those seed words do not match'))
-      }
-    }
+  }
 
-    // Hash first, so Turn Off can check a typed password while the wallet
-    // cannot be asked. The store write is the mode: the password leaving is
-    // what turns it on, in one write.
-    const passwordSalt = randomBytes(16).toString('hex')
-    await coldStorageJson.merge(effects, {
-      passwordSalt,
-      passwordHash: hashPassword(store.walletPassword, passwordSalt),
-      seedChallenge: null,
-    })
-    await storeJson.merge(effects, {
-      walletPassword: null,
-      aezeedCipherSeed: null,
-    })
+  // Hash first, so Turn Off can check a typed password while the wallet
+  // cannot be asked. The store write is the mode: the password leaving is
+  // what turns it on, in one write.
+  const passwordSalt = randomBytes(16).toString('hex')
+  await coldStorageJson.merge(effects, {
+    passwordSalt,
+    passwordHash: hashPassword(store.walletPassword, passwordSalt),
+    seedChallenge: null,
+  })
+  await storeJson.merge(effects, {
+    walletPassword: null,
+    aezeedCipherSeed: null,
+  })
 
-    return {
-      version: '1' as const,
-      title: i18n('Cold Storage Mode Is On'),
-      message: seed
-        ? i18n(
-            'The password and seed are no longer on this server. LND is restarting and will wait locked until you run Unlock Wallet.',
-          )
-        : i18n(
-            'The password is no longer on this server. LND is restarting and will wait locked until you run Unlock Wallet.',
-          ),
-      result: null,
-    }
-  },
-)
-
-export const disableColdStorage = sdk.Action.withInput(
-  'cold-storage-disable',
-
-  async ({ effects }) => {
-    const walletPassword = await storeJson
-      .read((s) => s.walletPassword)
-      .const(effects)
-    return {
-      name: i18n('Cold Storage: Turn Off'),
-      description: i18n(
-        'Store the wallet password on this server again so LND unlocks itself at every start.',
-      ),
-      warning: i18n(
-        'The seed stays off this server: it cannot be put back. Only the password returns.',
-      ),
-      allowedStatuses: 'any',
-      group: i18n('Cold Storage'),
-      visibility: !walletPassword
-        ? 'enabled'
-        : { disabled: i18n('Cold Storage Mode is off') },
-    }
-  },
-
-  sdk.InputSpec.of({
-    password: sdk.Value.text({
-      name: i18n('Wallet Password'),
-      description: i18n('Type the password you recorded.'),
-      required: true,
-      masked: true,
-      default: null,
-    }),
-  }),
-
-  async () => ({}),
-
-  async ({ effects, input }) => {
-    if (await storeJson.read((s) => s.walletPassword).once()) {
-      throw new Error(i18n('Cold Storage Mode is off'))
-    }
-    const cold = await coldStorageJson.read().once()
-    const hashed = !!cold?.passwordHash && !!cold.passwordSalt
-    if (
-      hashed &&
-      hashPassword(input.password, cold.passwordSalt!) !== cold.passwordHash
-    ) {
-      throw new Error(i18n('That is not the wallet password'))
-    }
-    // The wallet is the authority while it is locked: the unlocker is reachable
-    // without a macaroon, so a changepassword made elsewhere leaves the hash
-    // describing a password LND no longer takes.
-    if ((await getLndState()) === 'LOCKED') {
-      const flags = await startupFlagsJson.read().once()
-      const res = await sdk.SubContainer.withTemp(
-        effects,
-        { imageId: 'lnd' },
-        mainMounts,
-        'cold-storage-off',
-        (sub) =>
-          requestUnlock(
-            (command, body) => sub.exec(command, { input: body }),
-            input.password,
-            flags?.restore ? 2_500 : null,
-          ),
-      )
-      if (!res.ok) {
-        const error = literal(res.message)
-        throw new Error(
-          res.kind === 'passphrase'
-            ? i18n('That is not the wallet password')
-            : res.kind === 'lnd'
-              ? i18n('LND could not unlock the wallet: ${error}', { error })
-              : `${i18n('LND did not answer')}: ${res.message}`,
+  return {
+    version: '1' as const,
+    title: i18n('Cold Storage Mode Is On'),
+    message: seed
+      ? i18n(
+          'The password and seed are no longer on this server. LND is restarting and will wait locked until you run Unlock Wallet.',
         )
-      }
-    } else if (!hashed) {
-      throw new Error(
-        i18n(
-          'The stored password check is missing and LND is not locked, so the password cannot be verified. Restart LND and run Turn Off while it is waiting for the password.',
+      : i18n(
+          'The password is no longer on this server. LND is restarting and will wait locked until you run Unlock Wallet.',
         ),
+    result: null,
+  }
+}
+
+async function turnOff(effects: T.Effects, password: string) {
+  const cold = await coldStorageJson.read().once()
+  const hashed = !!cold?.passwordHash && !!cold.passwordSalt
+  if (
+    hashed &&
+    hashPassword(password, cold.passwordSalt!) !== cold.passwordHash
+  ) {
+    throw new Error(i18n('That is not the wallet password'))
+  }
+  // The wallet is the authority while it is locked: the unlocker is reachable
+  // without a macaroon, so a changepassword made elsewhere leaves the hash
+  // describing a password LND no longer takes.
+  if ((await getLndState()) === 'LOCKED') {
+    const flags = await startupFlagsJson.read().once()
+    const res = await sdk.SubContainer.withTemp(
+      effects,
+      { imageId: 'lnd' },
+      mainMounts,
+      'cold-storage-off',
+      (sub) =>
+        requestUnlock(
+          (command, body) => sub.exec(command, { input: body }),
+          password,
+          flags?.restore ? 2_500 : null,
+        ),
+    )
+    if (!res.ok) {
+      const error = literal(res.message)
+      throw new Error(
+        res.kind === 'passphrase'
+          ? i18n('That is not the wallet password')
+          : res.kind === 'lnd'
+            ? i18n('LND could not unlock the wallet: ${error}', { error })
+            : `${i18n('LND did not answer')}: ${res.message}`,
       )
     }
-    // Task first, while nothing has changed and a failure can simply be
-    // retried; then the password, which is what turns the mode off; the hash
-    // last, once nothing needs it.
-    await sdk.action.clearTask(effects, unlockWalletTaskId)
-    await storeJson.merge(effects, { walletPassword: input.password })
-    await coldStorageJson.merge(effects, {
-      passwordHash: null,
-      passwordSalt: null,
-    })
-
-    return {
-      version: '1' as const,
-      title: i18n('Cold Storage Mode Is Off'),
-      message: i18n(
-        'The password is stored on this server again. LND is restarting and will unlock itself from now on.',
+  } else if (!hashed) {
+    throw new Error(
+      i18n(
+        'The stored password check is missing and LND is not locked, so the password cannot be verified. Restart LND and run Turn Off while it is waiting for the password.',
       ),
-      result: null,
-    }
-  },
-)
+    )
+  }
+  // Task first, while nothing has changed and a failure can simply be
+  // retried; then the password, which is what turns the mode off; the hash
+  // last, once nothing needs it.
+  await sdk.action.clearTask(effects, unlockWalletTaskId)
+  await storeJson.merge(effects, { walletPassword: password })
+  await coldStorageJson.merge(effects, {
+    passwordHash: null,
+    passwordSalt: null,
+  })
+
+  return {
+    version: '1' as const,
+    title: i18n('Cold Storage Mode Is Off'),
+    message: i18n(
+      'The password is stored on this server again. LND is restarting and will unlock itself from now on.',
+    ),
+    result: null,
+  }
+}
