@@ -189,7 +189,7 @@ Rotates the macaroon root key, invalidating **every** macaroon this node has iss
 
 ### Pay Invoice
 
-Pays a BOLT11 invoice from the node's own funds: paste the invoice, an amount if it carries none, and the most it may spend in routing fees as a percentage. It decodes the invoice first, then pays with a 60-second route-finding limit, and returns the amount, fee, description, destination and preimage; a failure returns LND's reason. Only while running, with the wallet unlocked. Not idempotent — running it twice pays twice if the invoice allows it, which a single-use BOLT11 does not. A companion service can raise it as a task with the invoice filled in, so a payment it needs is one prompt the user accepts; the node never hands out credentials.
+Pays a BOLT11 invoice from the node's own funds: paste the invoice, whether its amount is stated in it or entered here — an invoice that leaves the amount open requires one, one that states it refuses one — and the most it may spend in routing fees as a percentage. It decodes the invoice first, then pays with a 60-second route-finding limit, and returns the amount, fee, description, destination and preimage; a failure returns LND's reason. Only while running, with the wallet unlocked. Not idempotent — running it twice pays twice if the invoice allows it, which a single-use BOLT11 does not. A companion service can raise it as a task with the invoice filled in, so a payment it needs is one prompt the user accepts; the node never hands out credentials.
 
 ### Node Info, Watchtower Server Info
 
@@ -241,13 +241,13 @@ Not user-facing, and not a general VPN facility: it exists for the TunnelSats se
 
 Three at install, one raised on Bitcoin, and one raised at each lock while Cold Storage Mode is on.
 
-| Task                         | Raised on | Severity    | Raised when                                                 | Cleared when                                          |
-| ---------------------------- | --------- | ----------- | ----------------------------------------------------------- | ----------------------------------------------------- |
-| Initialize Wallet            | this      | `critical`  | At install                                                  | The action runs                                       |
-| Bitcoin Backend              | this      | `critical`  | At install                                                  | The action runs                                       |
-| Configure Continuous Backups | this      | `important` | At install                                                  | The action runs                                       |
-| Unlock Wallet                | this      | `important` | Each time LND is found locked while Cold Storage Mode is on | The wallet opens, or Turn Off runs                    |
-| Auto-Configure               | Bitcoin   | `critical`  | The backend is bitcoind and its ZeroMQ is disabled          | Bitcoin's config matches; it returns if changed again |
+| Task                         | Raised on | Severity    | Raised when                                                            | Cleared when                                              |
+| ---------------------------- | --------- | ----------- | ---------------------------------------------------------------------- | --------------------------------------------------------- |
+| Initialize Wallet            | this      | `critical`  | At install                                                             | The action runs                                           |
+| Bitcoin Backend              | this      | `critical`  | At install                                                             | The action runs                                           |
+| Configure Continuous Backups | this      | `important` | At install                                                             | The action runs                                           |
+| Unlock Wallet                | this      | `important` | Each time LND is found locked while Cold Storage Mode is on            | The wallet opens, or Turn Off runs                        |
+| Auto-Configure               | Bitcoin   | `critical`  | The backend is bitcoind and its ZeroMQ is disabled                     | Bitcoin's config matches; it returns if changed again     |
 | Clearnet VPN                 | this      | `important` | Only when the TunnelSats service raises it with a tunnel for this node | The stored configuration matches what TunnelSats proposes |
 
 The Bitcoin task appears on **Bitcoin's** page with nothing there explaining which service asked for it. LND needs ZeroMQ to be told about new blocks and transactions; polling is not a substitute.

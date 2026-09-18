@@ -3,7 +3,7 @@ import { i18n } from '../i18n'
 import { sdk } from '../sdk'
 import { literal, mainMounts, selfGrpcHost } from '../utils'
 
-const { InputSpec, Value } = sdk
+const { InputSpec, Value, Variants } = sdk
 
 const inputSpec = InputSpec.of({
   invoice: Value.text({
@@ -13,18 +13,36 @@ const inputSpec = InputSpec.of({
     default: null,
     placeholder: 'lnbc…',
   }),
-  amount: Value.number({
-    name: i18n('Amount (sats)'),
-    description: i18n('Only for an invoice that carries no amount.'),
-    required: false,
-    default: null,
-    min: 1,
-    integer: true,
-    units: 'sats',
-    placeholder: null,
+  amount: Value.union({
+    name: i18n('Amount'),
+    description: i18n(
+      'Most invoices state their amount; enter one only when the invoice leaves it open.',
+    ),
+    default: 'invoice',
+    variants: Variants.of({
+      invoice: {
+        name: i18n('As stated in the invoice'),
+        spec: InputSpec.of({}),
+      },
+      custom: {
+        name: i18n('Enter an amount'),
+        spec: InputSpec.of({
+          sats: Value.number({
+            name: i18n('Amount to pay'),
+            description: null,
+            required: true,
+            default: null,
+            min: 1,
+            integer: true,
+            units: 'sats',
+            placeholder: null,
+          }),
+        }),
+      },
+    }),
   }),
   'max-fee-percent': Value.number({
-    name: i18n('Maximum fee (%)'),
+    name: i18n('Maximum fee'),
     description: i18n(
       'The most this node may pay in routing fees, as a percentage of the amount.',
     ),
@@ -32,6 +50,7 @@ const inputSpec = InputSpec.of({
     default: 1,
     min: 0,
     max: 100,
+    step: 0.1,
     integer: false,
     units: '%',
     placeholder: null,
@@ -108,9 +127,22 @@ export const payInvoice = sdk.Action.withInput(
           )
         }
         const decoded: DecodedPayReq = JSON.parse(decodeRes.stdout)
-        if (decoded.num_satoshis === '0' && !input.amount) {
-          throw new Error(i18n('This invoice carries no amount; enter one.'))
+        const entered =
+          input.amount.selection === 'custom' ? input.amount.value.sats : null
+        if (decoded.num_satoshis === '0' && entered === null) {
+          throw new Error(
+            i18n('This invoice carries no amount; select "Enter an amount".'),
+          )
         }
+        if (decoded.num_satoshis !== '0' && entered !== null) {
+          throw new Error(
+            i18n(
+              'This invoice already carries an amount of ${amount} sats; select "As stated in the invoice".',
+              { amount: decoded.num_satoshis },
+            ),
+          )
+        }
+        const amountSats = entered ?? Number(decoded.num_satoshis)
         const payRes = await subc.exec(
           [
             ...lncli,
@@ -119,9 +151,9 @@ export const payInvoice = sdk.Action.withInput(
             '--json',
             '--timeout',
             '60s',
-            '--fee_limit_percent',
-            String(input['max-fee-percent']),
-            ...(input.amount ? ['--amt', String(input.amount)] : []),
+            '--fee_limit',
+            String(Math.ceil((amountSats * input['max-fee-percent']) / 100)),
+            ...(entered === null ? [] : ['--amt', String(entered)]),
             '--pay_req',
             input.invoice.trim(),
           ],
@@ -145,8 +177,7 @@ export const payInvoice = sdk.Action.withInput(
           version: '1' as const,
           title: i18n('Payment sent'),
           message: i18n('Paid ${amount} sats to ${destination}.', {
-            amount:
-              final.value_sat ?? String(input.amount ?? decoded.num_satoshis),
+            amount: final.value_sat ?? String(entered ?? decoded.num_satoshis),
             destination: decoded.destination,
           }),
           result: {
