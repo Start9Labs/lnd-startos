@@ -10,6 +10,7 @@ import { lndConfFile } from './fileModels/lnd.conf'
 import { ImportPending, startupFlagsJson } from './fileModels/startupFlags.json'
 import { shape, storeJson } from './fileModels/store.json'
 import { unlockStatusJson } from './fileModels/unlock-status.json'
+import { vpnConfFile } from './fileModels/vpn.conf'
 import { i18n } from './i18n'
 import { sdk } from './sdk'
 import { migrateOnStart, needsSqliteMigration } from './sqliteBackend'
@@ -21,6 +22,15 @@ import {
   refusedWalletPassword,
 } from './walletUnlocker'
 import { describeFailures } from './channelBackupStatus'
+import {
+  handshakeStaleMs,
+  parseWireguardConfig,
+  renderWgQuick,
+  vpnDownScript,
+  vpnIface,
+  vpnUpScript,
+} from './vpn'
+import { mkdir, rm } from 'node:fs/promises'
 import {
   backupFailureShape,
   channelBackupStateJson,
@@ -233,6 +243,20 @@ export const main = sdk.setupMain(async ({ effects }) => {
 
   // Native SQL lives on the CLI, not the conf (see lnd.conf.ts).
   const lndArgs: string[] = ['--db.use-native-sql']
+
+  const clearnetVpn = await storeJson.read((s) => s.clearnetVpn).const(effects)
+  const vpn = clearnetVpn && parseWireguardConfig(clearnetVpn.config)
+  if (vpn && 'error' in vpn) {
+    throw new Error(`invalid clearnet VPN configuration: ${vpn.error}`)
+  }
+  if (vpn) {
+    await mkdir(sdk.volumes.main.subpath('./vpn'), { recursive: true })
+    await vpnConfFile.write(effects, renderWgQuick(vpn.config))
+  } else {
+    await rm(sdk.volumes.main.subpath(`./vpn/${vpnIface}.conf`), {
+      force: true,
+    })
+  }
 
   if (resetWalletTransactions) {
     lndArgs.push('--reset-wallet-transactions')
@@ -465,8 +489,9 @@ export const main = sdk.setupMain(async ({ effects }) => {
       requires: [],
     })
 
-  const lndChain = () =>
-    sdk.Daemons.of(effects)
+  const lndChain = () => {
+    const vpnStartedAt = Date.now()
+    return sdk.Daemons.of(effects)
       .addOneshot('stage-local-restore', () =>
         restore
           ? {
@@ -495,6 +520,26 @@ export const main = sdk.setupMain(async ({ effects }) => {
             }
           : null,
       )
+      .addOneshot('vpn', {
+        subcontainer: lndSub,
+        exec: {
+          fn: async (subcontainer, abort) => {
+            const res = await subcontainer.exec(
+              ['sh', '-c', vpn ? vpnUpScript : vpnDownScript],
+              {},
+              60_000,
+              { abort: abort.reason, signal: abort },
+            )
+            if (res.exitCode !== 0) {
+              throw new Error(
+                `failed to bring the clearnet VPN ${vpn ? 'up' : 'down'}: ${String(res.stderr).trim()}`,
+              )
+            }
+            return null
+          },
+        },
+        requires: [],
+      })
       .addDaemon('lnd', {
         exec: { command: ['lnd', ...lndArgs] },
         subcontainer: lndSub,
@@ -512,7 +557,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
             return { result: 'success', message: i18n('LND is ready') }
           },
         },
-        requires: restore ? ['stage-local-restore'] : [],
+        requires: restore ? ['stage-local-restore', 'vpn'] : ['vpn'],
       })
       .addOneshot('unlock-wallet', {
         exec: {
@@ -987,6 +1032,73 @@ export const main = sdk.setupMain(async ({ effects }) => {
             }
           : null,
       )
+      .addHealthCheck('vpn-tunnel', () =>
+        vpn
+          ? {
+              ready: {
+                display: i18n('Clearnet VPN'),
+                trigger: sdk.trigger.statusTrigger(30_000, {
+                  starting: 5_000,
+                  failure: 30_000,
+                }),
+                fn: async () => {
+                  const noHandshake = () => {
+                    const ageMs = Date.now() - vpnStartedAt
+                    return ageMs > handshakeStaleMs
+                      ? {
+                          result: 'failure' as const,
+                          message: i18n(
+                            'No WireGuard handshake for ${minutes} minutes. Clearnet traffic is held until the tunnel returns, not sent over your ISP connection.',
+                            { minutes: String(Math.floor(ageMs / 60_000)) },
+                          ),
+                        }
+                      : {
+                          result: 'starting' as const,
+                          message: i18n(
+                            'Waiting for the first WireGuard handshake.',
+                          ),
+                        }
+                  }
+                  let res
+                  try {
+                    res = await lndSub.exec(
+                      ['wg', 'show', vpnIface, 'latest-handshakes'],
+                      {},
+                      10_000,
+                    )
+                  } catch {
+                    return noHandshake()
+                  }
+                  if (res.exitCode !== 0) return noHandshake()
+                  const epoch = Number(
+                    String(res.stdout).trim().split(/\s+/)[1] ?? 0,
+                  )
+                  if (!epoch) return noHandshake()
+                  const ageMs = Date.now() - epoch * 1000
+                  if (ageMs > handshakeStaleMs) {
+                    return {
+                      result: 'failure',
+                      message: i18n(
+                        'No WireGuard handshake for ${minutes} minutes. Clearnet traffic is held until the tunnel returns, not sent over your ISP connection.',
+                        { minutes: String(Math.floor(ageMs / 60_000)) },
+                      ),
+                    }
+                  }
+                  return {
+                    result: 'success',
+                    message: i18n(
+                      'Tunnel up; last handshake ${seconds}s ago.',
+                      {
+                        seconds: String(Math.floor(ageMs / 1000)),
+                      },
+                    ),
+                  }
+                },
+              },
+              requires: ['vpn'],
+            }
+          : null,
+      )
       .addOneshot('add-watchtowers', () =>
         watchtowerClients.length > 0
           ? ({
@@ -1101,6 +1213,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
         },
         requires: ['channel-backup-agent'],
       })
+  }
 
   return sdk.Daemons.dynamic(effects, async ({ effects: dynEffects }) => {
     const importPending = await startupFlagsJson
