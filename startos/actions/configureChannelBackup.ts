@@ -587,7 +587,7 @@ const sftpCommon = {
   'sftp-path': sdk.Value.text({
     name: i18n('Folder Path'),
     description: i18n(
-      'Relative to the login home directory, with no leading slash.',
+      'Relative to the directory an SFTP login starts in: the home directory on most servers, elsewhere on a NAS or a chrooted account. Connect with an SFTP client and run pwd to see it. No leading slash.',
     ),
     default: backupFolderDefault,
     required: false,
