@@ -400,7 +400,7 @@ const dict = {
   'Login username.': 348,
   Port: 349,
   'Default 22.': 350,
-  'Relative to the login home directory, with no leading slash.': 351,
+  'Relative to the directory an SFTP login starts in: the home directory on most servers, elsewhere on a NAS or a chrooted account. Connect with an SFTP client and run pwd to see it. No leading slash.': 351,
   Authentication: 352,
   'Password or SSH key.': 353,
   'Login password. Leave blank to keep the stored one.': 354,
