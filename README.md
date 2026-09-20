@@ -210,7 +210,7 @@ SFTP servers are pinned by host key, and the pin is confirmed before it is used.
 
 ### Cold Storage
 
-Four actions under Cold Storage, and the mode is off unless a user turns it on.
+Three actions under Cold Storage, and the mode is off unless a user turns it on. Turn On and Turn Off are one action, `cold-storage-toggle`, whose name, text, input and availability follow the mode: Turn On while the mode is off, Turn Off while it is on.
 
 By default LND stores its wallet password and seed in `store.json` and unlocks itself at every start. That is what makes the node self-healing across reboots, and it is also what an attacker with the disk gets. Cold Storage Mode removes both, at the cost of the node being offline from every restart until someone unlocks it by hand.
 
@@ -363,8 +363,7 @@ actions:
   - configure-channel-backup
   - backup-channels-now # only-running
   - cold-storage-prepare
-  - cold-storage-enable # only-running
-  - cold-storage-disable
+  - cold-storage-toggle # Turn On, only-running, while the mode is off; Turn Off while it is on
   - unlock-wallet # only-running; offered while Cold Storage Mode is on or the stored password was refused
 tasks:
   - { action: initialize-wallet, severity: critical }
