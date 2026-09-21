@@ -8,6 +8,8 @@ import { backendConfig } from './backend'
 import { autopilotConfig } from './config/autopilot'
 import { channelsConfig } from './config/channels'
 import { clearnetVpn } from './clearnetVpn'
+import { payInvoice } from './payInvoice'
+import { receivePayment } from './receivePayment'
 import { customExternalHostConfig } from './config/customExternalHost'
 import { general } from './config/general'
 import { performanceConfig } from './config/performance'
@@ -44,3 +46,5 @@ export const actions = sdk.Actions.of()
   .addAction(toggleColdStorage)
   .addAction(unlockWallet)
   .addAction(clearnetVpn)
+  .addAction(payInvoice)
+  .addAction(receivePayment)
