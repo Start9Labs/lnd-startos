@@ -111,13 +111,14 @@ export function renderWgQuick(c: WireguardConfig): string {
   ].join('\n')
 }
 
-// Deleting the link drops its table's routes; the rules and firewall entries outlive it.
+// Teardown clears the interface, policy routes and rules, and firewall entries.
 export const vpnDownScript = `
 if ip link show ${vpnIface} >/dev/null 2>&1; then ip link del ${vpnIface}; fi
 for t in iptables ip6tables; do
   $t -S INPUT 2>/dev/null | grep -- "-i ${vpnIface} " | sed 's/^-A /-D /' | while read -r rule; do $t $rule; done
 done
 for fam in -4 -6; do
+  ip $fam route flush table ${vpnTable} 2>/dev/null || true
   while ip $fam rule show | grep -q "lookup ${vpnTable}"; do ip $fam rule del table ${vpnTable} || break; done
   while ip $fam rule show | grep -q "suppress_prefixlength 0"; do ip $fam rule del table main suppress_prefixlength 0 || break; done
 done
