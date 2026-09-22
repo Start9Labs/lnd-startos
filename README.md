@@ -99,7 +99,9 @@ Five values depart from LND's own defaults. The first two are enforced; the rest
 
 Two further keys are forced absent for correctness rather than preference: **`db.use-native-sql`**, because the conversion's bolt-mode run reads the same file and bolt rejects native SQL, so it is passed on the daemon's command line instead; and the three **onion-message protocol overrides**, which LND 0.21 advertises natively and which now make it abort at startup if still present.
 
-**Derived, on every start:** the Bitcoin backend bundle — RPC host, cookie path, and both ZeroMQ addresses — resolved from Bitcoin's own bindings. Selecting Neutrino instead swaps the whole bundle out and sets a fee URL, because Neutrino cannot estimate fees locally.
+**Derived, on every start:** the Bitcoin backend bundle — RPC host, cookie path, and both ZeroMQ addresses — resolved from Bitcoin's own bindings, plus `routing.assumechanvalid=true` while Bitcoin is pruned. Selecting Neutrino instead swaps the whole bundle out and sets a fee URL, because Neutrino cannot estimate fees locally.
+
+**On a pruned Bitcoin:** `routing.assumechanvalid` stops LND fetching the block behind every channel announcement, which a pruned node would have to pull from its peers one by one until LND stops answering. The graph is taken on trust from gossip, as LND does on Neutrino by default, and a closed channel leaves it once both directions are disabled or stop updating rather than when its funding output is spent. Only the routing graph is affected; LND watches the node's own channels on-chain either way. LND logs the key as deprecated on every start, and 0.21.3 still honours it.
 
 **Yours:** everything the config actions expose — alias and colour, channel and routing-fee policy, autopilot, performance flags, Tor settings, and the watchtower server and client.
 
@@ -120,7 +122,7 @@ Both are optional and conditional on configuration.
 
 Choosing bitcoind also raises a `critical` task on **Bitcoin** requiring ZeroMQ — see [Tasks](#tasks).
 
-The daemon **restarts when Bitcoin writes a replacement RPC cookie**, but not when the cookie merely disappears: an absent cookie means Bitcoin is down, and stopping LND at that moment hangs its shutdown.
+The daemon **restarts when Bitcoin writes a replacement RPC cookie**, but not when the cookie merely disappears: an absent cookie means Bitcoin is down, and stopping LND at that moment hangs its shutdown. It also restarts when pruning is turned on or off in Bitcoin's `bitcoin.conf`, to set or clear `routing.assumechanvalid`.
 
 ## Network Access and Interfaces
 
@@ -280,6 +282,8 @@ That state is indistinguishable from a large legitimate backfill through `getinf
 
 `lncli disconnect <pubkey>` on the elected peer forces an immediate re-election, and restarting LND has the same effect by drawing a new first peer.
 
+**The chain half checks that Bitcoin actually serves blocks.** `getinfo`'s `block_height` follows headers, which keep arriving while block fetches fail, so it cannot tell a stuck backend from a slow sync. Once LND has been behind the chain for five minutes, the check has it fetch Bitcoin's tip block (`lncli chain getblock`), the same path its block notifier uses, and repeats every five minutes while it stays behind. A failed fetch changes the message to _Bitcoin is not serving blocks to LND_ with the error, and two in a row also send an error notification, once per episode. The result stays `loading`. There is no probe on Neutrino.
+
 **`reachability` reports whether peers can actually open a connection to you**, which is separate from whether LND is healthy. A node that is running fine but unreachable will not receive inbound channels.
 
 **`vpn-tunnel` reads the tunnel's last handshake.** `starting` until the first one, `failure` once it is more than three minutes old — WireGuard rekeys about every two minutes under traffic. A failing tunnel does not leak: the routing rules the package installs send clearnet traffic nowhere but the tunnel, so it is held, not sent over the ISP connection. The `vpn` oneshot that brings the tunnel up runs before the `lnd` daemon and blocks it if the tunnel cannot be created.
@@ -320,7 +324,8 @@ The daemon re-sends every copy daily even when nothing changed, so a deleted cop
 7. **Onion-message protocol overrides are stripped**, since LND 0.21 advertises the feature natively and the old overrides now prevent startup.
 8. **An import is bounded at six hours** and copies over the network from the origin node.
 9. **No riscv64 build.** x86_64 and aarch64 only.
-10. **The Clearnet VPN carries everything or nothing.** The configuration's `AllowedIPs` must include `0.0.0.0/0`; `DNS =` lines are ignored (the container keeps its resolver); IPv6 is routed into the tunnel when it carries `::/0` and blackholed otherwise; and enabling it turns on **Skip for clearnet peers** in Tor Settings. Only one tunnel, and one [Peer], per node.
+10. **On a pruned Bitcoin, the channel graph is not validated against the chain** (`routing.assumechanvalid`), as on Neutrino.
+11. **The Clearnet VPN carries everything or nothing.** The configuration's `AllowedIPs` must include `0.0.0.0/0`; `DNS =` lines are ignored (the container keeps its resolver); IPv6 is routed into the tunnel when it carries `::/0` and blackholed otherwise; and enabling it turns on **Skip for clearnet peers** in Tor Settings. Only one tunnel, and one [Peer], per node.
 
 ---
 
@@ -392,7 +397,7 @@ tasks:
 health_checks:
   - lnd # displayed "LND Server"
   - wallet-unlock # displayed "Wallet Unlock"; reports normal unlock errors while the wallet remains locked; also fails while Cold Storage Mode waits for a manual unlock
-  - sync-progress # displayed "Network and Graph Sync Progress"; synced_to_chain, synced_to_graph, num_peers
+  - sync-progress # displayed "Network and Graph Sync Progress"; synced_to_chain, synced_to_graph, num_peers; fetches Bitcoin's tip block while behind the chain
   - channel-backup # displayed "Continuous Backup"; disabled until a target is enabled
   - reachability # displayed "Node Reachability"
   - vpn-tunnel # displayed "Clearnet VPN"; only while a tunnel is configured; last-handshake age
