@@ -499,6 +499,10 @@ export default {
     596: 'He verificado el importe y el destino',
     597: 'Confirma estos datos antes de enviar. Los pagos Lightning no se pueden revertir.',
     598: 'La factura cambió después de revisarla. Vuelve a abrir la acción y verifica sus datos.',
+    599: 'Bitcoin no está sirviendo bloques a LND: ${error}',
+    600: 'tiempo de espera agotado',
+    601: 'LND no está viendo bloques nuevos',
+    602: 'Bitcoin no está sirviendo bloques a LND, así que LND no puede ver bloques nuevos ni responder a tiempo a un intento de fraude en un canal o a un HTLC que expira. Revisa el servicio Bitcoin. Último error: ${error}',
   },
   de_DE: {
     309: 'Kontinuierliche Backups',
@@ -998,6 +1002,10 @@ export default {
     596: 'Ich habe Betrag und Ziel überprüft',
     597: 'Bestätige diese Angaben vor dem Senden. Lightning-Zahlungen können nicht rückgängig gemacht werden.',
     598: 'Die Rechnung wurde nach der Prüfung geändert. Öffne die Aktion erneut und prüfe ihre Angaben.',
+    599: 'Bitcoin liefert LND keine Blöcke: ${error}',
+    600: 'Zeitüberschreitung',
+    601: 'LND sieht keine neuen Blöcke',
+    602: 'Bitcoin liefert LND keine Blöcke, daher sieht LND keine neuen Blöcke und kann nicht rechtzeitig auf einen Betrugsversuch in einem Kanal oder einen ablaufenden HTLC reagieren. Prüfe den Bitcoin-Dienst. Letzter Fehler: ${error}',
   },
   pl_PL: {
     309: 'Kopie ciągłe',
@@ -1497,6 +1505,10 @@ export default {
     596: 'Kwota i miejsce docelowe zostały przeze mnie zweryfikowane',
     597: 'Potwierdź te dane przed wysłaniem. Płatności Lightning nie można cofnąć.',
     598: 'Faktura zmieniła się po sprawdzeniu. Otwórz akcję ponownie i zweryfikuj jej dane.',
+    599: 'Bitcoin nie dostarcza bloków do LND: ${error}',
+    600: 'przekroczono limit czasu',
+    601: 'LND nie widzi nowych bloków',
+    602: 'Bitcoin nie dostarcza bloków do LND, więc LND nie widzi nowych bloków i nie może na czas zareagować na próbę oszustwa w kanale ani na wygasający HTLC. Sprawdź usługę Bitcoin. Ostatni błąd: ${error}',
   },
   fr_FR: {
     309: 'Sauvegardes continues',
@@ -1996,5 +2008,9 @@ export default {
     596: 'J’ai vérifié le montant et la destination',
     597: 'Confirmez ces informations avant l’envoi. Les paiements Lightning sont irréversibles.',
     598: 'La facture a changé après sa vérification. Rouvrez l’action et vérifiez ses informations.',
+    599: 'Bitcoin ne fournit pas de blocs à LND : ${error}',
+    600: 'délai dépassé',
+    601: 'LND ne voit pas de nouveaux blocs',
+    602: 'Bitcoin ne fournit pas de blocs à LND : LND ne peut donc pas voir les nouveaux blocs ni réagir à temps à une tentative de fraude sur un canal ou à un HTLC qui expire. Vérifiez le service Bitcoin. Dernière erreur : ${error}',
   },
 } satisfies Record<string, LangDict>
