@@ -1,53 +1,23 @@
 import { VersionInfo } from '@start9labs/start-sdk'
 
 export const current = VersionInfo.of({
-  version: '0.21.3-beta:7',
+  version: '0.21.3-beta:8',
   releaseNotes: {
-    en_US: `Updates continuous-backup transfers to rclone 1.75.1, including upstream security and reliability fixes.
+    en_US: `On a pruned Bitcoin node, LND now takes channel announcements on trust, as it already does on Neutrino, so a channel graph built from scratch finishes syncing instead of stalling.
 
-The SFTP continuous-backup target explains which directory its folder path is relative to, and how to find it.
+Network and Graph Sync Progress now says when Bitcoin is not serving blocks to LND, and sends a notification if that lasts.`,
+    es_ES: `Con un nodo Bitcoin podado, LND ahora acepta los anuncios de canales sin verificarlos, como ya hace con Neutrino, así que un grafo de canales construido desde cero termina de sincronizarse en lugar de quedarse atascado.
 
-Turn On and Turn Off under Cold Storage are now a single action.
+Progreso de sincronización de red y grafo ahora indica cuándo Bitcoin no está sirviendo bloques a LND, y envía una notificación si la situación persiste.`,
+    de_DE: `Läuft Bitcoin im Pruning-Modus, übernimmt LND Kanalankündigungen jetzt ungeprüft, wie schon mit Neutrino, sodass ein von Grund auf neu aufgebauter Kanalgraph fertig synchronisiert, statt hängen zu bleiben.
 
-The TunnelSats service can now route this node's clearnet traffic through its tunnel and announce the tunnel's address, by raising a prompt on LND.
+Netzwerk- und Graph-Synchronisierungsfortschritt zeigt jetzt an, wenn Bitcoin LND keine Blöcke liefert, und sendet eine Benachrichtigung, wenn das anhält.`,
+    pl_PL: `Gdy Bitcoin działa w trybie przycinania (pruning), LND przyjmuje teraz ogłoszenia kanałów bez weryfikacji, tak jak już robi to z Neutrino, więc graf kanałów budowany od zera kończy synchronizację zamiast się zawieszać.
 
-New Payments actions: Pay Invoice pays a Lightning invoice from the node, and Receive Payment creates one for it to be paid.`,
-    es_ES: `Actualiza las transferencias de copias continuas a rclone 1.75.1, incluidas correcciones de seguridad y fiabilidad de rclone.
+Postęp synchronizacji sieci i grafu pokazuje teraz, kiedy Bitcoin nie dostarcza bloków do LND, i wysyła powiadomienie, jeśli ten stan się utrzymuje.`,
+    fr_FR: `Lorsque Bitcoin est élagué (pruned), LND accepte désormais les annonces de canaux sans les vérifier, comme il le fait déjà avec Neutrino : un graphe de canaux construit de zéro termine donc sa synchronisation au lieu de rester bloqué.
 
-El destino SFTP de copias continuas explica respecto a qué directorio es relativa la ruta de su carpeta, y cómo averiguarlo.
-
-Activar y desactivar en Almacenamiento en frío son ahora una sola acción.
-
-El servicio TunnelSats ahora puede enrutar el tráfico clearnet de este nodo por su túnel y anunciar la dirección del túnel, mostrando un aviso en LND.
-
-Nuevas acciones de Pagos: Pagar factura paga una factura Lightning desde el nodo, y Recibir pago crea una para que se le pague.`,
-    de_DE: `Aktualisiert kontinuierliche Backup-Übertragungen auf rclone 1.75.1, einschließlich Sicherheits- und Zuverlässigkeitskorrekturen von rclone.
-
-Das SFTP-Ziel für kontinuierliche Backups erklärt, auf welches Verzeichnis sich der Ordnerpfad bezieht und wie man es findet.
-
-Einschalten und Ausschalten unter Cold Storage sind jetzt eine einzige Aktion.
-
-Der TunnelSats-Dienst kann den Clearnet-Verkehr dieses Knotens jetzt durch seinen Tunnel leiten und die Adresse des Tunnels ankündigen, indem er eine Aufforderung in LND auslöst.
-
-Neue Aktionen unter Zahlungen: Rechnung bezahlen bezahlt eine Lightning-Rechnung vom Knoten aus, und Zahlung empfangen erstellt eine, mit der er bezahlt werden kann.`,
-    pl_PL: `Aktualizuje transfery kopii ciągłych do rclone 1.75.1, wprowadzając poprawki bezpieczeństwa i niezawodności rclone.
-
-Cel SFTP kopii ciągłych wyjaśnia, względem którego katalogu jest ścieżka folderu i jak go znaleźć.
-
-Włącz i Wyłącz w Zimnym przechowywaniu to teraz jedna akcja.
-
-Usługa TunnelSats może teraz kierować ruch clearnet tego węzła przez swój tunel i ogłaszać adres tunelu, wyświetlając monit w LND.
-
-Nowe akcje w grupie Płatności: Zapłać fakturę opłaca fakturę Lightning z węzła, a Odbierz płatność tworzy fakturę do opłacenia.`,
-    fr_FR: `Met à jour les transferts de sauvegarde continue vers rclone 1.75.1, avec des correctifs de sécurité et de fiabilité de rclone.
-
-La cible SFTP de sauvegarde continue explique par rapport à quel répertoire le chemin de son dossier est relatif, et comment le trouver.
-
-Activer et Désactiver sous Stockage à froid ne forment plus qu'une seule action.
-
-Le service TunnelSats peut désormais acheminer le trafic clearnet de ce nœud par son tunnel et annoncer l'adresse du tunnel, en affichant une invite dans LND.
-
-Nouvelles actions Paiements : Payer une facture règle une facture Lightning depuis le nœud, et Recevoir un paiement en crée une pour qu'il soit payé.`,
+Progression de la synchronisation du réseau et du graphe indique désormais quand Bitcoin ne fournit pas de blocs à LND, et envoie une notification si cela persiste.`,
   },
   migrations: {
     up: async () => {},

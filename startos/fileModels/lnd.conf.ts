@@ -25,6 +25,7 @@ const iniNumber = z
     z.string().transform(Number),
     z.number(),
   ])
+  .pipe(z.number()) // rejects the NaN or Infinity that Number() makes of a non-numeric value
   .optional()
   .catch(undefined)
 
@@ -65,6 +66,7 @@ export const shape = z.object({
   'bitcoind.rpccookie': iniString,
   'bitcoind.zmqpubrawblock': iniString,
   'bitcoind.zmqpubrawtx': iniString,
+  'routing.assumechanvalid': z.literal(true).optional().catch(undefined),
 
   // ──── Application Options ────
   // LND debuglevel: a global level, optionally with per-subsystem overrides.

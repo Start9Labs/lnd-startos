@@ -20,6 +20,8 @@ Then start LND. A third, non-blocking task suggests setting up **Continuous Back
 
 On every start, **Network and Graph Sync** goes through _Syncing to graph_ before it reaches _Synced_ — usually well under three minutes. If it reads _Waiting for peers_, LND has not connected to any yet. LND depends on a single peer it picks at startup to hand over the channel graph, and if that peer stops responding the sync waits on it; the check then tells you how long it has been pending. LND retries with a different peer within the hour on its own, so this normally clears itself. If you would rather not wait, restart LND — it picks a different peer. A node with no channels sees this most often, because it has no regular peers to reconnect to.
 
+If **Network and Graph Sync** reads _Bitcoin is not serving blocks to LND_, LND has fallen behind the chain because Bitcoin cannot hand it blocks — check the **Bitcoin** service and its logs. If it lasts, you also get a notification. Until it clears, LND cannot see new blocks, which it needs to protect your channels.
+
 **Wallet Unlock** reports errors from LND's normal wallet unlock request while the wallet remains locked. A refused stored password is identified separately from other errors. Unlock attempts continue automatically.
 
 ## Using LND
@@ -48,7 +50,7 @@ Other nodes connect to you over the **Peer** interface; run **Node Info** for yo
 
 ### Configuration
 
-Configure LND through its settings actions — General, Routing Fees, Channel Settings, Autopilot, Performance, Watchtower Server/Client, Bitcoin Backend, Tor, and Custom External Host. You can also edit `lnd.conf` directly: your settings are preserved across restarts, except for a few keys StartOS manages for you (`externalip`/`externalhosts`, `tor.socks`, and the Bitcoin backend connection settings).
+Configure LND through its settings actions — General, Routing Fees, Channel Settings, Autopilot, Performance, Watchtower Server/Client, Bitcoin Backend, Tor, and Custom External Host. You can also edit `lnd.conf` directly: your settings are preserved across restarts, except for a few keys StartOS manages for you (`externalip`/`externalhosts`, `tor.socks`, the Bitcoin backend connection settings, and `routing.assumechanvalid`).
 
 **Not routing any payments?** Check **Reject Routing Requests** under **Channel Settings**. With it on, LND still sends and receives payments but refuses to be used as a hop, and the log shows `node configured to disallow forwards` each time it turns one away.
 
@@ -97,3 +99,4 @@ Once the mode is on, Turn On becomes **Turn Off**. It puts the password back, re
 
 - **Mainnet only** — no testnet, signet, or regtest.
 - **Wallet is managed by StartOS** — `lncli create` and `lncli unlock` are not used.
+- **On a pruned Bitcoin, LND takes channel announcements on trust**, as it always does on Neutrino, because a pruned node no longer has the blocks to check them against. This affects only LND's map of the network for finding payment routes, not how it watches your own channels.

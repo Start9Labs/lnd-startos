@@ -63,6 +63,13 @@ const IMPORT_TIMEOUT_MS = 6 * 60 * 60_000
 // synced_to_graph, so crossing it means the elected peer is not answering.
 const GRAPH_SYNC_SLOW_MS = 15 * 60_000
 
+const BLOCK_PROBE_INTERVAL_MS = 5 * 60_000
+
+// getinfo's block_height follows headers, which keep arriving while block fetches fail.
+const fetchTipBlock = `set -o pipefail
+hash=$(timeout 30 lncli --rpcserver="$1" chain getbestblock | jq -r .block_hash) || exit
+timeout 60 lncli --rpcserver="$1" chain getblock --hash "$hash" >/dev/null && echo fetched`
+
 // LND gates synced_to_graph on one elected peer, and holds every other peer
 // passive until it finishes — so one unresponsive peer stalls all gossip, and
 // from getinfo alone that looks identical to a large backfill. Elapsed time is
@@ -173,6 +180,12 @@ export const main = sdk.setupMain(async ({ effects }) => {
     startupFlags
   let notified = startupFlags.notified
   let graphSyncPendingSince: number | null = null
+  let blockProbe: {
+    at: number
+    error: string | null
+    failures: number
+    notified: boolean
+  } | null = null
   let nextSyncProbeWarningAt = 0
   let unlockError: UnlockError | null = null
   const warnSyncProbe = (message: string, details: Record<string, unknown>) => {
@@ -188,19 +201,6 @@ export const main = sdk.setupMain(async ({ effects }) => {
   }
 
   const useBitcoind = conf['bitcoin.node'] === 'bitcoind'
-
-  const bitcoindSettings = useBitcoind
-    ? await getBitcoindBundle(effects)
-    : neutrinoBundle
-
-  // Enforce backend bundle — ensures rpchost, rpccookie, zmq, fee.url stay in
-  // sync. This write also re-renders the conf through the file-model schema,
-  // which forces db.use-native-sql (CLI-only now) and the obsolete onion-message
-  // keys (custom-init/nodeann/message — bit 39 crashes on 0.21, see lnd.conf.ts)
-  // to undefined, stripping any an upgraded node still carries.
-  await lndConfFile.merge(effects, bitcoindSettings, {
-    allowWriteAfterConst: true,
-  })
 
   const { walletPassword, watchtowerClients } = store
 
@@ -233,6 +233,33 @@ export const main = sdk.setupMain(async ({ effects }) => {
       )
       .const(effects)
   }
+
+  const bitcoindPruned =
+    useBitcoind &&
+    !!(await FileHelper.ini(
+      `${await lndSub.rootfs}${bitcoindMnt}/bitcoin.conf`,
+      z.object({ prune: z.coerce.number().catch(0) }),
+    )
+      .read(
+        (c) => c.prune > 0,
+        (prev, next) => next === null || prev === next,
+      )
+      .const(effects))
+
+  // Enforce backend bundle — ensures rpchost, rpccookie, zmq, fee.url and
+  // assumechanvalid stay in sync. This write also re-renders the conf through
+  // the file-model schema, which forces db.use-native-sql (CLI-only now) and
+  // the obsolete onion-message keys (custom-init/nodeann/message — bit 39
+  // crashes on 0.21, see lnd.conf.ts) to undefined, stripping any an upgraded
+  // node still carries.
+  await lndConfFile.merge(
+    effects,
+    {
+      ...(useBitcoind ? await getBitcoindBundle(effects) : neutrinoBundle),
+      'routing.assumechanvalid': bitcoindPruned || undefined,
+    },
+    { allowWriteAfterConst: true },
+  )
 
   // LND reads its TLS pair once at startup, so re-running main is what carries
   // a reissued certificate — a new address on the gRPC interface — to a client.
@@ -488,6 +515,55 @@ export const main = sdk.setupMain(async ({ effects }) => {
       },
       requires: [],
     })
+
+  const blockFetchError = async () => {
+    const now = Date.now()
+    const probe = (blockProbe ??= {
+      at: now,
+      error: null,
+      failures: 0,
+      notified: false,
+    })
+    if (now - probe.at < BLOCK_PROBE_INTERVAL_MS) return probe.error
+    probe.at = now
+    const res = await lndSub
+      .exec(['sh', '-c', fetchTipBlock, 'sh', selfGrpcHost], {}, 120_000)
+      .catch(() => null)
+    if (!res) return probe.error
+    if (String(res.stdout).trim() === 'fetched') {
+      probe.error = null
+      probe.failures = 0
+      return null
+    }
+    const stderr = String(res.stderr).trim()
+    console.warn('sync-progress: LND could not fetch the tip block', {
+      exitCode: res.exitCode,
+      stderr: stderr.slice(-2_000),
+    })
+    const error =
+      res.exitCode === 143 || res.exitCode === null
+        ? i18n('timed out')
+        : stderr
+            .split('\n')
+            .at(-1)!
+            .replace(/^\[lncli\] (rpc error: code = \w+ desc = )?/, '') ||
+          `exit code ${res.exitCode}`
+    probe.error = error
+    probe.failures += 1
+    if (probe.failures >= 2 && !probe.notified) {
+      probe.notified = await attempt('failed to notify', () =>
+        sdk.notification.create(effects, {
+          level: 'error',
+          title: i18n('LND Is Not Seeing New Blocks'),
+          message: i18n(
+            'Bitcoin is not serving blocks to LND, so LND cannot see new blocks or respond in time to a channel breach or an expiring HTLC. Check the Bitcoin service. Last error: ${error}',
+            { error: literal(error) },
+          ),
+        }),
+      )
+    }
+    return error
+  }
 
   const lndChain = () => {
     const vpnStartedAt = Date.now()
@@ -752,8 +828,15 @@ export const main = sdk.setupMain(async ({ effects }) => {
             const startedAt = Date.now()
             let res
             try {
+              // The SDK's own timeout orphans lncli (Start9Labs/start-technologies#4054).
               res = await lndSub.exec(
-                ['lncli', `--rpcserver=${selfGrpcHost}`, 'getinfo'],
+                [
+                  'timeout',
+                  '25',
+                  'lncli',
+                  `--rpcserver=${selfGrpcHost}`,
+                  'getinfo',
+                ],
                 {},
                 30_000,
               )
@@ -785,7 +868,32 @@ export const main = sdk.setupMain(async ({ effects }) => {
                 graphSyncPendingSince = Date.now()
               }
 
+              if (info.synced_to_chain) {
+                blockProbe = null
+              } else if (useBitcoind) {
+                const error = await blockFetchError()
+                if (error !== null) {
+                  return {
+                    message: i18n(
+                      'Bitcoin is not serving blocks to LND: ${error}',
+                      { error: literal(error) },
+                    ),
+                    result: 'loading',
+                  }
+                }
+              }
+
               if (info.synced_to_chain && info.synced_to_graph) {
+                if (!notified) {
+                  notified = await attempt('failed to notify', async () => {
+                    await sdk.notification.create(effects, {
+                      level: 'success',
+                      title: i18n('Sync Complete'),
+                      message: i18n('LND is synced to chain and graph.'),
+                    })
+                    await startupFlagsJson.merge(effects, { notified: true })
+                  })
+                }
                 return {
                   message: i18n('Synced to chain and graph'),
                   result: 'success',
@@ -842,28 +950,6 @@ export const main = sdk.setupMain(async ({ effects }) => {
           },
         },
         requires: ['lnd', 'unlock-wallet'],
-      })
-      .addOneshot('synced-true', {
-        subcontainer: null,
-        exec: {
-          fn: async () => {
-            // The SDK re-fires this oneshot every time sync-progress dips out
-            // of success and recovers (graph re-sync, transient lncli errors).
-            // The closure flag is the source of truth within a main lifecycle;
-            // the on-disk flag re-seeds it on next startup.
-            if (!notified) {
-              await sdk.notification.create(effects, {
-                level: 'success',
-                title: i18n('Sync Complete'),
-                message: i18n('LND is synced to chain and graph.'),
-              })
-              await startupFlagsJson.merge(effects, { notified: true })
-              notified = true
-            }
-            return null
-          },
-        },
-        requires: ['sync-progress'],
       })
       .addOneshot('restore', () =>
         restore
