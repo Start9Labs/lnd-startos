@@ -15,6 +15,7 @@ import {
   sleep,
   watchtowerServerDir,
 } from './utils'
+import { UNLOCK_TIMEOUT_MS } from './walletUnlocker'
 
 // The subcontainer type the migration chains run LND / lndinit in.
 type Sub = SubContainer<typeof manifest>
@@ -401,6 +402,7 @@ async function unlockWallet(sub: Sub, walletPassword: string): Promise<void> {
       '@-',
     ],
     { input: body },
+    UNLOCK_TIMEOUT_MS,
   )
   const stdout = res.stdout.toString().trim()
   if (stdout !== '{}' && !stdout.includes('wallet already unlocked')) {
