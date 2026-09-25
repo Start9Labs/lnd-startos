@@ -67,6 +67,8 @@ export type UnlockOutcome =
   | { ok: true; already: boolean }
   | { ok: false; kind: 'passphrase' | 'lnd' | 'transport'; message: string }
 
+export const UNLOCK_TIMEOUT_MS = 5 * 60_000
+
 /** A plain unlock through curl in a subcontainer; the password goes over stdin. */
 export async function unlockWallet(
   run: Run,

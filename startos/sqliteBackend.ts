@@ -339,7 +339,11 @@ async function scrubZombieIndex(effects: T.Effects): Promise<void> {
     mainMounts,
     'zombie-scrub',
     async (sub) => {
-      const res = await sub.exec(['sqlite3', channelSqliteInner, sql])
+      const res = await sub.exec(
+        ['sqlite3', channelSqliteInner, sql],
+        undefined,
+        null,
+      )
       if (res.exitCode !== 0) {
         throw new Error(
           `zombie-index scrub failed (exit ${res.exitCode}): ${res.stderr.toString()}`,

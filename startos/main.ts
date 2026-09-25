@@ -20,6 +20,7 @@ import {
   isPastUnlock,
   parseGatewayReply,
   refusedWalletPassword,
+  UNLOCK_TIMEOUT_MS,
 } from './walletUnlocker'
 import { describeFailures } from './channelBackupStatus'
 import {
@@ -722,6 +723,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
                   '@-',
                 ],
                 { input: body },
+                UNLOCK_TIMEOUT_MS,
               )
               const stdout = res.stdout.toString().trim()
               const reply = parseGatewayReply(stdout)
