@@ -7,6 +7,7 @@ import { literal, mainMounts } from '../utils'
 import {
   getLndState,
   isPastUnlock,
+  UNLOCK_TIMEOUT_MS,
   unlockWallet as requestUnlock,
 } from '../walletUnlocker'
 
@@ -82,7 +83,8 @@ export const unlockWallet = sdk.Action.withInput(
       'unlock-wallet',
       (sub) =>
         requestUnlock(
-          (command, body) => sub.exec(command, { input: body }),
+          (command, body) =>
+            sub.exec(command, { input: body }, UNLOCK_TIMEOUT_MS),
           input.password,
           flags?.restore ? 2_500 : null,
         ),

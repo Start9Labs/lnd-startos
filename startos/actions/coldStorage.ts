@@ -11,6 +11,7 @@ import { literal, mainMounts } from '../utils'
 import {
   getLndState,
   isPastUnlock,
+  UNLOCK_TIMEOUT_MS,
   unlockWallet as requestUnlock,
 } from '../walletUnlocker'
 import { unlockWalletTaskId } from './unlockWallet'
@@ -301,7 +302,8 @@ async function turnOff(effects: T.Effects, password: string) {
       'cold-storage-off',
       (sub) =>
         requestUnlock(
-          (command, body) => sub.exec(command, { input: body }),
+          (command, body) =>
+            sub.exec(command, { input: body }, UNLOCK_TIMEOUT_MS),
           password,
           flags?.restore ? 2_500 : null,
         ),
