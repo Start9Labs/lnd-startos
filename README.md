@@ -286,7 +286,7 @@ That state is indistinguishable from a large legitimate backfill through `getinf
 
 **`reachability` reports whether peers can actually open a connection to you**, which is separate from whether LND is healthy. A node that is running fine but unreachable will not receive inbound channels.
 
-**`vpn-tunnel` reads the tunnel's last handshake.** `starting` until the first one, `failure` once it is more than three minutes old — WireGuard rekeys about every two minutes under traffic. A failing tunnel does not leak: the routing rules the package installs send clearnet traffic nowhere but the tunnel, so it is held, not sent over the ISP connection. The `vpn` oneshot that brings the tunnel up runs before the `lnd` daemon and blocks it if the tunnel cannot be created.
+**`vpn-tunnel` reads the tunnel's last handshake.** `starting` until the first one, `failure` once it is more than three minutes old — WireGuard rekeys about every two minutes under traffic. A failing tunnel does not leak: the routing rules the package installs send clearnet traffic nowhere but the tunnel, and drop it if the tunnel's interface goes away, so it is never sent over the ISP connection. The `vpn` oneshot that brings the tunnel up runs before the `lnd` daemon and blocks it if the tunnel cannot be created.
 
 **`import` and `db-migration` are progress reporters, not fault detectors.** They exist because both phases can run for hours with the service otherwise looking idle, and both report a real failure with its message if they hit one.
 
