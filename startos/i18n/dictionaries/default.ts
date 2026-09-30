@@ -327,8 +327,8 @@ const dict = {
 
   // Reachability — Custom External Host
   'Custom External Host': 262,
-  'Advertise an additional public address (e.g. a Tunnelsats or VPN endpoint) alongside your Tor and StartOS-managed addresses': 263,
-  'An additional public domain at which your node can be reached, advertised to the network alongside any Tor or StartOS-managed addresses. Use this for an external tunnel or VPN endpoint, such as Tunnelsats. Enter a domain, optionally followed by a port (e.g. example.com:22222); the port defaults to 9735. A static IP does not belong here — StartOS advertises detected public IPs automatically.': 264,
+  'Advertise an additional public address (e.g. a VPN endpoint) alongside your Tor and StartOS-managed addresses': 263,
+  'An additional public domain at which your node can be reached, advertised to the network alongside any Tor or StartOS-managed addresses. Use this for an external tunnel or VPN endpoint. Enter a domain, optionally followed by a port (e.g. example.com:22222); the port defaults to 9735. A static IP does not belong here — StartOS advertises detected public IPs automatically.': 264,
   'Must be a domain name, optionally followed by :port (e.g. example.com:9735).': 265,
   'LND re-resolves this address periodically, so it also works for dynamic-DNS tunnels.': 266,
 

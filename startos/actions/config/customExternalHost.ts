@@ -11,7 +11,7 @@ export const customExternalHostConfig = sdk.Action.withInput(
   async ({ effects }) => ({
     name: i18n('Custom External Host'),
     description: i18n(
-      'Advertise an additional public address (e.g. a Tunnelsats or VPN endpoint) alongside your Tor and StartOS-managed addresses',
+      'Advertise an additional public address (e.g. a VPN endpoint) alongside your Tor and StartOS-managed addresses',
     ),
     warning: null,
     allowedStatuses: 'any',

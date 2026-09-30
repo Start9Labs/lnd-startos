@@ -235,7 +235,7 @@ A StartOS backup taken while the mode is on carries neither the password nor the
 
 ### Clearnet VPN — hidden
 
-Not user-facing, and not a general VPN facility: it exists for the TunnelSats service, which raises it as a task with its tunnel configuration and public address filled in, so the user only ever sees that prompt. It stores both; `watchHosts` advertises the VPN address alongside any user-configured external host, and the action turns on `tor.skip-proxy-for-clearnet-targets`, since clearnet peers have to be dialed directly for the tunnel to carry them. Costs a restart. A new configuration replaces the tunnel; an empty one turns it off and drops only the VPN address. Safe to repeat.
+Not user-facing, and raised as a task by a companion package with its tunnel configuration and public address filled in. Its only known uses are the TunnelSats community package and running it by hand with some other WireGuard configuration, which is unsupported. It is not how a node is made reachable or routed: inbound reachability comes from addresses on the node's StartOS interfaces, and outbound traffic leaves through the gateway StartOS selects for it. It stores the configuration and the address; `watchHosts` advertises the VPN address alongside any user-configured external host, and the action turns on `tor.skip-proxy-for-clearnet-targets`, since clearnet peers have to be dialed directly for the tunnel to carry them. Costs a restart. A new configuration replaces the tunnel; an empty one turns it off and drops only the VPN address. Safe to repeat.
 
 ### Auto-Configure — hidden
 
@@ -252,7 +252,7 @@ Three at install, one raised on Bitcoin, and one raised at each lock while Cold 
 | Configure Continuous Backups | this      | `important` | At install                                                             | The action runs                                           |
 | Unlock Wallet                | this      | `important` | Each time LND is found locked while Cold Storage Mode is on            | The wallet opens, or Turn Off runs                        |
 | Auto-Configure               | Bitcoin   | `critical`  | The backend is bitcoind and its ZeroMQ is disabled                     | Bitcoin's config matches; it returns if changed again     |
-| Clearnet VPN                 | this      | `important` | Only when the TunnelSats service raises it with a tunnel for this node | The stored configuration matches what TunnelSats proposes |
+| Clearnet VPN                 | this      | `important` | Only when a companion package raises it with a tunnel for this node | The stored configuration matches what the companion package proposes |
 
 The Bitcoin task appears on **Bitcoin's** page with nothing there explaining which service asked for it. LND needs ZeroMQ to be told about new blocks and transactions; polling is not a substitute.
 
@@ -269,7 +269,7 @@ Which checks exist depends on what the service is doing.
 | `sync-progress`  | "Network and Graph Sync Progress" | Normal operation                                       |
 | `channel-backup` | "Continuous Backup"               | Normal operation; `disabled` until a target is enabled |
 | `reachability`   | "Node Reachability"               | Normal operation                                       |
-| `vpn-tunnel`     | "Clearnet VPN"                    | While TunnelSats has configured a tunnel               |
+| `vpn-tunnel`     | "Clearnet VPN"                    | While a tunnel is configured               |
 | `restored`       | Restore notice                    | After a seed restore                                   |
 
 **`wallet-unlock` reports errors from LND's normal wallet unlock request while the wallet remains locked.** It distinguishes LND's exact wrong-passphrase response from other errors. Unlock attempts continue automatically. While Cold Storage Mode is on, a locked wallet is reported as a failure rather than as start-up, since the node stays offline until someone runs Unlock Wallet.
@@ -325,7 +325,6 @@ The daemon re-sends every copy daily even when nothing changed, so a deleted cop
 8. **An import is bounded at six hours** and copies over the network from the origin node.
 9. **No riscv64 build.** x86_64 and aarch64 only.
 10. **On a pruned Bitcoin, the channel graph is not validated against the chain** (`routing.assumechanvalid`), as on Neutrino.
-11. **The Clearnet VPN carries everything or nothing.** The configuration's `AllowedIPs` must include `0.0.0.0/0`; `DNS =` lines are ignored (the container keeps its resolver); IPv6 is routed into the tunnel when it carries `::/0` and blackholed otherwise; and enabling it turns on **Skip for clearnet peers** in Tor Settings. Only one tunnel, and one [Peer], per node.
 
 ---
 
@@ -388,7 +387,7 @@ actions:
   - cold-storage-prepare
   - cold-storage-toggle # Turn On, only-running, while the mode is off; Turn Off while it is on
   - unlock-wallet # only-running; offered while Cold Storage Mode is on or the stored password was refused
-  - clearnet-vpn # hidden; raised as a task by the tunnelsats service
+  - clearnet-vpn # hidden; raised as a task by a companion package
 tasks:
   - { action: initialize-wallet, severity: critical }
   - { action: backend-config, severity: critical }
