@@ -1,10 +1,14 @@
-import { describeFailures } from '../channelBackupStatus'
 import { channelBackupStateJson } from '../fileModels/channel-backup-state.json'
 import { startupFlagsJson } from '../fileModels/startupFlags.json'
 import { i18n } from '../i18n'
 import { sdk } from '../sdk'
 import { needsSqliteMigration } from '../sqliteBackend'
-import { backupAgentScript, literal, mainMounts } from '../utils'
+import {
+  backupAgentScript,
+  describeFailures,
+  literal,
+  mainMounts,
+} from '../utils'
 
 export const backupChannelsNow = sdk.Action.withoutInput(
   'backup-channels-now',

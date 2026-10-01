@@ -22,7 +22,6 @@ import {
   refusedWalletPassword,
   UNLOCK_TIMEOUT_MS,
 } from './walletUnlocker'
-import { describeFailures } from './channelBackupStatus'
 import {
   handshakeStaleMs,
   parseWireguardConfig,
@@ -40,6 +39,7 @@ import { channelBackupJson } from './fileModels/channel-backup.json'
 import {
   backupAgentScript,
   bitcoindMnt,
+  describeFailures,
   channelBackupPath,
   getBitcoindBundle,
   GetInfo,

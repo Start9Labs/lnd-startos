@@ -2,12 +2,12 @@ import { T } from '@start9labs/start-sdk'
 import type { IncomingMessage } from 'http'
 import * as https from 'https'
 import { URLSearchParams } from 'url'
-import { channelBackupProviderName } from '../channelBackupStatus'
 import { channelBackupJson } from '../fileModels/channel-backup.json'
 import { i18n } from '../i18n'
 import { sdk } from '../sdk'
 import {
   backupFolderDefault,
+  channelBackupProviderName,
   literal,
   mainMounts,
   nextcloudDavUrl,
