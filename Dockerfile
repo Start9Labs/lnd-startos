@@ -19,7 +19,7 @@ RUN case "${TARGETARCH}" in \
     unzip -q rclone.zip && \
     install -m 0755 "rclone-v${RCLONE_VERSION}-linux-${TARGETARCH}/rclone" rclone
 
-FROM lightninglabs/lnd:v0.21.3-beta
+FROM lightninglabs/lnd:v0.21.4-beta
 
 # curl calls LND's REST API for wallet setup and migration polling; sqlite
 # scrubs the migrated database; openssh-client and sshpass import remote wallets;
@@ -30,7 +30,7 @@ RUN apk add --no-cache curl sqlite openssh-client sshpass flock wireguard-tools 
 COPY --from=rclone-fetch /out/rclone /usr/local/bin/rclone
 
 # lndinit drives the bolt → SQLite database migration.
-COPY --from=lightninglabs/lndinit:v0.1.37-beta-lnd-v0.21.3-beta /bin/lndinit /bin/lndinit
+COPY --from=lightninglabs/lndinit:v0.1.38-beta-lnd-v0.21.4-beta /bin/lndinit /bin/lndinit
 
 # Continuous off-box copy of channel.backup (see startos/main.ts).
 COPY backup-agent.sh /usr/local/bin/backup-agent.sh

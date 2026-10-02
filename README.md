@@ -101,7 +101,7 @@ Two further keys are forced absent for correctness rather than preference: **`db
 
 **Derived, on every start:** the Bitcoin backend bundle — RPC host, cookie path, and both ZeroMQ addresses — resolved from Bitcoin's own bindings, plus `routing.assumechanvalid=true` while Bitcoin is pruned. Selecting Neutrino instead swaps the whole bundle out and sets a fee URL, because Neutrino cannot estimate fees locally.
 
-**On a pruned Bitcoin:** `routing.assumechanvalid` stops LND fetching the block behind every channel announcement, which a pruned node would have to pull from its peers one by one until LND stops answering. The graph is taken on trust from gossip, as LND does on Neutrino by default, and a closed channel leaves it once both directions are disabled or stop updating rather than when its funding output is spent. Only the routing graph is affected; LND watches the node's own channels on-chain either way. LND logs the key as deprecated on every start, and 0.21.3 still honours it.
+**On a pruned Bitcoin:** `routing.assumechanvalid` stops LND fetching the block behind every channel announcement, which a pruned node would have to pull from its peers one by one until LND stops answering. The graph is taken on trust from gossip, as LND does on Neutrino by default, and a closed channel leaves it once both directions are disabled or stop updating rather than when its funding output is spent. Only the routing graph is affected; LND watches the node's own channels on-chain either way. LND logs the key as deprecated on every start but still honours it.
 
 **Yours:** everything the config actions expose — alias and colour, channel and routing-fee policy, autopilot, performance flags, Tor settings, and the watchtower server and client.
 
@@ -185,7 +185,7 @@ Rescans the chain, rebuilding the wallet's transaction history. Run it when on-c
 
 Rotates the macaroon root key, invalidating **every** macaroon this node has issued.
 
-- **What it changes:** sets a one-time flag; the rotation happens at the next start.
+- **What it changes:** sets a one-time flag; the rotation happens at the next start. The unlock oneshot requires a successful curl exit and a nonempty `admin_macaroon` response before accepting the rotation. A transport failure or empty reply is retried rather than consuming the request.
 - **Repeat safety:** safe, but every application connected to this node must be re-paired afterwards — including through the connect interfaces above, which are regenerated with the new macaroon.
 - **When to run it:** if a macaroon may have been exposed. Note that a service reading LND's admin macaroon through a mount has full control of the node, which is why other packages' security fixes sometimes ask you to run this.
 
@@ -276,7 +276,7 @@ Which checks exist depends on what the service is doing.
 
 **`sync-progress` covers two different syncs** — the chain and the network graph — and a node can be caught up on one while still working through the other. It is the check to read while a node is coming up for the first time.
 
-**The graph half can stall on one bad peer, and the check is written to show it.** `synced_to_graph` is a per-process latch that LND sets only when the single peer it elected as the _initial historical syncer_ finishes reconciling the graph. The first peer to connect after a start gets elected, and until the latch is set every other peer is held in `PassiveSync` — passive syncers never send a `GossipTimestampRange`, so they deliver no gossip at all. One unresponsive elected peer therefore stalls the whole gossip subsystem rather than just its own sync, and LND re-elects only when that peer disconnects or `historicalsyncinterval` (default one hour) elapses. A node with no channels is the most exposed, because it keeps no persistent peers and re-draws its first peer from bootstrap on every start.
+**The graph half can stall on one bad peer, and the check is written to show it.** `synced_to_graph` is a per-process latch that LND sets only when the single peer it elected as the _initial historical syncer_ finishes reconciling the graph. The first peer to connect after a start gets elected, and until the latch is set every other peer is held in `PassiveSync` — passive syncers never send a `GossipTimestampRange`, so they deliver no gossip at all. One unresponsive elected peer therefore stalls the whole gossip subsystem rather than just its own sync. LND re-elects when that peer disconnects or `historicalsyncinterval` (default one hour) elapses; an unusable channel-range response also triggers immediate replacement without disconnecting the peer. A node with no channels is the most exposed, because it keeps no persistent peers and re-draws its first peer from bootstrap on every start.
 
 That state is indistinguishable from a large legitimate backfill through `getinfo` alone, so the message reports what can be distinguished: _Waiting for peers_ when none are connected, a plain _Syncing to graph_ while the wait is still normal, and — past fifteen minutes — how long the sync has been pending, with the peer count, where it is finally diagnostic. **The result stays `loading` in every one of those cases**, so nothing about the wait changes what dependent services see.
 
