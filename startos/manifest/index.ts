@@ -14,7 +14,7 @@ export const manifest = setupManifest({
   virtualNetworking: true,
   images: {
     lnd: {
-      // Built from ./Dockerfile: lnd v0.21.3-beta + the lndinit binary and the
+      // Built from ./Dockerfile: lnd v0.21.4-beta + the lndinit binary and the
       // sqlite3 CLI, both used by the bolt → SQLite migration
       // (startos/versions/v0.21.2-beta_5.ts, startos/sqliteBackend.ts).
       source: {

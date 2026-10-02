@@ -18,7 +18,7 @@ LND posts two critical tasks on install; you can't start it until both are done:
 
 Then start LND. A third, non-blocking task suggests setting up **Continuous Backups** (see [Backups](#backups)); you can do that at any time.
 
-On every start, **Network and Graph Sync** goes through _Syncing to graph_ before it reaches _Synced_ — usually well under three minutes. If it reads _Waiting for peers_, LND has not connected to any yet. LND depends on a single peer it picks at startup to hand over the channel graph, and if that peer stops responding the sync waits on it; the check then tells you how long it has been pending. LND retries with a different peer within the hour on its own, so this normally clears itself. If you would rather not wait, restart LND — it picks a different peer. A node with no channels sees this most often, because it has no regular peers to reconnect to.
+On every start, **Network and Graph Sync** goes through _Syncing to graph_ before it reaches _Synced_ — usually well under three minutes. If it reads _Waiting for peers_, LND has not connected to any yet. LND depends on a single peer it picks at startup to hand over the channel graph, and if that peer stops responding the sync waits on it; the check then tells you how long it has been pending. LND switches peers immediately if the response is unusable; a peer that never answers can still hold the sync until the hourly retry, so this normally clears itself. If you would rather not wait, restart LND — it picks a different peer. A node with no channels sees this most often, because it has no regular peers to reconnect to.
 
 If **Network and Graph Sync** reads _Bitcoin is not serving blocks to LND_, LND has fallen behind the chain because Bitcoin cannot hand it blocks — check the **Bitcoin** service and its logs. If it lasts, you also get a notification. Until it clears, LND cannot see new blocks, which it needs to protect your channels.
 
@@ -54,7 +54,7 @@ Configure LND through its settings actions — General, Routing Fees, Channel Se
 
 **Not routing any payments?** Check **Reject Routing Requests** under **Channel Settings**. With it on, LND still sends and receives payments but refuses to be used as a hop, and the log shows `node configured to disallow forwards` each time it turns one away.
 
-Two advanced actions worth knowing: **Reset Wallet Transactions** rescans the chain for on-chain transactions LND may have missed; **Revoke Macaroons** revokes every existing macaroon and mints fresh ones, after which you must reconnect wallets with the new `lndconnect://` URI.
+Two advanced actions worth knowing: **Reset Wallet Transactions** rescans the chain for on-chain transactions LND may have missed; **Revoke Macaroons** revokes every existing macaroon and mints fresh ones, after which you must reconnect wallets with the new `lndconnect://` URI. If LND cannot answer the revocation request during startup, it retries instead of treating the missing response as success.
 
 Run **Revoke Macaroons** if a macaroon may have been copied or exposed — for example if you run BTCPay Server, which reads LND's admin macaroon and shipped an actively exploited vulnerability in versions before 2.4.2. Every other service connected to LND also loses access until it picks up the new macaroon, so expect to restart them.
 

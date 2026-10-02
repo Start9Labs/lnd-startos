@@ -739,9 +739,12 @@ export const main = sdk.setupMain(async ({ effects }) => {
                 stderr: String(res.stderr).trim(),
               })
               if (
-                stdout === '{}' ||
-                stdout.includes('wallet already unlocked') ||
-                (rotateMacaroonRootKey && !stdout.includes('"error"'))
+                res.exitCode === 0 &&
+                (rotateMacaroonRootKey
+                  ? typeof reply?.admin_macaroon === 'string' &&
+                    reply.admin_macaroon.length > 0
+                  : stdout === '{}' ||
+                    stdout.includes('wallet already unlocked'))
               ) {
                 if (!rotateMacaroonRootKey) {
                   unlockError = null
