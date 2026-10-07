@@ -7,7 +7,7 @@ import { sdk } from '../sdk'
 // because nothing else persists them.
 const importPending = z
   .union([
-    z.object({
+    z.looseObject({
       source: z.enum(['umbrel', 'mynode', 'startos']),
       host: z.string(),
       password: z.string(),
@@ -34,7 +34,7 @@ export const startupFlagsJson = FileHelper.json(
     base: sdk.volumes.main,
     subpath: '/startup-flags.json',
   },
-  z.object({
+  z.looseObject({
     resetWalletTransactions: z.boolean().catch(false),
     restore: z.boolean().catch(false),
     notified: z.boolean().catch(false),

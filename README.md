@@ -141,6 +141,8 @@ Four interfaces, two of which appear only once a wallet exists.
 
 **The watchtower interface is always exported**, even when the server is off. LND simply does not listen on it until the server is enabled.
 
+**A server carried over from StartOS 0.3.5** had gRPC on the `control` host's internal port 10009, beside REST's 8080. The 0.21.4-beta:1 migration retires that port; gRPC is served from its own `grpc` host, and no address moves to it.
+
 ## Installation and First-Run Flow
 
 Install raises **two `critical` tasks** and the service does not run until both are cleared: choose a Bitcoin backend, and set up a wallet.
@@ -179,7 +181,7 @@ Rescans the chain, rebuilding the wallet's transaction history. Run it when on-c
 
 - **What it changes:** sets a one-time flag and restarts LND, which does the rescan on its next start; the flag is cleared afterwards so it does not repeat.
 - **Cost:** a full rescan, which takes time proportional to the wallet's age.
-- **Repeat safety:** safe to re-run.
+- **Repeat safety:** safe to re-run. It asks for confirmation before running.
 
 ### Revoke Macaroons
 
@@ -197,7 +199,7 @@ Grouped under Payments. **Pay Invoice** pays a BOLT11 invoice from the node's ow
 
 ### Node Info, Watchtower Server Info
 
-Read-only, running only. The first reports the node's identity, URIs, and sync state; the second reports the watchtower server's identity, and is hidden unless that server is enabled.
+Read-only, running only. The first reports the node's identity, URIs, and sync state; the second reports the watchtower server's identity, and is hidden unless that server is enabled. When `lncli` fails, either returns its error output as a copyable multi-line field.
 
 ### Configure Continuous Backups, Back Up Channels Now
 
@@ -212,7 +214,7 @@ SFTP servers are pinned by host key, and the pin is confirmed before it is used.
 - **What it changes:** writes `channel-backup.json`. No restart.
 - **Repeat safety:** safe; secrets are never prefilled, and left blank they keep their stored value. A changed OAuth client id or secret drops the stored token, and a fresh authorization code always replaces it.
 
-**Back Up Channels Now** runs one copy immediately and fails with whatever each target said. Once LND has created `channel.backup` by opening its first channel, use the action to check a freshly configured target without waiting for another channel change. It refuses until LND has reported the node's identity, which the agent needs to name the node's folder.
+**Back Up Channels Now** asks for confirmation, then runs one copy immediately and fails with whatever each target said. Once LND has created `channel.backup` by opening its first channel, use the action to check a freshly configured target without waiting for another channel change. It refuses until LND has reported the node's identity, which the agent needs to name the node's folder.
 
 - **Cost:** seconds to a minute; running only.
 
@@ -224,7 +226,7 @@ By default LND stores its wallet password and seed in `store.json` and unlocks i
 
 The two halves are deliberately one switch. Deleting the seed while the password remains changes nothing, because the password alone opens the wallet; deleting the password while the seed remains changes nothing either. Only removing both alters what the disk yields. A wallet whose seed is not on the server — an imported one, or one that has been through the mode before — uses the mode password-only, since the seed is the half that has already left.
 
-1. **Show Credentials** displays the password, and the seed when the server holds one, and fixes which three seed words will be asked for. Nothing is deleted yet.
+1. **Show Credentials** displays the password, and the seed when the server holds one as a masked, numbered grid, and fixes which three seed words will be asked for. It records the challenge, and with it Turn On's availability, only once that display has been built. Nothing is deleted yet.
 2. **Turn On** runs only while LND's own chain is running with its wallet unlocked, with no import or conversion pending, and only once this lifecycle's unlock oneshot has itself opened the wallet with the stored password, which `main` records in `unlock-status.json`; a wallet found already open, an unlock made some other way, or the conversion's temporary LND does not count. It requires the password, plus those three words when a seed is held. It writes a salted scrypt hash of the password first, then removes the password and the seed from `store.json` in one write. That write is the mode: LND is in Cold Storage Mode exactly when `store.json` holds no wallet password, and nothing else records it, so an interruption leaves either a node with its password and an unused hash, or the mode on.
 3. **Unlock Wallet** sends a plain unlock to LND's wallet unlocker, through curl in a temporary subcontainer with the password on stdin, and applies a restore's rescan window when one is pending. It is offered whenever the mode is on, and also whenever LND has refused the stored password in this lifecycle, which `main` records in `unlock-status.json`; both are watched values, never a sampled LND state, and the handler checks LND's live state itself and does nothing when the wallet is already open. When the mode is off and the typed password opens the wallet, that password becomes the stored one, so the node unlocks itself from the next start: that is the way back from a stored password LND no longer accepts. It never rotates macaroons: Revoke Macaroons is unavailable while the mode is on, because the rotation runs at an automatic unlock, which the mode prevents.
 4. **Turn Off** verifies the password against the hash and, while LND is locked, against the wallet itself by unlocking it, since the wallet unlocker needs no macaroon and a `changepassword` made elsewhere would leave the hash describing a password LND no longer takes; a missing hash is refused only while the wallet cannot be asked. It clears the Unlock Wallet task first, while nothing has changed and a failure can simply be retried; then stores the password back, which is what turns the mode off; then drops the hash. The seed does not come back, and the mode can be turned on again with the password alone.

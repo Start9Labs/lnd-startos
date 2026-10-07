@@ -29,7 +29,7 @@ export const towerInfo = sdk.Action.withoutInput(
       mainMounts,
       'tower-info',
       async (subc) => {
-        return subc.execFail([
+        return subc.exec([
           'lncli',
           `--rpcserver=${selfGrpcHost}`,
           'tower',
@@ -38,7 +38,11 @@ export const towerInfo = sdk.Action.withoutInput(
       },
     )
 
-    if (res.stdout !== '' && typeof res.stdout === 'string') {
+    if (
+      res.exitCode === 0 &&
+      res.stdout !== '' &&
+      typeof res.stdout === 'string'
+    ) {
       const parsedRes: {
         pubkey: string
         listeners: string[]
@@ -64,11 +68,9 @@ export const towerInfo = sdk.Action.withoutInput(
         title: i18n('Tower Info'),
         message: i18n('Error fetching tower info'),
         result: {
-          type: 'single',
-          value: JSON.stringify(res.stderr),
+          type: 'multiline',
+          value: String(res.stderr).trim(),
           copyable: true,
-          qr: false,
-          masked: false,
         },
       }
     }

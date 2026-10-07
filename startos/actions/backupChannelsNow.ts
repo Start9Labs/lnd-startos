@@ -18,7 +18,9 @@ export const backupChannelsNow = sdk.Action.withoutInput(
     description: i18n(
       'Copy channel.backup to every enabled target right now, and report what each one said.',
     ),
-    warning: null,
+    warning: i18n(
+      'The copy of channel.backup on every enabled target is replaced with the current one.',
+    ),
     allowedStatuses: 'only-running',
     group: i18n('Continuous Backups'),
     visibility: 'enabled',
@@ -45,7 +47,8 @@ export const backupChannelsNow = sdk.Action.withoutInput(
       { imageId: 'lnd' },
       mainMounts,
       'backup-channels-now',
-      async (sub) => sub.exec(['sh', backupAgentScript, '--once'], {}, 110_000),
+      async (sub) =>
+        sub.exec(['sh', backupAgentScript, '--once'], { timeout: 110_000 }),
     )
     const done = (message: string) => ({
       version: '1' as const,

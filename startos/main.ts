@@ -239,7 +239,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
     useBitcoind &&
     !!(await FileHelper.ini(
       `${await lndSub.rootfs}${bitcoindMnt}/bitcoin.conf`,
-      z.object({ prune: z.coerce.number().catch(0) }),
+      z.looseObject({ prune: z.coerce.number().catch(0) }),
     )
       .read(
         (c) => c.prune > 0,
@@ -378,9 +378,11 @@ export const main = sdk.setupMain(async ({ effects }) => {
             // the script's last step.
             const res = await subcontainer.exec(
               ['sh', `/scripts/import-${pending.source}.sh`],
-              { env },
-              IMPORT_TIMEOUT_MS,
-              { abort: abort.reason, signal: abort },
+              {
+                env,
+                timeout: IMPORT_TIMEOUT_MS,
+                abort: { abort: abort.reason, signal: abort },
+              },
             )
             if (res.exitCode !== 0) {
               const stderr = String(res.stderr)
@@ -528,7 +530,9 @@ export const main = sdk.setupMain(async ({ effects }) => {
     if (now - probe.at < BLOCK_PROBE_INTERVAL_MS) return probe.error
     probe.at = now
     const res = await lndSub
-      .exec(['sh', '-c', fetchTipBlock, 'sh', selfGrpcHost], {}, 120_000)
+      .exec(['sh', '-c', fetchTipBlock, 'sh', selfGrpcHost], {
+        timeout: 120_000,
+      })
       .catch(() => null)
     if (!res) return probe.error
     if (String(res.stdout).trim() === 'fetched') {
@@ -581,9 +585,10 @@ export const main = sdk.setupMain(async ({ effects }) => {
                       '-c',
                       `rm -f '${localRestoreBackupTempPath}'; if [ -s '${channelBackupPath}' ]; then cp '${channelBackupPath}' '${localRestoreBackupTempPath}' && mv -f '${localRestoreBackupTempPath}' '${localRestoreBackupPath}'; elif [ -e '${channelBackupPath}' ]; then echo 'channel.backup is empty' >&2; exit 1; else rm -f '${localRestoreBackupPath}'; fi`,
                     ],
-                    {},
-                    60_000,
-                    { abort: abort.reason, signal: abort },
+                    {
+                      timeout: 60_000,
+                      abort: { abort: abort.reason, signal: abort },
+                    },
                   )
                   if (res.exitCode !== 0) {
                     throw new Error(
@@ -603,9 +608,10 @@ export const main = sdk.setupMain(async ({ effects }) => {
           fn: async (subcontainer, abort) => {
             const res = await subcontainer.exec(
               ['sh', '-c', vpn ? vpnUpScript : vpnDownScript],
-              {},
-              60_000,
-              { abort: abort.reason, signal: abort },
+              {
+                timeout: 60_000,
+                abort: { abort: abort.reason, signal: abort },
+              },
             )
             if (res.exitCode !== 0) {
               throw new Error(
@@ -722,8 +728,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
                   '--data-binary',
                   '@-',
                 ],
-                { input: body },
-                UNLOCK_TIMEOUT_MS,
+                { input: body, timeout: UNLOCK_TIMEOUT_MS },
               )
               const stdout = res.stdout.toString().trim()
               const reply = parseGatewayReply(stdout)
@@ -842,8 +847,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
                   `--rpcserver=${selfGrpcHost}`,
                   'getinfo',
                 ],
-                {},
-                30_000,
+                { timeout: 30_000 },
               )
             } catch (error) {
               warnSyncProbe('sync-progress: lncli getinfo threw', {
@@ -963,9 +967,9 @@ export const main = sdk.setupMain(async ({ effects }) => {
               exec: {
                 fn: async (subcontainer, abort) => {
                   const run = (command: string[], timeout: number) =>
-                    subcontainer.exec(command, {}, timeout, {
-                      abort: abort.reason,
-                      signal: abort,
+                    subcontainer.exec(command, {
+                      timeout,
+                      abort: { abort: abort.reason, signal: abort },
                     })
                   const tail = (out: unknown) =>
                     String(out).trim().split('\n').slice(-2).join(' ')
@@ -1154,8 +1158,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
                   try {
                     res = await lndSub.exec(
                       ['wg', 'show', vpnIface, 'latest-handshakes'],
-                      {},
-                      10_000,
+                      { timeout: 10_000 },
                     )
                   } catch {
                     return noHandshake()
@@ -1208,12 +1211,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
                         'add',
                         tower,
                       ],
-                      undefined,
-                      undefined,
-                      {
-                        abort: abort.reason,
-                        signal: abort,
-                      },
+                      { abort: { abort: abort.reason, signal: abort } },
                     )
 
                     if (

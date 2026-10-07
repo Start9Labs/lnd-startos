@@ -7,7 +7,7 @@ import { unlockStatusJson } from '../fileModels/unlock-status.json'
 import { i18n } from '../i18n'
 import { sdk } from '../sdk'
 import { needsSqliteMigration } from '../sqliteBackend'
-import { literal, mainMounts } from '../utils'
+import { literal, mainMounts, seedGrid } from '../utils'
 import {
   getLndState,
   isPastUnlock,
@@ -61,12 +61,7 @@ export const prepareColdStorage = sdk.Action.withoutInput(
       }
       challenge = indices.slice(0, 3).sort((a, b) => a - b)
     }
-    await coldStorageJson.merge(effects, {
-      prepared: true,
-      seedChallenge: challenge,
-    })
-
-    return {
+    const result = {
       version: '1' as const,
       title: i18n('Record These Now'),
       message: challenge
@@ -100,10 +95,9 @@ export const prepareColdStorage = sdk.Action.withoutInput(
                   description: i18n(
                     'Recovers on-chain funds only. Channel funds come from the channel backup.',
                   ),
-                  type: 'single' as const,
-                  value: seed.map((w, i) => `${i + 1}: ${w}`).join(' '),
+                  type: 'multiline' as const,
+                  value: seedGrid(seed),
                   copyable: true,
-                  qr: false,
                   masked: true,
                 },
               ]
@@ -111,6 +105,11 @@ export const prepareColdStorage = sdk.Action.withoutInput(
         ],
       },
     }
+    await coldStorageJson.merge(effects, {
+      prepared: true,
+      seedChallenge: challenge,
+    })
+    return result
   },
 )
 
@@ -303,7 +302,7 @@ async function turnOff(effects: T.Effects, password: string) {
       (sub) =>
         requestUnlock(
           (command, body) =>
-            sub.exec(command, { input: body }, UNLOCK_TIMEOUT_MS),
+            sub.exec(command, { input: body, timeout: UNLOCK_TIMEOUT_MS }),
           password,
           flags?.restore ? 2_500 : null,
         ),

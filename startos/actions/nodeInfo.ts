@@ -39,11 +39,9 @@ export const nodeInfo = sdk.Action.withoutInput(
         title: i18n('Node Info'),
         message: i18n('Error fetching node info'),
         result: {
-          type: 'single' as const,
-          value: JSON.stringify(getInfoRes.stderr),
+          type: 'multiline' as const,
+          value: String(getInfoRes.stderr).trim(),
           copyable: true,
-          qr: false,
-          masked: false,
         },
       }
     }

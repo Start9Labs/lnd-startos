@@ -3,7 +3,7 @@ import { sdk } from '../sdk'
 
 // Written only by main's unlock oneshot, so no action's write can race it.
 // Excluded from the StartOS backup: it describes this lifecycle of this node.
-export const unlockStatusShape = z.object({
+export const unlockStatusShape = z.looseObject({
   // True once this lifecycle's unlock oneshot itself opened the wallet with the
   // stored password; false from the moment the oneshot starts until then.
   storedPasswordVerified: z.boolean().catch(false),

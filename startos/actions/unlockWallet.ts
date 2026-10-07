@@ -46,7 +46,7 @@ export const unlockWallet = sdk.Action.withInput(
   sdk.InputSpec.of({
     password: sdk.Value.text({
       name: i18n('Wallet Password'),
-      description: i18n('Your wallet password.'),
+      description: null,
       required: true,
       masked: true,
       default: null,
@@ -84,7 +84,7 @@ export const unlockWallet = sdk.Action.withInput(
       (sub) =>
         requestUnlock(
           (command, body) =>
-            sub.exec(command, { input: body }, UNLOCK_TIMEOUT_MS),
+            sub.exec(command, { input: body, timeout: UNLOCK_TIMEOUT_MS }),
           input.password,
           flags?.restore ? 2_500 : null,
         ),
