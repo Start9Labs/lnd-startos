@@ -1,7 +1,7 @@
 import { FileHelper, z } from '@start9labs/start-sdk'
 import { sdk } from '../sdk'
 
-export const shape = z.object({
+export const shape = z.looseObject({
   // Null while Cold Storage Mode is on: the password is off the server and the
   // user supplies it at each start.
   walletPassword: z.string().nullable().catch(null),
@@ -10,7 +10,10 @@ export const shape = z.object({
   customExternalHosts: z.array(z.string()).catch([]),
   // Verbatim: the companion's task compares it byte for byte.
   clearnetVpn: z
-    .object({ config: z.string(), announce: z.string().nullable().catch(null) })
+    .looseObject({
+      config: z.string(),
+      announce: z.string().nullable().catch(null),
+    })
     .nullable()
     .catch(null),
 })

@@ -64,11 +64,9 @@ export const towerInfo = sdk.Action.withoutInput(
         title: i18n('Tower Info'),
         message: i18n('Error fetching tower info'),
         result: {
-          type: 'single',
-          value: JSON.stringify(res.stderr),
+          type: 'multiline',
+          value: String(res.stderr).trim(),
           copyable: true,
-          qr: false,
-          masked: false,
         },
       }
     }

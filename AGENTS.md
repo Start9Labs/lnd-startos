@@ -18,22 +18,30 @@ Freshly scaffolded? Work the
 guide page, not a file in this repo — read it, don't copy it in.
 
 Keep `README.md` (technical reference for an AI support or administering agent) and
-`instructions.md` (end-user docs) in sync with your changes.
+`instructions.md` (end-user docs) in sync with your changes. This file restates neither:
+whoever changes the package has both, so it carries only what they don't — repo mechanics,
+a change that looks right and is not, where the next thing gets added, a naming trap, a
+build or test invocation particular to this repo.
 
-**Bugs and feature requests are GitHub issues on this repo** — file them as you find them.
+**Fix a defect you spot rather than reporting it** — you have the package open and the
+context to be sure. File **a GitHub issue on this repo** only when the call isn't yours to
+make: you can't pin the cause down, two defensible fixes exist, or it's too large to ride on
+the work in hand. An open issue is a report, not a queue — implement one when you're asked
+to or when it's labelled `Approved`, then close it with `Closes #<n>`.
+
 Don't record work in the repo instead: no `TODO.md`, no `NOTES.md`, no `PLAN.md`. What you
 verified, tried, and decided belongs in the commit message and the PR body.
 
 ## This repo
 
-- **One-time flags belong in `startup-flags.json`, never in `store.json`.** `main` reads the store under a `.const` watch that restarts the service on any change, so clearing a consumed flag there loops. The flags file is read with `.once`, and **each flag is cleared by the same oneshot that consumed it** — never by a dependent one, whose write a restart can preempt, leaving a one-time flag armed on every start after.
-- **`main` restarts on any `tls.cert` change, so the certificate's address set must come off the binding, never an exported interface.** An interface carries only a view of the binding's addresses and disappears with it; `utils.filledAddress(host, { internalPort })` reads the same list keyed on the binding, which lives as long as the port is bound.
-- **`db.use-native-sql` goes on the daemon's CLI, never in the conf.** The conversion's schema-finalize run reads the same conf in bolt mode and bolt rejects native SQL, and LND's flag parser cannot turn a conf-level bool back off from the command line.
-- **`db.backend` is enforced, not optional, so the migration never has to write it** — a write would trip `main`'s `lnd.conf` watch and restart the service mid-conversion.
-- **`sync-progress` must keep returning `loading` while the graph sync is pending, never `failure`.** `albyhub`, `mempool`, `helipad`, `mostro` and `fedimint-gateway` all name this check in their dependency `healthChecks`, so a different result silently changes gating for five packages. Report the stall in the message instead — that is why the branch carries peer count and elapsed time rather than a worse result.
-- **Nothing over RPC identifies the elected historical syncer** — in the wedged state every peer reports `PASSIVE_SYNC` — and a large legitimate backfill looks the same through `getinfo`. That rules out an auto-heal watchdog: a timer-triggered disconnect or restart would kill real progress and could loop without converging.
-- **`routing.assumechanvalid` stays set while Bitcoin is pruned, whatever LND's deprecation warning says.** Without it a pruned node fetches a historical block over P2P for every channel announcement, and graph sync stalls indefinitely (#210).
-- **Don't re-enable `healthcheck.chainbackend.attempts` expecting a safety net.** The check issues `uptime` and counts outbound peers, never fetching a block, so it stays green against a backend that serves headers but not blocks — the failure in bitcoin-core-startos#270. Exhausting it only logs at Critical; it does not stop LND.
-- **The onion-message protocol keys must stay forced to `undefined`.** LND 0.21 advertises feature bit 39 natively, and a carried-over `custom-init`/`nodeann` override makes it abort server creation and crash-loop.
-- **LND's self-calls use loopback, not the bridge.** The bridge answers REST with the proxy's device certificate, which fails the `tls.cert` pin.
-- **Read the pending import inside the oneshot's `fn`, not in the chain builder.** The reconciler's config hash cannot see closures, so re-reading is what lets corrected credentials take effect without tearing down a running daemon.
+- **One-time flags go in `startup-flags.json`, never `store.json`**: `main` restarts on any store change, so clearing a consumed flag there loops. Clear each flag in the oneshot that consumed it, never a dependent one a restart can preempt.
+- **Take the `tls.cert` address set from the binding (`utils.filledAddress(host, { internalPort })`), never an exported interface**: `main` restarts on any certificate change, and an interface disappears with its binding.
+- **Put `db.use-native-sql` on the daemon's CLI, never in the conf**: the conversion's bolt schema-finalize run reads the same conf and bolt rejects it.
+- **Keep `db.backend` enforced in the shape, not optional**: the migration must never write it, since a write trips `main`'s `lnd.conf` watch mid-conversion.
+- **`sync-progress` must keep returning `loading` while the graph sync is pending, never `failure`**: `albyhub`, `mempool`, `helipad`, `mostro` and `fedimint-gateway` gate on it. Report a stall in the message.
+- **Don't add an auto-heal watchdog for a stalled graph sync**: nothing over RPC tells the wedged state from a large legitimate backfill, so a timed disconnect or restart can kill real progress.
+- **Keep `routing.assumechanvalid` set while Bitcoin is pruned, whatever LND's deprecation warning says**: without it graph sync stalls (#210).
+- **Don't re-enable `healthcheck.chainbackend.attempts` as a safety net**: it stays green against a backend serving headers but not blocks, and exhausting it only logs.
+- **Keep the onion-message protocol keys forced to `undefined`**: a carried-over `custom-init`/`nodeann` override makes LND 0.21 crash-loop.
+- **LND's self-calls use loopback, not the bridge**: the bridge answers REST with the proxy's certificate, which fails the `tls.cert` pin.
+- **Read the pending import inside the oneshot's `fn`, not in the chain builder**: the reconciler's config hash cannot see closures, so only a re-read picks up corrected credentials.

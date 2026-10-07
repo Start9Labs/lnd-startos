@@ -358,8 +358,7 @@ async function normalizeKeyPem(
           '-c',
           'umask 077; key=$(mktemp); trap \'rm -f "$key"\' EXIT; cat > "$key"; ssh-keygen -y -f "$key" >/dev/null',
         ],
-        { input: `${normalized}\n` },
-        10_000,
+        { input: `${normalized}\n`, timeout: 10_000 },
       ),
   )
   if (valid.exitCode !== 0)
@@ -382,8 +381,7 @@ async function scanHostKeys(
     async (sub) => {
       const scan = await sub.exec(
         ['ssh-keyscan', '-T', '10', '-p', port, host],
-        {},
-        40_000,
+        { timeout: 40_000 },
       )
       // Only whole key lines from a scan that finished: a cut-off run leaves
       // partial lines that ssh-keygen and rclone reject, or none at all.
@@ -611,7 +609,9 @@ const sftpCommon = {
 const sftpFields = {
   auth: sdk.Value.union({
     name: i18n('Authentication'),
-    description: i18n('Password or SSH key.'),
+    description: i18n(
+      "- Password: log in with the account's password.\n- SSH Key: log in with an OpenSSH private key that has no passphrase.",
+    ),
     default: 'password',
     variants: sdk.Variants.of({
       password: {

@@ -83,7 +83,7 @@ const inputSpec = async ({
     amount: Value.union({
       name: i18n('Amount'),
       description: i18n(
-        'Most invoices state their amount; enter one only when the invoice leaves it open.',
+        '- As stated in the invoice: pay the amount the invoice states. Most invoices state one.\n- Enter an amount: only for an invoice that leaves the amount open.',
       ),
       default: 'invoice',
       variants: Variants.of({
@@ -233,8 +233,7 @@ export const payInvoice = sdk.Action.withInput(
             '--pay_req',
             invoice,
           ],
-          {},
-          90_000,
+          { timeout: 90_000 },
         )
         const updates = jsonObjects(String(payRes.stdout)) as PaymentUpdate[]
         const final = updates[updates.length - 1]

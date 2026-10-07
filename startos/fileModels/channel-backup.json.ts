@@ -50,7 +50,7 @@ const oauthToken = nullableLine(64 * 1_024)
   })
   .catch(null)
 
-const oauthTarget = z.object({
+const oauthTarget = z.looseObject({
   enabled: z.boolean().catch(false),
   clientId: line(),
   clientSecret: line('', SECRET_LENGTH),
@@ -58,7 +58,7 @@ const oauthTarget = z.object({
   path: relativePath,
 })
 
-const nextcloudTarget = z.object({
+const nextcloudTarget = z.looseObject({
   enabled: z.boolean().catch(false),
   url: line(),
   user: line(),
@@ -102,7 +102,7 @@ const fingerprints = z
   )
   .catch('')
 
-const sftpTarget = z.object({
+const sftpTarget = z.looseObject({
   enabled: z.boolean().catch(false),
   host: line(),
   user: line(),
@@ -123,7 +123,7 @@ const sftpTarget = z.object({
   path: relativePath,
 })
 
-export const channelBackupShape = z.object({
+export const channelBackupShape = z.looseObject({
   gdrive: oauthTarget.nullable().catch(null),
   dropbox: oauthTarget.nullable().catch(null),
   nextcloud: nextcloudTarget.nullable().catch(null),
