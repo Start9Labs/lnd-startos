@@ -4,7 +4,7 @@ import { startupFlagsJson } from '../fileModels/startupFlags.json'
 import { storeJson } from '../fileModels/store.json'
 import { i18n } from '../i18n'
 import { sdk } from '../sdk'
-import { lndDataDir, mainMounts, selfRestUrl, sleep } from '../utils'
+import { lndDataDir, mainMounts, seedGrid, selfRestUrl, sleep } from '../utils'
 
 const { InputSpec, Value, Variants } = sdk
 
@@ -22,7 +22,7 @@ const initWalletSpec = InputSpec.of({
   method: Value.union({
     name: i18n('Initialization Method'),
     description: i18n(
-      'Choose how to initialize your LND wallet. Start Fresh creates a new wallet. The migration options import an existing wallet from another node on your local network.',
+      '- Start Fresh: create a new wallet.\n- Migrate from Umbrel, myNode or StartOS: import the existing LND wallet and channels from that node on your local network.',
     ),
     default: 'fresh',
     variants: Variants.of({
@@ -304,13 +304,12 @@ async function initFresh(
     version: '1' as const,
     title: i18n('Aezeed Cipher Seed'),
     message: i18n(
-      "IMPORTANT: Write down these 24 words and store them in a safe place — this is the ONLY time they will be displayed. The seed alone is NOT enough to recover your node: it restores ON-CHAIN funds only and has no knowledge of your channels. To recover funds locked in Lightning channels, you must ALSO keep StartOS backups, which include LND's Static Channel Backup. This is NOT a BIP-39 seed and cannot be used with wallets other than LND.",
+      "**Write down these 24 words now and store them in a safe place.**\n\n- This is the ONLY time they will be displayed.\n- They restore ON-CHAIN funds only. To recover funds in Lightning channels, you must ALSO keep StartOS backups, which include LND's Static Channel Backup.\n- This is NOT a BIP-39 seed and cannot be used with wallets other than LND.",
     ),
     result: {
-      type: 'single' as const,
-      value: cipherSeed.map((word, i) => `${i + 1}: ${word}`).join(' '),
+      type: 'multiline' as const,
+      value: seedGrid(cipherSeed),
       copyable: true,
-      qr: false,
       masked: true,
     },
   }
@@ -359,8 +358,7 @@ async function scheduleImport(
           `${source.user}@${source.host}`,
           'true',
         ],
-        { env: { SSHPASS: source.password } },
-        30_000,
+        { env: { SSHPASS: source.password }, timeout: 30_000 },
       ),
   )
 

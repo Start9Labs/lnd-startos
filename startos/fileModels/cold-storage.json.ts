@@ -7,7 +7,7 @@ import { sdk } from '../sdk'
 //
 // The password hash lets Turn Off reject a mistyped password while the wallet
 // cannot be asked; Turn Off drops it once the password is back.
-export const coldStorageShape = z.object({
+export const coldStorageShape = z.looseObject({
   // Set when the credentials have been displayed for the user to record;
   // every further display reshuffles the challenge.
   prepared: z.boolean().catch(false),

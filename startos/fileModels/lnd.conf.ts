@@ -40,7 +40,7 @@ const iniBoolean = z
 
 // This shape is loose, so a key deleted from it stays in the file, live and
 // unreachable — retire one with z.undefined().catch(undefined).
-export const shape = z.object({
+export const shape = z.looseObject({
   // ──── Enforced (StartOS) ────
   // Upstream defaults this to 3; pinned off here since an early commit with no
   // rationale. Two things to know before changing it. The check issues
@@ -237,7 +237,7 @@ export const fullConfigSpec = InputSpec.of({
   debuglevel: Value.select({
     name: i18n('Debug Level'),
     description: i18n(
-      'Logging level for all subsystems. Trace is the most verbose, Critical is the least.',
+      "How much LND writes to its log.\n- Trace: the most detail; very noisy, for chasing a specific problem\n- Debug: detailed diagnostics for troubleshooting\n- Info: normal operation\n- Info (quiet wallet): Info, without the wallet's per-block warnings\n- Warning: problems only\n- Error: errors only\n- Critical: critical errors only",
     ),
     default: 'info,BTWL=error',
     values: {
@@ -253,7 +253,7 @@ export const fullConfigSpec = InputSpec.of({
   tor: Value.union({
     name: i18n('Enable Tor'),
     description: i18n(
-      "Route LND's outbound peer connections through the Tor SOCKS proxy. When disabled, LND uses the host's normal network stack. Enabling this makes Tor a required running dependency. Disable if Tor is unavailable or is interfering with wallet sync (btcwallet's embedded rescanner does not always respect this setting, so sync can stall on Tor-only environments).",
+      "Whether LND's outbound peer connections go through the Tor SOCKS proxy.\n- Disabled: LND uses the host's normal network stack.\n- Enabled: connections go through Tor, and Tor becomes a required running dependency.\nDisable it if Tor is unavailable or is interfering with wallet sync: btcwallet's embedded rescanner does not always respect this setting, so sync can stall on Tor-only environments.",
     ),
     default: 'enabled',
     variants: Variants.of({
@@ -516,7 +516,7 @@ export const fullConfigSpec = InputSpec.of({
   autopilot: Value.union({
     name: i18n('Enable Autopilot'),
     description: i18n(
-      'If the autopilot agent should be active or not. The autopilot agent will attempt to AUTOMATICALLY OPEN CHANNELS to put your node in an advantageous position within the network graph.',
+      "- Disabled: you open channels yourself.\n- Enabled: the autopilot agent AUTOMATICALLY OPENS CHANNELS with your wallet's funds, to put your node in an advantageous position within the network graph.",
     ),
     warning: i18n(
       'DO NOT ENABLE AUTOPILOT IF YOU WANT TO MANAGE CHANNELS MANUALLY OR IF YOU DO NOT UNDERSTAND THIS FEATURE.',
@@ -537,9 +537,7 @@ export const fullConfigSpec = InputSpec.of({
           }),
           maxchannels: Value.number({
             name: i18n('Maximum Channels'),
-            description: i18n(
-              'The maximum number of channels that should be created.',
-            ),
+            description: null,
             default: null,
             required: false,
             min: 1,
@@ -561,9 +559,7 @@ export const fullConfigSpec = InputSpec.of({
           }),
           'min-channel-size': Value.number({
             name: i18n('Minimum Channel Size'),
-            description: i18n(
-              'The smallest channel that the autopilot agent should create.',
-            ),
+            description: null,
             default: null,
             required: false,
             min: 0,
@@ -573,9 +569,7 @@ export const fullConfigSpec = InputSpec.of({
           }),
           'max-channel-size': Value.number({
             name: i18n('Maximum Channel Size'),
-            description: i18n(
-              'The largest channel that the autopilot agent should create.',
-            ),
+            description: null,
             default: null,
             required: false,
             min: 0,
@@ -616,7 +610,7 @@ export const fullConfigSpec = InputSpec.of({
   bitcoind: Value.select({
     name: i18n('Select Bitcoin Node'),
     description: i18n(
-      'Select between a local Bitcoin node and Neutrino as the backend for LND. As Neutrino involves reliance on third-party nodes it is advisable to use a local Bitcoin node instead. Once a local Bitcoin node is selected it is not supported to switch to Neutrino; however LND can always switch from Neutrino to a local Bitcoin node at a later time.',
+      'Where LND gets its blockchain data.\n- Local Bitcoin Node: from Bitcoin on this server.\n- Neutrino: from third-party nodes on the network, which LND then relies on.\nOnce a local Bitcoin node is selected, switching to Neutrino is not supported; LND can always switch from Neutrino to a local Bitcoin node later.',
     ),
     default: 'bitcoind',
     values: {
@@ -628,7 +622,9 @@ export const fullConfigSpec = InputSpec.of({
   // ── Watchtower Client ──
   'wt-client': Value.union({
     name: i18n('Enable Watchtower Client'),
-    description: i18n('Enable or disable Watchtower Client'),
+    description: i18n(
+      '- Disabled: LND uses no watchtowers.\n- Enabled: LND sends the data needed to punish a channel breach to the watchtowers listed, so they can act while this node is offline.',
+    ),
     default: 'disabled',
     variants: Variants.of({
       disabled: { name: i18n('Disabled'), spec: InputSpec.of({}) },
@@ -640,7 +636,9 @@ export const fullConfigSpec = InputSpec.of({
               {
                 name: i18n('Add Watchtowers'),
                 default: [],
-                description: i18n('Add URIs of Watchtowers to connect to.'),
+                description: i18n(
+                  "Each watchtower's URI, as pubkey@host:port. LND adds them every time it starts.",
+                ),
                 minLength: 1,
               },
               { placeholder: 'pubkey@host:9911', patterns: [] },

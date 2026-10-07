@@ -340,11 +340,9 @@ async function scrubZombieIndex(effects: T.Effects): Promise<void> {
     mainMounts,
     'zombie-scrub',
     async (sub) => {
-      const res = await sub.exec(
-        ['sqlite3', channelSqliteInner, sql],
-        undefined,
-        null,
-      )
+      const res = await sub.exec(['sqlite3', channelSqliteInner, sql], {
+        timeout: null,
+      })
       if (res.exitCode !== 0) {
         throw new Error(
           `zombie-index scrub failed (exit ${res.exitCode}): ${res.stderr.toString()}`,
@@ -401,8 +399,7 @@ async function unlockWallet(sub: Sub, walletPassword: string): Promise<void> {
       '--data-binary',
       '@-',
     ],
-    { input: body },
-    UNLOCK_TIMEOUT_MS,
+    { input: body, timeout: UNLOCK_TIMEOUT_MS },
   )
   const stdout = res.stdout.toString().trim()
   if (stdout !== '{}' && !stdout.includes('wallet already unlocked')) {

@@ -12,7 +12,9 @@ export const resetWalletTransactions = sdk.Action.withoutInput(
     description: i18n(
       "Resets the best synced height of the wallet back to its birthday, or genesis if the birthday isn't known. This is useful for picking up on-chain transactions that may have been missed by LND",
     ),
-    warning: null,
+    warning: i18n(
+      'LND restarts if it is running, then clears its record of on-chain wallet transactions and rescans the blockchain to rebuild it.',
+    ),
     allowedStatuses: 'any',
     group: null,
     visibility: 'enabled',

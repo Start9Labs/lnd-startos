@@ -1,7 +1,7 @@
 import { FileHelper, z } from '@start9labs/start-sdk'
 import { sdk } from '../sdk'
 
-export const backupFailureShape = z.object({
+export const backupFailureShape = z.looseObject({
   target: z.string(),
   code: z.string(),
   detail: z.string().catch(''),
@@ -9,7 +9,7 @@ export const backupFailureShape = z.object({
 
 export type BackupFailure = z.infer<typeof backupFailureShape>
 
-const channelBackupStateShape = z.object({
+const channelBackupStateShape = z.looseObject({
   attempt: z.number().int().nonnegative().catch(0),
   lastSuccess: z.number().nullable().catch(null),
   failures: z.array(backupFailureShape).catch([]),

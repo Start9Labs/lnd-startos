@@ -92,6 +92,19 @@ export type GetInfo = {
   synced_to_graph: boolean
 }
 
+export const seedGrid = (words: string[]) => {
+  const width = Math.max(...words.map((w) => w.length))
+  return Array.from({ length: Math.ceil(words.length / 4) }, (_, row) =>
+    words
+      .slice(row * 4, row * 4 + 4)
+      .map(
+        (w, i) => `${String(row * 4 + i + 1).padStart(2)}. ${w.padEnd(width)}`,
+      )
+      .join('  ')
+      .trimEnd(),
+  ).join('\n')
+}
+
 export function sleep(ms: number, abort?: AbortSignal) {
   return new Promise<void>((resolve) => {
     const timer = setTimeout(resolve, ms)
