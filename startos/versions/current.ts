@@ -18,7 +18,8 @@ export const current = VersionInfo.of({
 - Reset Wallet Transactions and Back Up Channels Now ask for confirmation before running.
 - The descriptions of Debug Level, Enable Tor, Enable Autopilot, Select Bitcoin Node, Enable Watchtower Client, Initialize Wallet's method, Pay Invoice's amount and SFTP authentication explain each option.
 - When Node Info or Watchtower Server Info fails, the error is shown as readable text you can copy.
-- A network port left reserved by the StartOS 0.3.5 version of this package is freed.`,
+- A network port left reserved by the StartOS 0.3.5 version of this package is freed.
+- Requires Bitcoin 28.4:18, 29.4:5, 30.3:5 or 31.1:5, or a later release of the same line.`,
     es_ES: `LND actualizado a 0.21.4-beta.
 
 - Corrige HTLC pendientes durante transiciones de canales, la sincronización del grafo con respuestas de pares inutilizables y la conversión SQL del grafo de registros de canales antiguos.
@@ -32,7 +33,8 @@ export const current = VersionInfo.of({
 - Restablecer transacciones de billetera y Copiar canales ahora piden confirmación antes de ejecutarse.
 - Las descripciones de Nivel de depuración, Habilitar Tor, Habilitar Autopilot, Seleccionar nodo Bitcoin, Habilitar cliente Watchtower, el método de Inicializar billetera, el importe de Pagar factura y la autenticación SFTP explican cada opción.
 - Cuando Información del nodo o Información del servidor Watchtower falla, el error se muestra como texto legible que puedes copiar.
-- Se libera un puerto de red que la versión de este paquete para StartOS 0.3.5 dejó reservado.`,
+- Se libera un puerto de red que la versión de este paquete para StartOS 0.3.5 dejó reservado.
+- Requiere Bitcoin 28.4:18, 29.4:5, 30.3:5 o 31.1:5, o una versión posterior de la misma línea.`,
     de_DE: `LND auf 0.21.4-beta aktualisiert.
 
 - Behebt hängende HTLCs bei Kanalübergängen, die Graphensynchronisierung bei unbrauchbaren Peer-Antworten und die SQL-Graphenkonvertierung älterer Kanaldatensätze.
@@ -46,7 +48,8 @@ export const current = VersionInfo.of({
 - „Wallet-Transaktionen zurücksetzen“ und „Kanäle jetzt sichern“ fragen vor der Ausführung nach einer Bestätigung.
 - Die Beschreibungen von Debug-Level, Tor aktivieren, Autopilot aktivieren, Bitcoin-Knoten auswählen, Watchtower-Client aktivieren, der Methode von „Wallet initialisieren“, dem Betrag von „Rechnung bezahlen“ und der SFTP-Authentifizierung erklären jede Option.
 - Schlägt „Knoten-Info“ oder „Watchtower-Server-Info“ fehl, wird der Fehler als lesbarer Text angezeigt, den Sie kopieren können.
-- Ein Netzwerkport, den die StartOS-0.3.5-Version dieses Pakets belegt gelassen hatte, wird freigegeben.`,
+- Ein Netzwerkport, den die StartOS-0.3.5-Version dieses Pakets belegt gelassen hatte, wird freigegeben.
+- Erfordert Bitcoin 28.4:18, 29.4:5, 30.3:5 oder 31.1:5 oder eine neuere Version derselben Linie.`,
     pl_PL: `Zaktualizowano LND do 0.21.4-beta.
 
 - Naprawia oczekujące HTLC podczas zmian stanu kanałów, synchronizację grafu przy bezużytecznych odpowiedziach węzłów oraz konwersję grafu do SQL dla starszych rekordów kanałów.
@@ -60,7 +63,8 @@ export const current = VersionInfo.of({
 - Zresetuj transakcje portfela i Utwórz kopię kanałów teraz proszą o potwierdzenie przed uruchomieniem.
 - Opisy Poziomu debugowania, Włącz Tor, Włącz Autopilot, Wybierz węzeł Bitcoin, Włącz klienta Watchtower, metody Zainicjalizuj portfel, kwoty Zapłać fakturę i uwierzytelniania SFTP wyjaśniają każdą opcję.
 - Gdy Informacje o węźle lub Informacje o serwerze Watchtower kończą się błędem, błąd jest wyświetlany jako czytelny tekst, który można skopiować.
-- Zwolniony zostaje port sieciowy, który wersja tego pakietu dla StartOS 0.3.5 pozostawiła zajęty.`,
+- Zwolniony zostaje port sieciowy, który wersja tego pakietu dla StartOS 0.3.5 pozostawiła zajęty.
+- Wymaga Bitcoin 28.4:18, 29.4:5, 30.3:5 lub 31.1:5 albo nowszego wydania tej samej linii.`,
     fr_FR: `LND mis à jour vers 0.21.4-beta.
 
 - Corrige les HTLC bloqués lors des transitions de canaux, la synchronisation du graphe face aux réponses de pairs inutilisables et la conversion SQL du graphe pour les anciens enregistrements de canaux.
@@ -74,7 +78,8 @@ export const current = VersionInfo.of({
 - Réinitialiser les transactions du portefeuille et Sauvegarder les canaux maintenant demandent une confirmation avant de s'exécuter.
 - Les descriptions de Niveau de débogage, Activer Tor, Activer l'Autopilot, Sélectionner le nœud Bitcoin, Activer le client Watchtower, de la méthode d'Initialiser le portefeuille, du montant de Payer une facture et de l'authentification SFTP expliquent chaque option.
 - Lorsque Info du nœud ou Info du serveur Watchtower échoue, l'erreur s'affiche sous forme de texte lisible que vous pouvez copier.
-- Un port réseau que la version de ce paquet pour StartOS 0.3.5 avait laissé réservé est libéré.`,
+- Un port réseau que la version de ce paquet pour StartOS 0.3.5 avait laissé réservé est libéré.
+- Nécessite Bitcoin 28.4:18, 29.4:5, 30.3:5 ou 31.1:5, ou une version ultérieure de la même branche.`,
   },
   migrations: {
     up: async ({ effects }) => {
