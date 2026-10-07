@@ -29,7 +29,7 @@ export const towerInfo = sdk.Action.withoutInput(
       mainMounts,
       'tower-info',
       async (subc) => {
-        return subc.execFail([
+        return subc.exec([
           'lncli',
           `--rpcserver=${selfGrpcHost}`,
           'tower',
@@ -38,7 +38,11 @@ export const towerInfo = sdk.Action.withoutInput(
       },
     )
 
-    if (res.stdout !== '' && typeof res.stdout === 'string') {
+    if (
+      res.exitCode === 0 &&
+      res.stdout !== '' &&
+      typeof res.stdout === 'string'
+    ) {
       const parsedRes: {
         pubkey: string
         listeners: string[]
