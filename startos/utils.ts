@@ -170,6 +170,7 @@ export const channelBackupProviderName = (target: string) =>
     dropbox: i18n('Dropbox'),
     nextcloud: i18n('Nextcloud'),
     sftp: i18n('SFTP'),
+    email: i18n('Email'),
     agent: i18n('Continuous Backup'),
   })[target] ?? target
 

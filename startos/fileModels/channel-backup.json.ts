@@ -123,11 +123,43 @@ const sftpTarget = z.looseObject({
   path: relativePath,
 })
 
+// The mail body is the one field allowed to span lines: tab and newline only,
+// so a header-injecting carriage return never reaches the SMTP conversation.
+const mailBody = z
+  .string()
+  .max(4 * 1024)
+  .refine(
+    (value) =>
+      !value.split('').some((char) => {
+        const code = char.charCodeAt(0)
+        return (code < 32 && code !== 9 && code !== 10) || code === 127
+      }),
+  )
+  .catch('')
+
+const emailTarget = z.looseObject({
+  enabled: z.boolean().catch(false),
+  host: line(),
+  port: z
+    .string()
+    .regex(/^\d{1,5}$/)
+    .refine((value) => Number(value) >= 1 && Number(value) <= 65_535)
+    .catch('587'),
+  user: line(),
+  pass: nullableLine(),
+  from: line(),
+  // Comma-separated recipient addresses, kept as one line.
+  to: line(),
+  subject: line(),
+  body: mailBody,
+})
+
 export const channelBackupShape = z.looseObject({
   gdrive: oauthTarget.nullable().catch(null),
   dropbox: oauthTarget.nullable().catch(null),
   nextcloud: nextcloudTarget.nullable().catch(null),
   sftp: sftpTarget.nullable().catch(null),
+  email: emailTarget.nullable().catch(null),
 })
 
 export type ChannelBackupJson = z.infer<typeof channelBackupShape>

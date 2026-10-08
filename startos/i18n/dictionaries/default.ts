@@ -570,6 +570,29 @@ const dict = {
   'The invoice changed after review. Reopen the action and verify its details.': 598,
   'LND restarts if it is running, then clears its record of on-chain wallet transactions and rescans the blockchain to rebuild it.': 603,
   'The copy of channel.backup on every enabled target is replaced with the current one.': 604,
+
+  // actions/configureChannelBackup.ts — the email target
+  Email: 605,
+  'Send channel.backup as an attachment over SMTP, to any mailbox.': 606,
+  'SMTP Server': 607,
+  "Hostname of your mail provider's SMTP server, such as smtp.example.com.": 608,
+  'Default 587, which is sent over STARTTLS. Port 465 uses implicit TLS. The password never travels without TLS.': 609,
+  'The login the SMTP server expects. Leave blank for a server that needs no login.': 610,
+  'SMTP password, or an app password where the provider requires one. Leave blank to keep the stored one.': 611,
+  'Sender Address': 612,
+  'The address mail is sent from, such as you@example.com. It must be one your SMTP server allows you to send as.': 613,
+  Recipients: 614,
+  'Recipient addresses separated by commas. Several mailboxes at different providers are better than one.': 615,
+  Subject: 616,
+  'Leave blank for a subject that names the time the copy was sent.': 617,
+  Message: 618,
+  'Sent above the attachment. Leave blank for a message that explains what the attachment is.': 619,
+  '${label}: only line breaks and tabs are allowed in the message.': 620,
+  '${label}: ${value} is not a valid email address.': 621,
+  '${label}: the port must be a number between 1 and 65535.': 622,
+  '${label}: the host must not begin with "-".': 623,
+  'Email: SMTP server, sender address, and at least one recipient are required.': 624,
+  '${label}: a password is required for that username.': 625,
 } as const
 
 /**

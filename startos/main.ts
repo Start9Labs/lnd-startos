@@ -1261,9 +1261,13 @@ export const main = sdk.setupMain(async ({ effects }) => {
           fn: async () => {
             const cfg = await channelBackupJson.read().once()
             if (
-              ![cfg?.gdrive, cfg?.dropbox, cfg?.nextcloud, cfg?.sftp].some(
-                (t) => t?.enabled,
-              )
+              ![
+                cfg?.gdrive,
+                cfg?.dropbox,
+                cfg?.nextcloud,
+                cfg?.sftp,
+                cfg?.email,
+              ].some((t) => t?.enabled)
             ) {
               return {
                 result: 'disabled',

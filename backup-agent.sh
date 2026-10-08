@@ -186,8 +186,27 @@ validate_config() {
         (.hostKeyFingerprints | type == "string" and length <= 16384) and
         (.hostKeyVerified | type == "boolean") and (.path | path)
       );
+    def mail_address: "[^\\s@,]+@[^\\s@,]+\\.[^\\s@,]+";
+    def mail_list:
+      . as $value | (mail_address) as $one |
+      ($value == "" or
+        ($value | test("^[\\s,]*" + $one + "([\\s,]+" + $one + ")*[\\s,]*$")));
+    def email:
+      . == null or (
+        type == "object" and (.enabled | type == "boolean") and
+        (.host | line(2048)) and (.host | startswith("-") | not) and
+        (.port | type == "string" and test("^[0-9]{1,5}$") and
+          (tonumber >= 1 and tonumber <= 65535)) and
+        (.user | line(2048)) and (.pass | maybe_line(16384)) and
+        (.from | line(2048)) and
+        (.from == "" or (.from | test("^" + mail_address + "$"))) and
+        (.to | line(2048)) and (.to | mail_list) and
+        (.subject | line(2048)) and
+        (.body | type == "string" and length <= 4096 and
+          (test("[\\x00-\\x08\\x0b-\\x1f\\x7f]") | not))
+      );
     (.gdrive | oauth) and (.dropbox | oauth) and
-    (.nextcloud | nextcloud) and (.sftp | sftp)
+    (.nextcloud | nextcloud) and (.sftp | sftp) and (.email | email)
   ' "$CONFIG_SNAP" >/dev/null 2>&1
 }
 
@@ -216,6 +235,14 @@ has_creds() {
             [ -n "$(cfg '.sftp.pass // empty')" ]
           fi
         }
+      ;;
+    email)
+      [ -n "$(cfg '.email.host // empty')" ] &&
+        [ -n "$(cfg '.email.from // empty')" ] &&
+        [ -n "$(cfg '.email.to // empty')" ]
+      ;;
+    *)
+      return 1
       ;;
   esac
 }
@@ -322,6 +349,11 @@ cleanup_remote_tmp() {
   REMOTE_TMP=''
 }
 
+# The SMTP password sits in one of these only while a send is running.
+cleanup_scratch() {
+  rm -f "$WORK"/email.curl.* "$WORK"/email.message.* 2>/dev/null || :
+}
+
 fail_target() {
   jq -nc --arg t "$1" --arg c "$2" --arg d "$3" '{target:$t,code:$c,detail:$d}' >> "$FAILURES" || return 1
 }
@@ -359,6 +391,131 @@ ship_target() {
     return 1
   fi
   REMOTE_TMP=''
+  return 0
+}
+
+# Sends the staged copy over SMTP. Email is send-only: a restore reads a copy
+# back from every other target, and there is nothing here to read.
+ship_email() {
+  _mhost=$(cfg '.email.host // empty')
+  _mport=$(cfg '.email.port // "587"')
+  _muser=$(cfg '.email.user // empty')
+  _mpass=$(cfg '.email.pass // empty')
+  _mfrom=$(cfg '.email.from // empty')
+  _mto=$(cfg '.email.to // empty')
+  _msubject=$(cfg '.email.subject // empty')
+  _mbody=$(cfg '.email.body // empty')
+  _mconf="$WORK/email.curl.$$"
+  _mmsg="$WORK/email.message.$$"
+  _mout="$WORK/email.out"
+  _mleft=0
+  if [ "$OP_DEADLINE" -gt 0 ]; then
+    _mleft=$((OP_DEADLINE - $(date +%s)))
+    if [ "$_mleft" -le 0 ]; then
+      fail_target email timeout ''
+      return 1
+    fi
+  fi
+  if [ -z "$_mhost" ] || [ -z "$_mfrom" ] || [ -z "$_mto" ]; then
+    fail_target email local 'the email target is incomplete'
+    return 1
+  fi
+  if ! command -v curl >/dev/null 2>&1 || ! command -v base64 >/dev/null 2>&1; then
+    fail_target email local 'curl or base64 is unavailable'
+    return 1
+  fi
+  # curl reads the login from here so the password never reaches this process's
+  # command line, where anything on the box could read it.
+  if [ -n "$_muser" ]; then
+    printf 'user = "%s:%s"\n' \
+      "$(printf '%s' "$_muser" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')" \
+      "$(printf '%s' "$_mpass" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')" > "$_mconf" ||
+      {
+        cleanup_scratch
+        fail_target email local 'the SMTP login could not be written'
+        return 1
+      }
+  else
+    : > "$_mconf" || {
+      cleanup_scratch
+      fail_target email local 'the SMTP login could not be written'
+      return 1
+    }
+  fi
+  _mboundary="=_lnd_$(random_suffix)" || {
+    cleanup_scratch
+    fail_target email local 'could not create a MIME boundary'
+    return 1
+  }
+  _mdate=$(LC_ALL=C date -u '+%a, %d %b %Y %H:%M:%S +0000')
+  # A blank subject or message is filled in, so one is never sent empty.
+  [ -n "$_msubject" ] || _msubject="channel.backup copied $_mdate"
+  [ -n "$_mbody" ] ||
+    _mbody='StartOS sent this copy of channel.backup automatically. The attached file is the backup itself.'
+  _mheader=$_msubject
+  if LC_ALL=C printf '%s' "$_msubject" | LC_ALL=C grep -q '[^ -~]'; then
+    _mheader="=?UTF-8?B?$(printf '%s' "$_msubject" | base64 | tr -d '\r\n')?="
+  fi
+  {
+    printf 'From: %s\r\n' "$_mfrom"
+    printf 'To: %s\r\n' "$_mto"
+    printf 'Subject: %s\r\n' "$_mheader"
+    printf 'Date: %s\r\n' "$_mdate"
+    printf 'MIME-Version: 1.0\r\n'
+    printf 'Content-Type: multipart/mixed; boundary="%s"\r\n' "$_mboundary"
+    printf '\r\n'
+    printf '%s\r\n' "--$_mboundary"
+    printf 'Content-Type: text/plain; charset="utf-8"\r\n'
+    printf 'Content-Transfer-Encoding: base64\r\n\r\n'
+    if [ -n "$_mbody" ]; then
+      printf '%s\n' "$_mbody" | base64 | sed 's/$/\r/'
+    fi
+    printf '\r\n%s\r\n' "--$_mboundary"
+    printf 'Content-Type: application/octet-stream; name="%s"\r\n' "$OBJECT"
+    printf 'Content-Transfer-Encoding: base64\r\n'
+    printf 'Content-Disposition: attachment; filename="%s"\r\n\r\n' "$OBJECT"
+    base64 < "$SNAPSHOT" | sed 's/$/\r/'
+    printf '\r\n%s--\r\n' "--$_mboundary"
+  } > "$_mmsg" || {
+    cleanup_scratch
+    fail_target email local 'the message could not be written'
+    return 1
+  }
+  _msnap=$(wc -c < "$SNAPSHOT") || _msnap=0
+  _msize=$(wc -c < "$_mmsg") || _msize=0
+  if [ "$_msize" -le 0 ] || [ "$_msize" -le "$_msnap" ]; then
+    cleanup_scratch
+    fail_target email local 'the message could not be assembled'
+    return 1
+  fi
+  _murl="smtp://$_mhost:$_mport"
+  [ "$_mport" = 465 ] && _murl="smtps://$_mhost:$_mport"
+  # TLS is not optional: the login and the backup both travel inside it.
+  set -- curl --silent --show-error --connect-timeout 15 --ssl-reqd \
+    --config "$_mconf" --mail-from "$_mfrom" --upload-file "$_mmsg" "$_murl"
+  _mrcpts=$(printf '%s' "$_mto" | tr -s '[:space:],' '\n')
+  while IFS= read -r _mrcpt; do
+    [ -n "$_mrcpt" ] || continue
+    set -- "$@" --mail-rcpt "$_mrcpt"
+  done <<EOF
+$_mrcpts
+EOF
+  if [ "$_mleft" -gt 0 ]; then
+    timeout -k "$KILL_GRACE_SECS" "$_mleft" "$@" > "$_mout" 2>&1
+    _mrc=$?
+  else
+    "$@" > "$_mout" 2>&1
+    _mrc=$?
+  fi
+  cleanup_scratch
+  if [ "$_mrc" -eq 124 ] || [ "$_mrc" -eq 143 ]; then
+    fail_target email timeout ''
+    return 1
+  fi
+  if [ "$_mrc" -ne 0 ]; then
+    fail_target email upload "$(reason_file "$_mout")"
+    return 1
+  fi
   return 0
 }
 
@@ -422,7 +579,12 @@ do_backup() {
     unlock
     return 1
   }
-  if [ ! -s "$REMOTES" ]; then
+  # Email has no remote to list: it is sent, not uploaded.
+  _email_on=0
+  if [ "$(cfg '.email.enabled // false')" = true ] && has_creds email; then
+    _email_on=1
+  fi
+  if [ ! -s "$REMOTES" ] && [ "$_email_on" -eq 0 ]; then
     unlock
     [ "$_announce" = force ] && log "no backup target is enabled"
     return 4
@@ -458,6 +620,14 @@ do_backup() {
     fi
     ship_target "$_remote" || _all_ok=0
   done < "$REMOTES"
+  if [ "$_email_on" -eq 1 ]; then
+    if [ "$OP_DEADLINE" -gt 0 ] && [ "$(date +%s)" -ge "$OP_DEADLINE" ]; then
+      fail_target email timeout '' || _all_ok=0
+      _all_ok=0
+    else
+      ship_email || _all_ok=0
+    fi
+  fi
   _failures=$(jq -sc . "$FAILURES" 2>/dev/null) || _failures=''
   if [ -z "$_failures" ] || ! record_outcome "$_attempt" "$_failures" "$_all_ok" 0; then
     rm -f "$SNAPSHOT"
@@ -560,7 +730,7 @@ fingerprint() {
 }
 
 watch_loop() {
-  trap 'cleanup_remote_tmp; exit 0' TERM INT
+  trap 'cleanup_remote_tmp; cleanup_scratch; exit 0' TERM INT
   mkdir -p "$WORK" || exit 1
   log "started"
   _last=none
@@ -603,8 +773,8 @@ watch_loop() {
 
 case "${1:-}" in
   --once)
-    trap 'cleanup_remote_tmp' EXIT
-    trap 'cleanup_remote_tmp; exit 1' TERM INT
+    trap 'cleanup_remote_tmp; cleanup_scratch' EXIT
+    trap 'cleanup_remote_tmp; cleanup_scratch; exit 1' TERM INT
     MANUAL=1
     _started=$(date +%s)
     DEADLINE=$((_started + ONCE_SECS))

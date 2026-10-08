@@ -13,7 +13,13 @@ import {
   nextcloudDavUrl,
 } from '../utils'
 
-const VALID_PROVIDERS = ['gdrive', 'dropbox', 'nextcloud', 'sftp'] as const
+const VALID_PROVIDERS = [
+  'gdrive',
+  'dropbox',
+  'nextcloud',
+  'sftp',
+  'email',
+] as const
 const MAX_FIELD_LENGTH = 2_048
 const MAX_SECRET_LENGTH = 16_384
 const MAX_KEY_LENGTH = 32_768
@@ -73,6 +79,33 @@ function folder(value: unknown, label: string, previous: string): string {
     )
   }
   return path
+}
+
+// An address a mail server will accept a RCPT TO for. Deliberately shallow:
+// the SMTP server is the authority, and a rejected recipient fails the send.
+function isMailAddress(value: string): boolean {
+  return /^[^\s@,]+@[^\s@,]+\.[^\s@,]+$/.test(value)
+}
+
+function mailAddresses(value: string): string[] {
+  return value.split(/[\s,]+/).filter(Boolean)
+}
+
+// The message body is the one field allowed to span lines.
+function mailText(value: unknown, label: string): string {
+  const s = typeof value === 'string' ? value : ''
+  checkedLength(s, label, 4096)
+  const control = s.split('').some((char) => {
+    const code = char.charCodeAt(0)
+    return (code < 32 && code !== 9 && code !== 10) || code === 127
+  })
+  if (control)
+    throw new Error(
+      i18n('${label}: only line breaks and tabs are allowed in the message.', {
+        label,
+      }),
+    )
+  return s
 }
 
 function hostOf(addr: string): string {
@@ -655,6 +688,74 @@ const sftpFields = {
   }),
 }
 
+const emailFields = {
+  'email-server': sdk.Value.text({
+    name: i18n('SMTP Server'),
+    description: i18n(
+      "Hostname of your mail provider's SMTP server, such as smtp.example.com.",
+    ),
+    default: '',
+    required: false,
+  }),
+  'email-port': sdk.Value.text({
+    name: i18n('Port'),
+    description: i18n(
+      'Default 587, which is sent over STARTTLS. Port 465 uses implicit TLS. The password never travels without TLS.',
+    ),
+    default: '587',
+    required: false,
+  }),
+  'email-user': sdk.Value.text({
+    name: i18n('Username'),
+    description: i18n(
+      'The login the SMTP server expects. Leave blank for a server that needs no login.',
+    ),
+    default: '',
+    required: false,
+  }),
+  'email-pass': sdk.Value.text({
+    name: i18n('Password'),
+    description: i18n(
+      'SMTP password, or an app password where the provider requires one. Leave blank to keep the stored one.',
+    ),
+    default: '',
+    masked: true,
+    required: false,
+  }),
+  'email-from': sdk.Value.text({
+    name: i18n('Sender Address'),
+    description: i18n(
+      'The address mail is sent from, such as you@example.com. It must be one your SMTP server allows you to send as.',
+    ),
+    default: '',
+    required: false,
+  }),
+  'email-to': sdk.Value.text({
+    name: i18n('Recipients'),
+    description: i18n(
+      'Recipient addresses separated by commas. Several mailboxes at different providers are better than one.',
+    ),
+    default: '',
+    required: false,
+  }),
+  'email-subject': sdk.Value.text({
+    name: i18n('Subject'),
+    description: i18n(
+      'Leave blank for a subject that names the time the copy was sent.',
+    ),
+    default: '',
+    required: false,
+  }),
+  'email-body': sdk.Value.textarea({
+    name: i18n('Message'),
+    description: i18n(
+      'Sent above the attachment. Leave blank for a message that explains what the attachment is.',
+    ),
+    default: '',
+    required: false,
+  }),
+}
+
 // A target is an object with its own enable toggle, so turning one off keeps
 // its saved credentials.
 function storageTarget(
@@ -709,6 +810,11 @@ export const configureChannelBackup = sdk.Action.withInput(
       i18n('Back up to any always-on SSH server, such as a NAS.'),
       sftpFields,
     ),
+    email: storageTarget(
+      i18n('Email'),
+      i18n('Send channel.backup as an attachment over SMTP, to any mailbox.'),
+      emailFields,
+    ),
   }),
 
   // Prefill from the saved config. Secrets come back blank and are kept when
@@ -719,6 +825,7 @@ export const configureChannelBackup = sdk.Action.withInput(
     const d = cfg?.dropbox
     const n = cfg?.nextcloud
     const s = cfg?.sftp
+    const e = cfg?.email
     return {
       gdrive: {
         enabled: !!g?.enabled,
@@ -764,6 +871,18 @@ export const configureChannelBackup = sdk.Action.withInput(
               : { 'sftp-pass': '' }),
           },
         },
+      },
+      email: {
+        enabled: !!e?.enabled,
+        forget: false,
+        'email-server': e?.host || '',
+        'email-port': e?.port || '587',
+        'email-user': e?.user || '',
+        'email-pass': '',
+        'email-from': e?.from || '',
+        'email-to': e?.to || '',
+        'email-subject': e?.subject || '',
+        'email-body': e?.body || '',
       },
     } as any
   },
@@ -861,6 +980,67 @@ export const configureChannelBackup = sdk.Action.withInput(
           pass,
           insecureTls: !!o['nextcloud-insecure-tls'],
           path,
+        }
+      } else if (provider === 'email') {
+        const host = clean(o['email-server'], 'Email') || prev.host || ''
+        const port = clean(o['email-port'], 'Email') || prev.port || '587'
+        const user = clean(o['email-user'], 'Email') || prev.user || ''
+        const pass = secret(o['email-pass'], 'Email') || prev.pass || null
+        const from = clean(o['email-from'], 'Email') || prev.from || ''
+        const to = clean(o['email-to'], 'Email') || prev.to || ''
+        const subject = clean(o['email-subject'], 'Email') || prev.subject || ''
+        const body = mailText(o['email-body'], 'Email') || prev.body || ''
+        if (from && !isMailAddress(from))
+          throw new Error(
+            i18n('${label}: ${value} is not a valid email address.', {
+              label: 'Email',
+              value: literal(from),
+            }),
+          )
+        for (const address of mailAddresses(to)) {
+          if (!isMailAddress(address))
+            throw new Error(
+              i18n('${label}: ${value} is not a valid email address.', {
+                label: 'Email',
+                value: literal(address),
+              }),
+            )
+        }
+        if (!/^\d{1,5}$/.test(port) || Number(port) < 1 || Number(port) > 65535)
+          throw new Error(
+            i18n('${label}: the port must be a number between 1 and 65535.', {
+              label: 'Email',
+            }),
+          )
+        if (host.startsWith('-'))
+          throw new Error(
+            i18n('${label}: the host must not begin with "-".', {
+              label: 'Email',
+            }),
+          )
+        if (enabled && (!host || !from || !mailAddresses(to).length))
+          throw new Error(
+            i18n(
+              'Email: SMTP server, sender address, and at least one recipient are required.',
+            ),
+          )
+        if (user && !pass)
+          throw new Error(
+            i18n('${label}: a password is required for that username.', {
+              label: 'Email',
+            }),
+          )
+        if (host) rejectLocalOrOnion(host, 'Email')
+        patch.email = {
+          enabled,
+          host,
+          port,
+          user,
+          pass,
+          from,
+          to,
+          subject,
+          body,
         }
       } else {
         const auth = o.auth || { selection: 'password', value: {} }
