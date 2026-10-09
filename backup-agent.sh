@@ -417,7 +417,7 @@ record_email_delivery() {
 # Sends the staged copy over SMTP; a restore reads copies back from other targets.
 ship_email() {
   _mhost=$(cfg '.email.host // empty')
-  _mport=$(cfg '.email.port // "587"')
+  _mport=$(cfg '(.email.port // "587") | tonumber | tostring')
   _muser=$(cfg '.email.user // empty')
   _mpass=$(cfg '.email.pass // empty')
   _mfrom=$(cfg '.email.from // empty')
@@ -470,14 +470,36 @@ ship_email() {
   [ -n "$_msubject" ] || _msubject="channel.backup copied $_mdate"
   [ -n "$_mbody" ] ||
     _mbody='StartOS sent this copy of channel.backup automatically. The attached file is the backup itself.'
-  _mheader=$_msubject
-  if LC_ALL=C printf '%s' "$_msubject" | LC_ALL=C grep -q '[^ -~]'; then
-    _mheader="=?UTF-8?B?$(printf '%s' "$_msubject" | base64 | tr -d '\r\n')?="
-  fi
+  _mheader=$(jq -nr --arg subject "$_msubject" '
+    $subject | explode |
+    reduce .[] as $code ([""];
+      ([$code] | implode) as $char |
+      if ((.[-1] + $char) | utf8bytelength) > 45 then
+        . + [$char]
+      else
+        .[-1] += $char
+      end
+    ) |
+    map("=?UTF-8?B?" + (. | @base64) + "?=") | join("\r\n ")
+  ') || {
+    cleanup_scratch
+    fail_target email local 'the subject could not be encoded'
+    return 1
+  }
+  _mrcpts=$(printf '%s' "$_mto" | tr -s '[:space:],' '\n')
   {
     printf 'From: %s\r\n' "$_mfrom"
-    printf 'To: %s\r\n' "$_mto"
-    printf 'Subject: %s\r\n' "$_mheader"
+    printf 'To:'
+    _mseparator=''
+    while IFS= read -r _mrcpt; do
+      [ -n "$_mrcpt" ] || continue
+      printf '%s\r\n %s' "$_mseparator" "$_mrcpt"
+      _mseparator=','
+    done <<EOF
+$_mrcpts
+EOF
+    printf '\r\n'
+    printf 'Subject:\r\n %s\r\n' "$_mheader"
     printf 'Date: %s\r\n' "$_mdate"
     printf 'MIME-Version: 1.0\r\n'
     printf 'Content-Type: multipart/mixed; boundary="%s"\r\n' "$_mboundary"
@@ -509,7 +531,6 @@ ship_email() {
   # TLS is not optional: the login and the backup both travel inside it.
   set -- curl --silent --show-error --connect-timeout 15 --ssl-reqd \
     --config "$_mconf" --mail-from "$_mfrom" --upload-file "$_mmsg" "$_murl"
-  _mrcpts=$(printf '%s' "$_mto" | tr -s '[:space:],' '\n')
   while IFS= read -r _mrcpt; do
     [ -n "$_mrcpt" ] || continue
     set -- "$@" --mail-rcpt "$_mrcpt"

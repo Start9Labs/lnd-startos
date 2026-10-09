@@ -986,7 +986,11 @@ export const configureChannelBackup = sdk.Action.withInput(
         const user = clean(o['email-user'], 'Email')
         const pass = secret(o['email-pass'], 'Email') || prev.pass || null
         const from = clean(o['email-from'], 'Email')
-        const to = clean(o['email-to'], 'Email')
+        const to = checkedLength(
+          mailAddresses(clean(o['email-to'], 'Email')).join(', '),
+          'Email',
+          MAX_FIELD_LENGTH,
+        )
         const subject = clean(o['email-subject'], 'Email')
         const body = mailText(o['email-body'], 'Email')
         if (from && !isMailAddress(from))
@@ -1033,7 +1037,7 @@ export const configureChannelBackup = sdk.Action.withInput(
         patch.email = {
           enabled,
           host,
-          port,
+          port: String(Number(port)),
           user,
           pass,
           from,

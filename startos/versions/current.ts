@@ -1,6 +1,4 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
-import { controlHostId, gRPCPort } from '../interfaces'
-import { sdk } from '../sdk'
 
 export const current = VersionInfo.of({
   version: '0.21.4-beta:2',
@@ -12,10 +10,7 @@ export const current = VersionInfo.of({
     fr_FR: `Les sauvegardes de canaux peuvent désormais aussi être livrées par e-mail : choisissez Email dans Configurer les sauvegardes continues, renseignez le serveur SMTP, le port et les identifiants, et chaque sauvegarde arrive en pièce jointe. SMTP doit utiliser le TLS — TLS implicite sur le port 465, STARTTLS sur tout autre port — et l'adresse Doit être une que l'identifiant SMTP a le droit d'utiliser. Une restauration récupère toujours les copies détenues par Google Drive, Dropbox, Nextcloud et SFTP, mais pas celles de l'e-mail : l'e-mail n'envoie que.`,
   },
   migrations: {
-    up: async ({ effects }) => {
-      // The 0.3.5 package served gRPC on the control host; it now has its own.
-      await sdk.MultiHost.of(effects, controlHostId).retirePort(gRPCPort)
-    },
+    up: async () => {},
     down: IMPOSSIBLE,
   },
 })
