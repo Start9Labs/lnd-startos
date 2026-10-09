@@ -18,6 +18,7 @@ LND_DIR=/root/.lnd
 BACKUP="$LND_DIR/data/chain/bitcoin/mainnet/channel.backup"
 CONFIG="$LND_DIR/channel-backup.json"
 STATE="$LND_DIR/.channel-backup-state.json"
+EMAIL_STATE="$LND_DIR/.channel-backup-email.json"
 LOCK="$LND_DIR/.channel-backup.lock"
 RESTORE_DIR="$LND_DIR/.channel-backup-restore"
 
@@ -394,8 +395,26 @@ ship_target() {
   return 0
 }
 
-# Sends the staged copy over SMTP. Email is send-only: a restore reads a copy
-# back from every other target, and there is nothing here to read.
+# True when the current copy, to the same recipients, was already delivered.
+email_delivered() {
+  [ -s "$EMAIL_STATE" ] || return 1
+  _dhash=$(sha256sum "$SNAPSHOT" | cut -d' ' -f1) || return 1
+  _dto=$(cfg '.email.to // empty')
+  [ -n "$_dto" ] || return 1
+  jq -e --arg h "$_dhash" --arg t "$_dto" '.hash == $h and .to == $t' \
+    "$EMAIL_STATE" >/dev/null 2>&1
+}
+
+# Records what was just delivered, so retries and the daily backstop send nothing.
+record_email_delivery() {
+  _mhash=$(sha256sum "$SNAPSHOT" | cut -d' ' -f1) || return 1
+  _msent=$(date +%s) || return 1
+  _mrecord=$(jq -nc --arg h "$_mhash" --arg t "$_mto" --argjson at "$_msent" \
+    '{hash: $h, to: $t, at: $at}') || return 1
+  write_atomic "$EMAIL_STATE" "$_mrecord"
+}
+
+# Sends the staged copy over SMTP; a restore reads copies back from other targets.
 ship_email() {
   _mhost=$(cfg '.email.host // empty')
   _mport=$(cfg '.email.port // "587"')
@@ -424,8 +443,7 @@ ship_email() {
     fail_target email local 'curl or base64 is unavailable'
     return 1
   fi
-  # curl reads the login from here so the password never reaches this process's
-  # command line, where anything on the box could read it.
+  # curl reads the login from here, so the password never reaches the command line.
   if [ -n "$_muser" ]; then
     printf 'user = "%s:%s"\n' \
       "$(printf '%s' "$_muser" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')" \
@@ -467,9 +485,7 @@ ship_email() {
     printf '%s\r\n' "--$_mboundary"
     printf 'Content-Type: text/plain; charset="utf-8"\r\n'
     printf 'Content-Transfer-Encoding: base64\r\n\r\n'
-    if [ -n "$_mbody" ]; then
-      printf '%s\n' "$_mbody" | base64 | sed 's/$/\r/'
-    fi
+    printf '%s\n' "$_mbody" | base64 | sed 's/$/\r/'
     printf '\r\n%s\r\n' "--$_mboundary"
     printf 'Content-Type: application/octet-stream; name="%s"\r\n' "$OBJECT"
     printf 'Content-Transfer-Encoding: base64\r\n'
@@ -516,6 +532,10 @@ EOF
     fail_target email upload "$(reason_file "$_mout")"
     return 1
   fi
+  record_email_delivery || {
+    fail_target email local 'the delivery record could not be written'
+    return 1
+  }
   return 0
 }
 
@@ -621,7 +641,9 @@ do_backup() {
     ship_target "$_remote" || _all_ok=0
   done < "$REMOTES"
   if [ "$_email_on" -eq 1 ]; then
-    if [ "$OP_DEADLINE" -gt 0 ] && [ "$(date +%s)" -ge "$OP_DEADLINE" ]; then
+    if [ "$_announce" != force ] && email_delivered; then
+      log "[email] the current copy was already delivered; nothing to send"
+    elif [ "$OP_DEADLINE" -gt 0 ] && [ "$(date +%s)" -ge "$OP_DEADLINE" ]; then
       fail_target email timeout '' || _all_ok=0
       _all_ok=0
     else

@@ -123,8 +123,7 @@ const sftpTarget = z.looseObject({
   path: relativePath,
 })
 
-// The mail body is the one field allowed to span lines: tab and newline only,
-// so a header-injecting carriage return never reaches the SMTP conversation.
+// The mail body alone allows tabs and line breaks, never a carriage return.
 const mailBody = z
   .string()
   .max(4 * 1024)

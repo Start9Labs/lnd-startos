@@ -81,8 +81,7 @@ function folder(value: unknown, label: string, previous: string): string {
   return path
 }
 
-// An address a mail server will accept a RCPT TO for. Deliberately shallow:
-// the SMTP server is the authority, and a rejected recipient fails the send.
+// Shallow on purpose: a rejected recipient fails the send at the server.
 function isMailAddress(value: string): boolean {
   return /^[^\s@,]+@[^\s@,]+\.[^\s@,]+$/.test(value)
 }
@@ -982,14 +981,14 @@ export const configureChannelBackup = sdk.Action.withInput(
           path,
         }
       } else if (provider === 'email') {
-        const host = clean(o['email-server'], 'Email') || prev.host || ''
-        const port = clean(o['email-port'], 'Email') || prev.port || '587'
-        const user = clean(o['email-user'], 'Email') || prev.user || ''
+        const host = clean(o['email-server'], 'Email')
+        const port = clean(o['email-port'], 'Email') || '587'
+        const user = clean(o['email-user'], 'Email')
         const pass = secret(o['email-pass'], 'Email') || prev.pass || null
-        const from = clean(o['email-from'], 'Email') || prev.from || ''
-        const to = clean(o['email-to'], 'Email') || prev.to || ''
-        const subject = clean(o['email-subject'], 'Email') || prev.subject || ''
-        const body = mailText(o['email-body'], 'Email') || prev.body || ''
+        const from = clean(o['email-from'], 'Email')
+        const to = clean(o['email-to'], 'Email')
+        const subject = clean(o['email-subject'], 'Email')
+        const body = mailText(o['email-body'], 'Email')
         if (from && !isMailAddress(from))
           throw new Error(
             i18n('${label}: ${value} is not a valid email address.', {
