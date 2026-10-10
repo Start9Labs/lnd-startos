@@ -591,9 +591,10 @@ const dict = {
   '${label}: ${value} is not a valid email address.': 621,
   '${label}: the port must be a number between 1 and 65535.': 622,
   '${label}: the host must not begin with "-".': 623,
-  'Email: SMTP server, sender address, and at least one recipient are required.': 624,
+  '${label}: SMTP server, sender address, and at least one recipient are required.': 624,
   '${label}: a password is required for that username.': 625,
   'Sent by email ${ago} ago. A StartOS restore does not read email; channels opened since your last StartOS backup are not covered.': 626,
+  '${label}: the host must be a hostname or a bracketed IPv6 address, with no port or path.': 627,
 } as const
 
 /**

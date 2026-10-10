@@ -298,7 +298,7 @@ That state is indistinguishable from a large legitimate backfill through `getinf
 
 The `main` volume is copied wholesale — `sdk.Backups.ofVolumes('main')` — with a substantial exclude list, and the exclusions are the substance.
 
-- **Excluded:** the network graph, the channel database, the sphinx replay database, the Neutrino chain data and header files, the logs, `startup-flags.json`, `.channel-backup-state.json`, `.channel-backup.lock`, `unlock-status.json`, and the restore's staging: `channel.backup.startos-restore`, its `.tmp`, and `.channel-backup-restore/`, where the copies retrieved from the targets land.
+- **Excluded:** the network graph, the channel database, the sphinx replay database, the Neutrino chain data and header files, the logs, `startup-flags.json`, `.channel-backup-state.json`, `.channel-backup-email.json`, `.channel-backup.lock`, `unlock-status.json`, and the restore's staging: `channel.backup.startos-restore`, its `.tmp`, and `.channel-backup-restore/`, where the copies retrieved from the targets land.
 - **Included:** `lnd.conf`, `store.json` with the wallet password and seed (both null while Cold Storage Mode is on), `cold-storage.json`, the TLS pair, the macaroons, the wallet database, `channel.backup`, and `channel-backup.json`.
 
 **The channel database is deliberately not backed up.** Restoring a stale one claims channel states the network has moved past, which is how funds are lost — so a restore recovers the wallet and relies on the static channel backup, which asks each peer to force-close and return the funds, rather than resuming the channels.
@@ -352,6 +352,7 @@ file_models:
   - /root/.lnd/startup-flags.json # excluded from backups; can hold an origin password
   - /root/.lnd/channel-backup.json # backup targets and their credentials
   - /root/.lnd/.channel-backup-state.json # excluded from backups; the agent's outcomes
+  - /root/.lnd/.channel-backup-email.json # excluded from backups; the email delivery record
   - /root/.lnd/cold-storage.json # the hash Turn Off checks against, and what Show Credentials fixed
   - /root/.lnd/unlock-status.json # excluded from backups; written by main only
   - /root/.lnd/.channel-backup-restore/ # excluded from backups; copies retrieved from the targets during a restore

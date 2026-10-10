@@ -983,22 +983,25 @@ export const configureChannelBackup = sdk.Action.withInput(
           path,
         }
       } else if (provider === 'email') {
-        const host = clean(o['email-server'], 'Email')
-        const port = clean(o['email-port'], 'Email') || '587'
-        const user = clean(o['email-user'], 'Email')
-        const pass = secret(o['email-pass'], 'Email') || prev.pass || null
-        const from = clean(o['email-from'], 'Email')
+        const emailLabel = channelBackupProviderName('email')
+        const host = clean(o['email-server'], emailLabel)
+        const port = clean(o['email-port'], emailLabel) || '587'
+        const user = clean(o['email-user'], emailLabel)
+        const pass = user
+          ? secret(o['email-pass'], emailLabel) || prev.pass || null
+          : null
+        const from = clean(o['email-from'], emailLabel)
         const to = checkedLength(
-          mailAddresses(clean(o['email-to'], 'Email')).join(', '),
-          'Email',
+          mailAddresses(clean(o['email-to'], emailLabel)).join(', '),
+          emailLabel,
           MAX_FIELD_LENGTH,
         )
-        const subject = clean(o['email-subject'], 'Email')
-        const body = mailText(o['email-body'], 'Email')
+        const subject = clean(o['email-subject'], emailLabel)
+        const body = mailText(o['email-body'], emailLabel)
         if (from && !isMailAddress(from))
           throw new Error(
             i18n('${label}: ${value} is not a valid email address.', {
-              label: 'Email',
+              label: emailLabel,
               value: literal(from),
             }),
           )
@@ -1006,7 +1009,7 @@ export const configureChannelBackup = sdk.Action.withInput(
           if (!isMailAddress(address))
             throw new Error(
               i18n('${label}: ${value} is not a valid email address.', {
-                label: 'Email',
+                label: emailLabel,
                 value: literal(address),
               }),
             )
@@ -1014,28 +1017,42 @@ export const configureChannelBackup = sdk.Action.withInput(
         if (!/^\d{1,5}$/.test(port) || Number(port) < 1 || Number(port) > 65535)
           throw new Error(
             i18n('${label}: the port must be a number between 1 and 65535.', {
-              label: 'Email',
+              label: emailLabel,
             }),
           )
         if (host.startsWith('-'))
           throw new Error(
             i18n('${label}: the host must not begin with "-".', {
-              label: 'Email',
+              label: emailLabel,
             }),
+          )
+        if (
+          host &&
+          !/^\[[0-9a-fA-F:.]+\]$/.test(host) &&
+          !/^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*$/.test(
+            host,
+          )
+        )
+          throw new Error(
+            i18n(
+              '${label}: the host must be a hostname or a bracketed IPv6 address, with no port or path.',
+              { label: emailLabel },
+            ),
           )
         if (enabled && (!host || !from || !mailAddresses(to).length))
           throw new Error(
             i18n(
-              'Email: SMTP server, sender address, and at least one recipient are required.',
+              '${label}: SMTP server, sender address, and at least one recipient are required.',
+              { label: emailLabel },
             ),
           )
         if (user && !pass)
           throw new Error(
             i18n('${label}: a password is required for that username.', {
-              label: 'Email',
+              label: emailLabel,
             }),
           )
-        if (host) rejectLocalOrOnion(host, 'Email')
+        if (host) rejectLocalOrOnion(host, emailLabel)
         patch.email = {
           enabled,
           host,
