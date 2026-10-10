@@ -187,11 +187,6 @@ validate_config() {
         (.hostKeyFingerprints | type == "string" and length <= 16384) and
         (.hostKeyVerified | type == "boolean") and (.path | path)
       );
-    def mail_address: "[^\\s@,]+@[^\\s@,]+\\.[^\\s@,]+";
-    def mail_list:
-      . as $value | (mail_address) as $one |
-      ($value == "" or
-        ($value | test("^[\\s,]*" + $one + "([\\s,]+" + $one + ")*[\\s,]*$")));
     def email:
       . == null or (
         type == "object" and (.enabled | type == "boolean") and
@@ -199,9 +194,7 @@ validate_config() {
         (.port | type == "string" and test("^[0-9]{1,5}$") and
           (tonumber >= 1 and tonumber <= 65535)) and
         (.user | line(2048)) and (.pass | maybe_line(16384)) and
-        (.from | line(2048)) and
-        (.from == "" or (.from | test("^" + mail_address + "$"))) and
-        (.to | line(2048)) and (.to | mail_list) and
+        (.from | line(2048)) and (.to | line(2048)) and
         (.subject | line(2048)) and
         (.body | type == "string" and length <= 4096 and
           (test("[\\x00-\\x08\\x0b-\\x1f\\x7f]") | not))
@@ -662,13 +655,13 @@ do_backup() {
     ship_target "$_remote" || _all_ok=0
   done < "$REMOTES"
   if [ "$_email_on" -eq 1 ]; then
-    if [ "$_announce" != force ] && email_delivered; then
-      log "[email] the current copy was already delivered; nothing to send"
-    elif [ "$OP_DEADLINE" -gt 0 ] && [ "$(date +%s)" -ge "$OP_DEADLINE" ]; then
-      fail_target email timeout '' || _all_ok=0
-      _all_ok=0
-    else
-      ship_email || _all_ok=0
+    if [ "$_announce" = force ] || ! email_delivered; then
+      if [ "$OP_DEADLINE" -gt 0 ] && [ "$(date +%s)" -ge "$OP_DEADLINE" ]; then
+        fail_target email timeout '' || _all_ok=0
+        _all_ok=0
+      else
+        ship_email || _all_ok=0
+      fi
     fi
   fi
   _failures=$(jq -sc . "$FAILURES" 2>/dev/null) || _failures=''
