@@ -458,6 +458,11 @@ ship_email() {
     fail_target email local 'could not create a MIME boundary'
     return 1
   }
+  _mmsgid=$(random_suffix) || {
+    cleanup_scratch
+    fail_target email local 'a Message-ID could not be created'
+    return 1
+  }
   _mdate=$(LC_ALL=C date -u '+%a, %d %b %Y %H:%M:%S +0000')
   # A blank subject or message is filled in, so one is never sent empty.
   [ -n "$_msubject" ] || _msubject="channel.backup copied $_mdate"
@@ -494,6 +499,7 @@ EOF
     printf '\r\n'
     printf 'Subject:\r\n %s\r\n' "$_mheader"
     printf 'Date: %s\r\n' "$_mdate"
+    printf 'Message-ID: <%s@%s>\r\n' "$_mmsgid" "${_mfrom##*@}"
     printf 'MIME-Version: 1.0\r\n'
     printf 'Content-Type: multipart/mixed; boundary="%s"\r\n' "$_mboundary"
     printf '\r\n'
