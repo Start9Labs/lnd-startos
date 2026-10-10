@@ -778,7 +778,7 @@ export const configureChannelBackup = sdk.Action.withInput(
   async ({ effects }) => ({
     name: i18n('Configure Continuous Backups'),
     description: i18n(
-      'Keep a current copy of channel.backup on a storage provider. A StartOS restore uses it to recover channels opened after the backup was taken; it does not replace StartOS backups. Each node gets its own folder inside the one you name, so several nodes can share a target.',
+      'Keep a current copy of channel.backup on a storage provider. A StartOS restore uses it to recover channels opened after the backup was taken; it does not replace StartOS backups. Email is the exception: it only sends the file as an attachment, and a StartOS restore does not read it. Each node gets its own folder inside the one you name, so several nodes can share a target.',
     ),
     warning: i18n(
       'channel.backup is encrypted by LND under a key derived from your wallet seed. The storage provider can still see when it is updated. Use a target on a different machine, and prefer two independent targets. Tor .onion targets are not supported yet.',
@@ -811,7 +811,9 @@ export const configureChannelBackup = sdk.Action.withInput(
     ),
     email: storageTarget(
       i18n('Email'),
-      i18n('Send channel.backup as an attachment over SMTP, to any mailbox.'),
+      i18n(
+        'Send channel.backup as an attachment over SMTP, to any mailbox. A StartOS restore does not read email; keep the messages, or enable another target for restore coverage.',
+      ),
       emailFields,
     ),
   }),

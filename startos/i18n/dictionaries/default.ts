@@ -360,7 +360,7 @@ const dict = {
   // continuous backups
   'Continuous Backups': 309,
   'Configure Continuous Backups': 310,
-  'Keep a current copy of channel.backup on a storage provider. A StartOS restore uses it to recover channels opened after the backup was taken; it does not replace StartOS backups. Each node gets its own folder inside the one you name, so several nodes can share a target.': 311,
+  'Keep a current copy of channel.backup on a storage provider. A StartOS restore uses it to recover channels opened after the backup was taken; it does not replace StartOS backups. Email is the exception: it only sends the file as an attachment, and a StartOS restore does not read it. Each node gets its own folder inside the one you name, so several nodes can share a target.': 311,
   'channel.backup is encrypted by LND under a key derived from your wallet seed. The storage provider can still see when it is updated. Use a target on a different machine, and prefer two independent targets. Tor .onion targets are not supported yet.': 312,
   'Keep a continuous backup on this target.': 313,
   'Google Drive': 314,
@@ -573,7 +573,7 @@ const dict = {
 
   // actions/configureChannelBackup.ts — the email target
   Email: 605,
-  'Send channel.backup as an attachment over SMTP, to any mailbox.': 606,
+  'Send channel.backup as an attachment over SMTP, to any mailbox. A StartOS restore does not read email; keep the messages, or enable another target for restore coverage.': 606,
   'SMTP Server': 607,
   "Hostname of your mail provider's SMTP server, such as smtp.example.com.": 608,
   'Default 587, which is sent over STARTTLS. Port 465 uses implicit TLS. The password never travels without TLS.': 609,
@@ -593,6 +593,7 @@ const dict = {
   '${label}: the host must not begin with "-".': 623,
   'Email: SMTP server, sender address, and at least one recipient are required.': 624,
   '${label}: a password is required for that username.': 625,
+  'Sent by email ${ago} ago. A StartOS restore does not read email; channels opened since your last StartOS backup are not covered.': 626,
 } as const
 
 /**
