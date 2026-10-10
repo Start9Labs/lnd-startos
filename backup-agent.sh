@@ -497,7 +497,7 @@ ship_email() {
 $_mrcpts
 EOF
     printf '\r\n'
-    printf 'Subject:\r\n %s\r\n' "$_mheader"
+    printf 'Subject: %s\r\n' "$_mheader"
     printf 'Date: %s\r\n' "$_mdate"
     printf 'Message-ID: <%s@%s>\r\n' "$_mmsgid" "${_mfrom##*@}"
     printf 'MIME-Version: 1.0\r\n'
