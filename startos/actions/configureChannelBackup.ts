@@ -13,7 +13,13 @@ import {
   nextcloudDavUrl,
 } from '../utils'
 
-const VALID_PROVIDERS = ['gdrive', 'dropbox', 'nextcloud', 'sftp'] as const
+const VALID_PROVIDERS = [
+  'gdrive',
+  'dropbox',
+  'nextcloud',
+  'sftp',
+  'email',
+] as const
 const MAX_FIELD_LENGTH = 2_048
 const MAX_SECRET_LENGTH = 16_384
 const MAX_KEY_LENGTH = 32_768
@@ -73,6 +79,32 @@ function folder(value: unknown, label: string, previous: string): string {
     )
   }
   return path
+}
+
+// Shallow on purpose: a rejected recipient fails the send at the server.
+function isMailAddress(value: string): boolean {
+  return /^[^\s@,]+@[^\s@,]+\.[^\s@,]+$/.test(value)
+}
+
+function mailAddresses(value: string): string[] {
+  return value.split(/[\s,]+/).filter(Boolean)
+}
+
+// The message body is the one field allowed to span lines.
+function mailText(value: unknown, label: string): string {
+  const s = typeof value === 'string' ? value : ''
+  checkedLength(s, label, 4096)
+  const control = s.split('').some((char) => {
+    const code = char.charCodeAt(0)
+    return (code < 32 && code !== 9 && code !== 10) || code === 127
+  })
+  if (control)
+    throw new Error(
+      i18n('${label}: only line breaks and tabs are allowed in the message.', {
+        label,
+      }),
+    )
+  return s
 }
 
 function hostOf(addr: string): string {
@@ -655,6 +687,74 @@ const sftpFields = {
   }),
 }
 
+const emailFields = {
+  'email-server': sdk.Value.text({
+    name: i18n('SMTP Server'),
+    description: i18n(
+      "Hostname of your mail provider's SMTP server, such as smtp.example.com.",
+    ),
+    default: '',
+    required: false,
+  }),
+  'email-port': sdk.Value.text({
+    name: i18n('Port'),
+    description: i18n(
+      'Default 587, which is sent over STARTTLS. Port 465 uses implicit TLS. The password never travels without TLS.',
+    ),
+    default: '587',
+    required: false,
+  }),
+  'email-user': sdk.Value.text({
+    name: i18n('Username'),
+    description: i18n(
+      'The login the SMTP server expects. Leave blank for a server that needs no login.',
+    ),
+    default: '',
+    required: false,
+  }),
+  'email-pass': sdk.Value.text({
+    name: i18n('Password'),
+    description: i18n(
+      'SMTP password, or an app password where the provider requires one. Leave blank to keep the stored one.',
+    ),
+    default: '',
+    masked: true,
+    required: false,
+  }),
+  'email-from': sdk.Value.text({
+    name: i18n('Sender Address'),
+    description: i18n(
+      'The address mail is sent from, such as you@example.com. It must be one your SMTP server allows you to send as.',
+    ),
+    default: '',
+    required: false,
+  }),
+  'email-to': sdk.Value.text({
+    name: i18n('Recipients'),
+    description: i18n(
+      'Recipient addresses separated by commas. Several mailboxes at different providers are better than one.',
+    ),
+    default: '',
+    required: false,
+  }),
+  'email-subject': sdk.Value.text({
+    name: i18n('Subject'),
+    description: i18n(
+      'Leave blank for a subject that names the time the copy was sent.',
+    ),
+    default: '',
+    required: false,
+  }),
+  'email-body': sdk.Value.textarea({
+    name: i18n('Message'),
+    description: i18n(
+      'Sent above the attachment. Leave blank for a message that explains what the attachment is.',
+    ),
+    default: '',
+    required: false,
+  }),
+}
+
 // A target is an object with its own enable toggle, so turning one off keeps
 // its saved credentials.
 function storageTarget(
@@ -678,7 +778,7 @@ export const configureChannelBackup = sdk.Action.withInput(
   async ({ effects }) => ({
     name: i18n('Configure Continuous Backups'),
     description: i18n(
-      'Keep a current copy of channel.backup on a storage provider. A StartOS restore uses it to recover channels opened after the backup was taken; it does not replace StartOS backups. Each node gets its own folder inside the one you name, so several nodes can share a target.',
+      'Keep a current copy of channel.backup on a storage provider. A StartOS restore uses it to recover channels opened after the backup was taken; it does not replace StartOS backups. Email is the exception: it only sends the file as an attachment, and a StartOS restore does not read it. Each node gets its own folder inside the one you name, so several nodes can share a target.',
     ),
     warning: i18n(
       'channel.backup is encrypted by LND under a key derived from your wallet seed. The storage provider can still see when it is updated. Use a target on a different machine, and prefer two independent targets. Tor .onion targets are not supported yet.',
@@ -709,6 +809,13 @@ export const configureChannelBackup = sdk.Action.withInput(
       i18n('Back up to any always-on SSH server, such as a NAS.'),
       sftpFields,
     ),
+    email: storageTarget(
+      i18n('Email'),
+      i18n(
+        'Send channel.backup as an attachment over SMTP, to any mailbox. A StartOS restore does not read email; keep the messages, or enable another target for restore coverage.',
+      ),
+      emailFields,
+    ),
   }),
 
   // Prefill from the saved config. Secrets come back blank and are kept when
@@ -719,6 +826,7 @@ export const configureChannelBackup = sdk.Action.withInput(
     const d = cfg?.dropbox
     const n = cfg?.nextcloud
     const s = cfg?.sftp
+    const e = cfg?.email
     return {
       gdrive: {
         enabled: !!g?.enabled,
@@ -764,6 +872,18 @@ export const configureChannelBackup = sdk.Action.withInput(
               : { 'sftp-pass': '' }),
           },
         },
+      },
+      email: {
+        enabled: !!e?.enabled,
+        forget: false,
+        'email-server': e?.host || '',
+        'email-port': e?.port || '587',
+        'email-user': e?.user || '',
+        'email-pass': '',
+        'email-from': e?.from || '',
+        'email-to': e?.to || '',
+        'email-subject': e?.subject || '',
+        'email-body': e?.body || '',
       },
     } as any
   },
@@ -861,6 +981,88 @@ export const configureChannelBackup = sdk.Action.withInput(
           pass,
           insecureTls: !!o['nextcloud-insecure-tls'],
           path,
+        }
+      } else if (provider === 'email') {
+        const emailLabel = channelBackupProviderName('email')
+        const host = clean(o['email-server'], emailLabel)
+        const port = clean(o['email-port'], emailLabel) || '587'
+        const user = clean(o['email-user'], emailLabel)
+        const pass = user
+          ? secret(o['email-pass'], emailLabel) || prev.pass || null
+          : null
+        const from = clean(o['email-from'], emailLabel)
+        const to = checkedLength(
+          mailAddresses(clean(o['email-to'], emailLabel)).join(', '),
+          emailLabel,
+          MAX_FIELD_LENGTH,
+        )
+        const subject = clean(o['email-subject'], emailLabel)
+        const body = mailText(o['email-body'], emailLabel)
+        if (from && !isMailAddress(from))
+          throw new Error(
+            i18n('${label}: ${value} is not a valid email address.', {
+              label: emailLabel,
+              value: literal(from),
+            }),
+          )
+        for (const address of mailAddresses(to)) {
+          if (!isMailAddress(address))
+            throw new Error(
+              i18n('${label}: ${value} is not a valid email address.', {
+                label: emailLabel,
+                value: literal(address),
+              }),
+            )
+        }
+        if (!/^\d{1,5}$/.test(port) || Number(port) < 1 || Number(port) > 65535)
+          throw new Error(
+            i18n('${label}: the port must be a number between 1 and 65535.', {
+              label: emailLabel,
+            }),
+          )
+        if (host.startsWith('-'))
+          throw new Error(
+            i18n('${label}: the host must not begin with "-".', {
+              label: emailLabel,
+            }),
+          )
+        if (
+          host &&
+          !/^\[[0-9a-fA-F:.]+\]$/.test(host) &&
+          !/^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*$/.test(
+            host,
+          )
+        )
+          throw new Error(
+            i18n(
+              '${label}: the host must be a hostname or a bracketed IPv6 address, with no port or path.',
+              { label: emailLabel },
+            ),
+          )
+        if (enabled && (!host || !from || !mailAddresses(to).length))
+          throw new Error(
+            i18n(
+              '${label}: SMTP server, sender address, and at least one recipient are required.',
+              { label: emailLabel },
+            ),
+          )
+        if (user && !pass)
+          throw new Error(
+            i18n('${label}: a password is required for that username.', {
+              label: emailLabel,
+            }),
+          )
+        if (host) rejectLocalOrOnion(host, emailLabel)
+        patch.email = {
+          enabled,
+          host,
+          port: String(Number(port)),
+          user,
+          pass,
+          from,
+          to,
+          subject,
+          body,
         }
       } else {
         const auth = o.auth || { selection: 'password', value: {} }

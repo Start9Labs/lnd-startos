@@ -360,7 +360,7 @@ const dict = {
   // continuous backups
   'Continuous Backups': 309,
   'Configure Continuous Backups': 310,
-  'Keep a current copy of channel.backup on a storage provider. A StartOS restore uses it to recover channels opened after the backup was taken; it does not replace StartOS backups. Each node gets its own folder inside the one you name, so several nodes can share a target.': 311,
+  'Keep a current copy of channel.backup on a storage provider. A StartOS restore uses it to recover channels opened after the backup was taken; it does not replace StartOS backups. Email is the exception: it only sends the file as an attachment, and a StartOS restore does not read it. Each node gets its own folder inside the one you name, so several nodes can share a target.': 311,
   'channel.backup is encrypted by LND under a key derived from your wallet seed. The storage provider can still see when it is updated. Use a target on a different machine, and prefer two independent targets. Tor .onion targets are not supported yet.': 312,
   'Keep a continuous backup on this target.': 313,
   'Google Drive': 314,
@@ -570,6 +570,31 @@ const dict = {
   'The invoice changed after review. Reopen the action and verify its details.': 598,
   'LND restarts if it is running, then clears its record of on-chain wallet transactions and rescans the blockchain to rebuild it.': 603,
   'The copy of channel.backup on every enabled target is replaced with the current one.': 604,
+
+  // actions/configureChannelBackup.ts — the email target
+  Email: 605,
+  'Send channel.backup as an attachment over SMTP, to any mailbox. A StartOS restore does not read email; keep the messages, or enable another target for restore coverage.': 606,
+  'SMTP Server': 607,
+  "Hostname of your mail provider's SMTP server, such as smtp.example.com.": 608,
+  'Default 587, which is sent over STARTTLS. Port 465 uses implicit TLS. The password never travels without TLS.': 609,
+  'The login the SMTP server expects. Leave blank for a server that needs no login.': 610,
+  'SMTP password, or an app password where the provider requires one. Leave blank to keep the stored one.': 611,
+  'Sender Address': 612,
+  'The address mail is sent from, such as you@example.com. It must be one your SMTP server allows you to send as.': 613,
+  Recipients: 614,
+  'Recipient addresses separated by commas. Several mailboxes at different providers are better than one.': 615,
+  Subject: 616,
+  'Leave blank for a subject that names the time the copy was sent.': 617,
+  Message: 618,
+  'Sent above the attachment. Leave blank for a message that explains what the attachment is.': 619,
+  '${label}: only line breaks and tabs are allowed in the message.': 620,
+  '${label}: ${value} is not a valid email address.': 621,
+  '${label}: the port must be a number between 1 and 65535.': 622,
+  '${label}: the host must not begin with "-".': 623,
+  '${label}: SMTP server, sender address, and at least one recipient are required.': 624,
+  '${label}: a password is required for that username.': 625,
+  'Sent by email ${ago} ago. A StartOS restore does not read email; channels opened since your last StartOS backup are not covered.': 626,
+  '${label}: the host must be a hostname or a bracketed IPv6 address, with no port or path.': 627,
 } as const
 
 /**
