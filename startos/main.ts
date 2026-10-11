@@ -1261,9 +1261,13 @@ export const main = sdk.setupMain(async ({ effects }) => {
           fn: async () => {
             const cfg = await channelBackupJson.read().once()
             if (
-              ![cfg?.gdrive, cfg?.dropbox, cfg?.nextcloud, cfg?.sftp].some(
-                (t) => t?.enabled,
-              )
+              ![
+                cfg?.gdrive,
+                cfg?.dropbox,
+                cfg?.nextcloud,
+                cfg?.sftp,
+                cfg?.email,
+              ].some((t) => t?.enabled)
             ) {
               return {
                 result: 'disabled',
@@ -1280,16 +1284,25 @@ export const main = sdk.setupMain(async ({ effects }) => {
               }
             }
             if (state?.lastSuccess) {
+              const agoText = ago(
+                Math.max(0, Math.floor(Date.now() / 1000) - state.lastSuccess),
+              )
+              const restoreTargets = [
+                cfg?.gdrive,
+                cfg?.dropbox,
+                cfg?.nextcloud,
+                cfg?.sftp,
+              ].some((t) => t?.enabled)
               return {
                 result: 'success',
-                message: i18n('Copied to every enabled target ${ago} ago', {
-                  ago: ago(
-                    Math.max(
-                      0,
-                      Math.floor(Date.now() / 1000) - state.lastSuccess,
+                message: restoreTargets
+                  ? i18n('Copied to every enabled target ${ago} ago', {
+                      ago: agoText,
+                    })
+                  : i18n(
+                      'Sent by email ${ago} ago. A StartOS restore does not read email; channels opened since your last StartOS backup are not covered.',
+                      { ago: agoText },
                     ),
-                  ),
-                }),
               }
             }
             return {
