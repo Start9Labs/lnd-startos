@@ -164,8 +164,8 @@ validate_config() {
       );
     def key_pem:
       . == null or (
-        type == "string" and length <= 32768 and
-        test("^-----BEGIN OPENSSH PRIVATE KEY-----\\n([A-Za-z0-9+/=]{1,70}\\n)+-----END OPENSSH PRIVATE KEY-----$")
+        line(32768) and
+        test("^-----BEGIN OPENSSH PRIVATE KEY-----\\\\n([A-Za-z0-9+/=]{1,70}\\\\n)+-----END OPENSSH PRIVATE KEY-----$")
       );
     def known_hosts:
       . == null or (
