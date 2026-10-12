@@ -87,6 +87,7 @@ export const prepareColdStorage = sdk.Action.withoutInput(
             copyable: true,
             qr: false,
             masked: true,
+            launchable: false,
           },
           ...(seed
             ? [
@@ -99,6 +100,7 @@ export const prepareColdStorage = sdk.Action.withoutInput(
                   value: seedGrid(seed),
                   copyable: true,
                   masked: true,
+                  qr: false,
                 },
               ]
             : []),

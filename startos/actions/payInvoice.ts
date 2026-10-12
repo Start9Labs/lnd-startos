@@ -266,6 +266,7 @@ export const payInvoice = sdk.Action.withInput(
                 masked: false,
                 type: 'single' as const,
                 value: `${final.value_sat ?? ''} sats`,
+                launchable: false,
               },
               {
                 name: i18n('Fee'),
@@ -275,6 +276,7 @@ export const payInvoice = sdk.Action.withInput(
                 masked: false,
                 type: 'single' as const,
                 value: `${final.fee_sat ?? '0'} sats`,
+                launchable: false,
               },
               {
                 name: i18n('Description'),
@@ -284,6 +286,7 @@ export const payInvoice = sdk.Action.withInput(
                 masked: false,
                 type: 'single' as const,
                 value: decoded.description || '-',
+                launchable: false,
               },
               {
                 name: i18n('Destination'),
@@ -293,6 +296,7 @@ export const payInvoice = sdk.Action.withInput(
                 masked: false,
                 type: 'single' as const,
                 value: decoded.destination,
+                launchable: false,
               },
               {
                 name: i18n('Preimage'),
@@ -302,6 +306,7 @@ export const payInvoice = sdk.Action.withInput(
                 masked: false,
                 type: 'single' as const,
                 value: final.payment_preimage ?? '',
+                launchable: false,
               },
             ],
           },

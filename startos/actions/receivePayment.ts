@@ -92,6 +92,7 @@ export const receivePayment = sdk.Action.withInput(
             masked: false,
             type: 'single' as const,
             value: created.payment_request,
+            launchable: false,
           },
           {
             name: i18n('Amount'),
@@ -101,6 +102,7 @@ export const receivePayment = sdk.Action.withInput(
             masked: false,
             type: 'single' as const,
             value: input.amount ? `${input.amount} sats` : i18n('Any amount'),
+            launchable: false,
           },
           {
             name: i18n('Description'),
@@ -110,6 +112,7 @@ export const receivePayment = sdk.Action.withInput(
             masked: false,
             type: 'single' as const,
             value: input.description || '-',
+            launchable: false,
           },
           {
             name: i18n('Payment hash'),
@@ -119,6 +122,7 @@ export const receivePayment = sdk.Action.withInput(
             masked: false,
             type: 'single' as const,
             value: created.r_hash,
+            launchable: false,
           },
         ],
       },

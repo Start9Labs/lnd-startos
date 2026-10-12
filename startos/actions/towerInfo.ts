@@ -60,6 +60,7 @@ export const towerInfo = sdk.Action.withoutInput(
           copyable: true,
           qr: true,
           masked: true,
+          launchable: false,
         },
       }
     } else {
@@ -71,6 +72,8 @@ export const towerInfo = sdk.Action.withoutInput(
           type: 'multiline',
           value: String(res.stderr).trim(),
           copyable: true,
+          qr: false,
+          masked: false,
         },
       }
     }

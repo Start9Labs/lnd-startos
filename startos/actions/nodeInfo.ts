@@ -42,6 +42,8 @@ export const nodeInfo = sdk.Action.withoutInput(
           type: 'multiline' as const,
           value: String(getInfoRes.stderr).trim(),
           copyable: true,
+          qr: false,
+          masked: false,
         },
       }
     }
@@ -63,6 +65,7 @@ export const nodeInfo = sdk.Action.withoutInput(
             copyable: true,
             qr: false,
             masked: false,
+            launchable: false,
           },
           {
             name: i18n('Node Id'),
@@ -74,6 +77,7 @@ export const nodeInfo = sdk.Action.withoutInput(
             copyable: true,
             qr: false,
             masked: true,
+            launchable: false,
           },
           {
             name: i18n('Node URI(s)'),
@@ -90,6 +94,7 @@ export const nodeInfo = sdk.Action.withoutInput(
                   copyable: true,
                   qr: true,
                   masked: true,
+                  launchable: false,
                 }))
               : [
                   {
@@ -102,6 +107,7 @@ export const nodeInfo = sdk.Action.withoutInput(
                     copyable: false,
                     qr: false,
                     masked: false,
+                    launchable: false,
                   },
                 ],
           },

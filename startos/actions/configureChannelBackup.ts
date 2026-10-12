@@ -1235,6 +1235,7 @@ export const configureChannelBackup = sdk.Action.withInput(
               copyable: true,
               qr: false,
               masked: false,
+              launchable: false,
             })),
           }
         : null,
