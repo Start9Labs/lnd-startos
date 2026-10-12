@@ -311,6 +311,7 @@ async function initFresh(
       value: seedGrid(cipherSeed),
       copyable: true,
       masked: true,
+      qr: false,
     },
   }
 }
