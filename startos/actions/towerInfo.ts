@@ -73,6 +73,7 @@ export const towerInfo = sdk.Action.withoutInput(
           value: String(res.stderr).trim(),
           copyable: true,
           qr: false,
+          filename: null,
           masked: false,
         },
       }

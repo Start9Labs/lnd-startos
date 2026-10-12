@@ -312,6 +312,7 @@ async function initFresh(
       copyable: true,
       masked: true,
       qr: false,
+      filename: null,
     },
   }
 }
