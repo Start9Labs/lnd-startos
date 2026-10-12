@@ -101,6 +101,7 @@ export const prepareColdStorage = sdk.Action.withoutInput(
                   copyable: true,
                   masked: true,
                   qr: false,
+                  filename: null,
                 },
               ]
             : []),

@@ -43,6 +43,7 @@ export const nodeInfo = sdk.Action.withoutInput(
           value: String(getInfoRes.stderr).trim(),
           copyable: true,
           qr: false,
+          filename: null,
           masked: false,
         },
       }
