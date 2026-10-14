@@ -1,7 +1,6 @@
 import { FileHelper, utils, z } from '@start9labs/start-sdk'
 import { manifest as bitcoinManifest } from 'bitcoin-core-startos/startos/manifest'
 import { base64 } from 'rfc4648'
-import { decodeLegacyPassword } from './decodeLegacyPassword'
 import { initializeWallet } from './actions/initializeWallet'
 import {
   unlockWallet as unlockWalletAction,
@@ -41,6 +40,7 @@ import {
   backupAgentScript,
   bitcoindMnt,
   describeFailures,
+  decodeLegacyPassword,
   channelBackupPath,
   getBitcoindBundle,
   GetInfo,
