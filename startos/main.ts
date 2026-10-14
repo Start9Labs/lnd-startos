@@ -1,6 +1,7 @@
 import { FileHelper, utils, z } from '@start9labs/start-sdk'
 import { manifest as bitcoinManifest } from 'bitcoin-core-startos/startos/manifest'
 import { base64 } from 'rfc4648'
+import { decodeLegacyPassword } from './decodeLegacyPassword'
 import { initializeWallet } from './actions/initializeWallet'
 import {
   unlockWallet as unlockWalletAction,
@@ -394,11 +395,15 @@ export const main = sdk.setupMain(async ({ effects }) => {
             }
 
             const dump = await subcontainer.exec(['cat', '/tmp/old-store.json'])
-            const oldStore =
+            const rawStore =
               dump.exitCode === 0 && typeof dump.stdout === 'string'
-                ? shape.safeParse(JSON.parse(dump.stdout))
+                ? JSON.parse(dump.stdout)
                 : null
-            if (!oldStore?.success || !oldStore.data.walletPassword) {
+            const oldStore = rawStore ? shape.safeParse(rawStore) : null
+            const walletPassword =
+              (oldStore?.success && oldStore.data.walletPassword) ||
+              (source === 'startos' ? decodeLegacyPassword(rawStore) : null)
+            if (!walletPassword) {
               throw new Error(
                 i18n(
                   'Failed to read the wallet password from the origin node.',
@@ -418,7 +423,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
             // still land and the restarted main opens on the conversion phase.
             await storeJson.merge(
               effects,
-              { walletPassword: oldStore.data.walletPassword },
+              { walletPassword },
               { allowWriteAfterConst: true },
             )
 

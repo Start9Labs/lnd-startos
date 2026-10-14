@@ -153,6 +153,8 @@ Wallet setup is the substantial one, and [Initialize Wallet](#actions) offers th
 - **Restore** from an existing seed.
 - **Import** an entire node from Umbrel, myNode, or another StartOS — copying its data directory over the network.
 
+The StartOS importer accepts both 0.3.5.x and 0.4.x origins. It checks the origin's LND volume and wallet before stopping it, waits for the origin's version-specific **stopped** status, then copies only `data/`. For 0.3.5.x it carries the exact bytes from `pwd.dat` through the import; for 0.4.x it reads `store.json`. It never treats a missing status key as proof that a node has stopped. The existing bolt-to-SQLite conversion runs after the copy when needed.
+
 An import changes what happens next. The copy runs as the only thing in the service, bounded at six hours because a busy routing node's channel database is multi-gigabyte over LAN. If the imported node was on bolt, a **conversion phase** then runs before LND is allowed to open the data, reporting its own progress as a separate health check. Only after that does LND itself start.
 
 The TLS pair is issued at init for every address LND answers on — the container and bridge addresses, plus every address the gRPC interface is served at — and **reissued whenever that set changes**. The internal half is what REST needs, since the proxy dials the container by IP; the external half is what a gRPC client validates against, since nothing terminates that binding's TLS but LND.
