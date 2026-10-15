@@ -4,15 +4,14 @@ export const current = VersionInfo.of({
   version: '0.21.4-beta:4',
   releaseNotes: {
     en_US:
-      'Fixes importing LND from StartOS 0.3.5.x, preserving the wallet password bytes and waiting for the origin node to report that LND has stopped before copying channel data.',
-    es_ES:
-      'Corrige la importación de LND desde StartOS 0.3.5.x, conservando los bytes de la contraseña de la billetera y esperando a que el nodo de origen confirme que LND se ha detenido antes de copiar los datos de los canales.',
+      'Migrate from StartOS now accepts an origin running StartOS 0.3.5.x.',
+    es_ES: 'Migrar desde StartOS ahora acepta un origen con StartOS 0.3.5.x.',
     de_DE:
-      'Behebt den Import von LND aus StartOS 0.3.5.x, bewahrt die Bytes des Wallet-Passworts und wartet vor dem Kopieren der Kanaldaten auf die Bestätigung des Ursprungsknotens, dass LND gestoppt ist.',
+      'Von StartOS migrieren akzeptiert jetzt einen Ursprung mit StartOS 0.3.5.x.',
     pl_PL:
-      'Naprawia import LND z StartOS 0.3.5.x, zachowując bajty hasła portfela i czekając na potwierdzenie przez węzeł źródłowy zatrzymania LND przed skopiowaniem danych kanałów.',
+      'Migruj z StartOS akceptuje teraz źródło z systemem StartOS 0.3.5.x.',
     fr_FR:
-      "Corrige l'importation de LND depuis StartOS 0.3.5.x, en préservant les octets du mot de passe du portefeuille et en attendant que le nœud source confirme l'arrêt de LND avant de copier les données des canaux.",
+      'Migrer depuis StartOS accepte désormais une origine sous StartOS 0.3.5.x.',
   },
   migrations: {
     up: async () => {},

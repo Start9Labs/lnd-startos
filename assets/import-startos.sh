@@ -21,18 +21,17 @@ startos_sudo() {
 
 >&2 echo "Checking origin StartOS layout and LND state"
 
-# Check the layout before stopping the origin. The old and new StartOS releases
-# use different volume roots, status schemas, and wallet-password files. In
-# particular, a missing 0.4 status key must never be mistaken for "stopped" on
-# a 0.3.5 origin: copying its live bolt DB could force-close channels.
+# A 0.3.5 origin has a different volume root, status schema and password file; detect it before stopping anything.
 if startos_sudo "test -d ${STARTOS_04_LND_VOLUME}"; then
   STARTOS_LND_VOLUME="$STARTOS_04_LND_VOLUME"
   ORIGIN_LAYOUT="0.4"
+  STATUS_READABLE='.value.packageData.lnd.statusInfo | type == "object"'
   STATUS_STOPPED='.value.packageData.lnd.statusInfo | .desired.main == "stopped" and .started == null'
   PASSWORD_FILE="${STARTOS_LND_VOLUME}/store.json"
 elif startos_sudo "test -d ${STARTOS_035_LND_VOLUME}"; then
   STARTOS_LND_VOLUME="$STARTOS_035_LND_VOLUME"
   ORIGIN_LAYOUT="0.3.5"
+  STATUS_READABLE='.value["package-data"].lnd.installed.status.main.status | type == "string"'
   STATUS_STOPPED='.value["package-data"].lnd.installed.status.main.status == "stopped"'
   PASSWORD_FILE="${STARTOS_LND_VOLUME}/pwd.dat"
 else
@@ -50,11 +49,10 @@ if ! startos_sudo "test -f ${STARTOS_LND_VOLUME}/data/chain/bitcoin/mainnet/wall
   exit 1
 fi
 
-if [ "$ORIGIN_LAYOUT" = "0.4" ]; then
-  startos_ssh 'start-cli db dump' < /dev/null | jq -e '.value.packageData.lnd.statusInfo | type == "object"' > /dev/null
-else
-  startos_ssh 'start-cli db dump' < /dev/null | jq -e '.value["package-data"].lnd.installed.status.main.status | type == "string"' > /dev/null
-fi
+startos_ssh 'start-cli db dump' < /dev/null | jq -e "$STATUS_READABLE" > /dev/null || {
+  >&2 echo "Could not read LND's status from the origin's start-cli"
+  exit 1
+}
 
 >&2 echo "Checking the origin's database conversion state"
 
@@ -98,9 +96,7 @@ fi
 >&2 echo "Extracting wallet password"
 
 if [ "$ORIGIN_LAYOUT" = "0.3.5" ]; then
-  # The 0.3.5 package stores the exact password bytes in pwd.dat. Base64 keeps
-  # them intact over SSH; main decodes them as latin1, just as the in-place
-  # 0.3.5 -> 0.4 package migration does. Never print the value to a log.
+  # main decodes these bytes as latin1, like the in-place 0.3.5 -> 0.4 migration.
   startos_sudo "base64 ${PASSWORD_FILE}" | jq -Rs '{walletPasswordBase64: .}' > /tmp/old-store.json
 else
   startos_sudo "cat ${PASSWORD_FILE}" > /tmp/old-store.json

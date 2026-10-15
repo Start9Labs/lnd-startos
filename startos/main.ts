@@ -40,7 +40,6 @@ import {
   backupAgentScript,
   bitcoindMnt,
   describeFailures,
-  decodeLegacyPassword,
   channelBackupPath,
   getBitcoindBundle,
   GetInfo,
@@ -402,7 +401,12 @@ export const main = sdk.setupMain(async ({ effects }) => {
             const oldStore = rawStore ? shape.safeParse(rawStore) : null
             const walletPassword =
               (oldStore?.success && oldStore.data.walletPassword) ||
-              (source === 'startos' ? decodeLegacyPassword(rawStore) : null)
+              (source === 'startos' &&
+              typeof rawStore?.walletPasswordBase64 === 'string'
+                ? Buffer.from(rawStore.walletPasswordBase64, 'base64').toString(
+                    'latin1',
+                  )
+                : null)
             if (!walletPassword) {
               throw new Error(
                 i18n(
