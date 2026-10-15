@@ -262,7 +262,7 @@ const dict = {
 
   // actions/initializeWallet.ts (StartOS migration)
   'Origin Server Address': 213,
-  'The LAN IP address or hostname of your old StartOS server (e.g. 192.168.1.9 or adjective-noun.local).': 214,
+  'The LAN IP address or hostname of your old StartOS server (e.g. 192.168.1.9 or adjective-noun.local). It must run StartOS 0.4.0 or later.': 214,
   'Master Password': 215,
   'The master password for your old StartOS server.': 216,
   'Failed to read the wallet password from the origin node.': 217,
