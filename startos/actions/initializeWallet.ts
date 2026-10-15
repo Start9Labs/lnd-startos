@@ -86,7 +86,7 @@ const initWalletSpec = InputSpec.of({
           'startos-host': Value.text({
             name: i18n('Origin Server Address'),
             description: i18n(
-              'The LAN IP address or hostname of your old StartOS server (e.g. 192.168.1.9 or adjective-noun.local).',
+              'The LAN IP address or hostname of your old StartOS server (e.g. 192.168.1.9 or adjective-noun.local). It must run StartOS 0.4.0 or later.',
             ),
             default: null,
             required: true,
