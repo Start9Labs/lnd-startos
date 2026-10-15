@@ -267,6 +267,12 @@ const dict = {
   'The master password for your old StartOS server.': 216,
   'Failed to read the wallet password from the origin node.': 217,
   'Your old StartOS server was reached and its credentials verified.': 218,
+  'StartOS Version': 628,
+  'The StartOS release your old server runs. A 0.3.5.x server accepts only SSH keys, so LND gives you a key to add to it.': 629,
+  'StartOS 0.4.x': 630,
+  'StartOS 0.3.5.x': 631,
+  'SSH Key for Your Old StartOS Server': 632,
+  'Add this key under System → SSH on your old StartOS server, then run Initialize Wallet again with the same settings.': 633,
 
   // actions/config — new config fields
   'Accept AMP': 219,

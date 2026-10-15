@@ -1,5 +1,6 @@
 import { startupFlagsJson } from './fileModels/startupFlags.json'
 import { sdk } from './sdk'
+import { importKeySubdir } from './utils'
 
 export const { createBackup, restoreInit } = sdk.setupBackups(
   async ({ effects }) =>
@@ -11,6 +12,7 @@ export const { createBackup, restoreInit } = sdk.setupBackups(
           // decides from files on disk — while importPending can hold an
           // origin's password in cleartext, which must not ride into backups.
           'startup-flags.json',
+          importKeySubdir,
           'data/graph',
           'data/chain/bitcoin/mainnet/channel.db',
           'data/chain/bitcoin/mainnet/sphinxreplay.db',

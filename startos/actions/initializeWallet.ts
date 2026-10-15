@@ -1,10 +1,22 @@
 import { T, utils } from '@start9labs/start-sdk'
+import { rm } from 'node:fs/promises'
 import { base64 } from 'rfc4648'
-import { startupFlagsJson } from '../fileModels/startupFlags.json'
+import {
+  ImportPending,
+  startupFlagsJson,
+} from '../fileModels/startupFlags.json'
 import { storeJson } from '../fileModels/store.json'
 import { i18n } from '../i18n'
 import { sdk } from '../sdk'
-import { lndDataDir, mainMounts, seedGrid, selfRestUrl, sleep } from '../utils'
+import {
+  importKeyPath,
+  importKeySubdir,
+  lndDataDir,
+  mainMounts,
+  seedGrid,
+  selfRestUrl,
+  sleep,
+} from '../utils'
 
 const { InputSpec, Value, Variants } = sdk
 
@@ -93,15 +105,33 @@ const initWalletSpec = InputSpec.of({
             placeholder: 'adjective-noun.local',
             patterns: [lanHost],
           }),
-          'startos-password': Value.text({
-            name: i18n('Master Password'),
+          'startos-version': Value.union({
+            name: i18n('StartOS Version'),
             description: i18n(
-              'The master password for your old StartOS server.',
+              'The StartOS release your old server runs. A 0.3.5.x server accepts only SSH keys, so LND gives you a key to add to it.',
             ),
-            default: null,
-            required: true,
-            masked: true,
-            placeholder: 'password',
+            default: '0.4',
+            variants: Variants.of({
+              '0.4': {
+                name: i18n('StartOS 0.4.x'),
+                spec: InputSpec.of({
+                  'startos-password': Value.text({
+                    name: i18n('Master Password'),
+                    description: i18n(
+                      'The master password for your old StartOS server.',
+                    ),
+                    default: null,
+                    required: true,
+                    masked: true,
+                    placeholder: 'password',
+                  }),
+                }),
+              },
+              '0.3.5': {
+                name: i18n('StartOS 0.3.5.x'),
+                spec: InputSpec.of({}),
+              },
+            }),
           }),
         }),
       },
@@ -199,17 +229,22 @@ export const initializeWallet = sdk.Action.withInput(
             'Your myNode was reached and its credentials verified.',
           ),
         })
-      case 'startos':
+      case 'startos': {
+        const host = input.method.value['startos-host']
+        const version = input.method.value['startos-version']
+        if (version.selection === '0.3.5')
+          return await scheduleKeyImport(effects, host)
         return await scheduleImport(effects, {
           id: 'startos',
           label: 'StartOS',
           user: 'start9',
-          host: input.method.value['startos-host'],
-          password: input.method.value['startos-password'],
+          host,
+          password: version.value['startos-password'],
           reached: i18n(
             'Your old StartOS server was reached and its credentials verified.',
           ),
         })
+      }
     }
   },
 )
@@ -220,6 +255,10 @@ async function initFresh(
   // Drop a migration the user scheduled and then thought better of — otherwise
   // main would import over the wallet this creates on the next start.
   await startupFlagsJson.merge(effects, { importPending: false })
+  await rm(sdk.volumes.main.subpath(importKeySubdir), {
+    recursive: true,
+    force: true,
+  })
 
   const cipherSeed = await sdk.SubContainer.withTemp(
     effects,
@@ -374,18 +413,108 @@ async function scheduleImport(
     )
   }
 
-  await startupFlagsJson.merge(effects, {
-    importPending: {
+  return await recordImport(
+    effects,
+    {
       source: source.id,
       host: source.host,
       password: source.password,
+      auth: 'password',
     },
-  })
+    source.reached,
+  )
+}
+
+const keySshArgs = [
+  '-i',
+  importKeyPath,
+  '-o',
+  'BatchMode=yes',
+  '-o',
+  'StrictHostKeyChecking=no',
+  '-o',
+  'ConnectTimeout=10',
+  '-T',
+]
+
+/**
+ * Hand a StartOS 0.3.5.x origin the package's own public key, or schedule the
+ * import once the origin accepts it. 0.3.5.x locks `start9`'s password, so a
+ * key is the only login it takes.
+ */
+async function scheduleKeyImport(
+  effects: T.Effects,
+  host: string,
+): Promise<T.ActionResult & { version: '1' }> {
+  const target = `start9@${host}`
+  const { publicKey, login } = await sdk.SubContainer.withTemp(
+    effects,
+    { imageId: 'lnd' },
+    mainMounts,
+    'preflight-startos-key',
+    async (subc) => {
+      const created = await subc.exec([
+        'sh',
+        '-c',
+        `test -f ${importKeyPath} || { mkdir -p "$(dirname ${importKeyPath})" && ssh-keygen -q -t ed25519 -N '' -C lnd-import -f ${importKeyPath}; }`,
+      ])
+      if (created.exitCode !== 0) {
+        throw new Error(
+          `Could not create an SSH key: ${String(created.stderr).trim()}`,
+        )
+      }
+      const publicKey = String(
+        (await subc.exec(['cat', `${importKeyPath}.pub`])).stdout,
+      ).trim()
+      if (!publicKey) throw new Error('Could not read the SSH public key')
+      const login = await subc.exec(['ssh', ...keySshArgs, target, 'true'], {
+        timeout: 30_000,
+      })
+      return { publicKey, login }
+    },
+  )
+
+  if (login.exitCode === 0) {
+    return await recordImport(
+      effects,
+      { source: 'startos', host, password: '', auth: 'key' },
+      i18n('Your old StartOS server was reached and its credentials verified.'),
+    )
+  }
+
+  const stderr = String(login.stderr).trim()
+  if (!stderr.includes('Permission denied')) {
+    throw new Error(`Could not reach StartOS at ${target} over SSH: ${stderr}`)
+  }
+
+  return {
+    version: '1' as const,
+    title: i18n('SSH Key for Your Old StartOS Server'),
+    message: i18n(
+      'Add this key under System → SSH on your old StartOS server, then run Initialize Wallet again with the same settings.',
+    ),
+    result: {
+      type: 'single' as const,
+      value: publicKey,
+      copyable: true,
+      masked: false,
+      qr: false,
+      launchable: false,
+    },
+  }
+}
+
+async function recordImport(
+  effects: T.Effects,
+  importPending: ImportPending,
+  reached: string,
+): Promise<T.ActionResult & { version: '1' }> {
+  await startupFlagsJson.merge(effects, { importPending })
 
   return {
     version: '1' as const,
     title: i18n('Success'),
-    message: `${source.reached} ${i18n(
+    message: `${reached} ${i18n(
       'Start LND to run the migration — LND stops the origin node, copies its data, and converts the database before coming online. On a large node this can take hours; watch its progress under Health Checks. Once the migration is complete, never run LND on the origin server again: two nodes sharing one seed leads to unpredictable behavior or loss of funds.',
     )}`,
     result: null,

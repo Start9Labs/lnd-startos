@@ -12,6 +12,9 @@ import { sdk } from './sdk'
 import type { BackupFailure } from './fileModels/channel-backup-state.json'
 
 export const lndDataDir = '/root/.lnd'
+/** Main-volume directory of the keypair a StartOS 0.3.5.x import logs in with. */
+export const importKeySubdir = 'import-key'
+export const importKeyPath = `${lndDataDir}/${importKeySubdir}/id_ed25519`
 export const bitcoindMnt = '/mnt/bitcoin'
 export const mainVolumeHost = '/media/startos/volumes/main'
 

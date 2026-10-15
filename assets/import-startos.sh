@@ -13,7 +13,11 @@ export SSHPASS="$STARTOS_PASS"
 # string. start9's sudo is passwordless on StartOS, so the line on stdin simply
 # goes unread there; -S covers a box where it isn't.
 startos_ssh() {
-  sshpass -e ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -T "${STARTOS_USER}@${STARTOS_HOST}" "$1"
+  if [ -n "$STARTOS_KEY" ]; then
+    ssh -i "$STARTOS_KEY" -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 -T "${STARTOS_USER}@${STARTOS_HOST}" "$1"
+  else
+    sshpass -e ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -T "${STARTOS_USER}@${STARTOS_HOST}" "$1"
+  fi
 }
 startos_sudo() {
   printf '%s\n' "$STARTOS_PASS" | startos_ssh "sudo -S $1"

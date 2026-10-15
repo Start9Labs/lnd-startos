@@ -45,3 +45,4 @@ verified, tried, and decided belongs in the commit message and the PR body.
 - **Keep the onion-message protocol keys forced to `undefined`**: a carried-over `custom-init`/`nodeann` override makes LND 0.21 crash-loop.
 - **LND's self-calls use loopback, not the bridge**: the bridge answers REST with the proxy's certificate, which fails the `tls.cert` pin.
 - **Read the pending import inside the oneshot's `fn`, not in the chain builder**: the reconciler's config hash cannot see closures, so only a re-read picks up corrected credentials.
+- **The StartOS importer's password SSH reaches 0.4 origins only**: 0.3.5.x locks `start9`'s password and takes keys alone.

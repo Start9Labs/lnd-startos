@@ -153,7 +153,7 @@ Wallet setup is the substantial one, and [Initialize Wallet](#actions) offers th
 - **Restore** from an existing seed.
 - **Import** an entire node from Umbrel, myNode, or another StartOS — copying its data directory over the network.
 
-The StartOS importer accepts both 0.3.5.x and 0.4.x origins. It detects the origin's layout and checks its LND volume and wallet before stopping anything. The wallet password comes from `pwd.dat` on a 0.3.5.x origin and from `store.json` on a 0.4.x origin.
+The StartOS importer accepts both 0.3.5.x and 0.4.x origins. A 0.4.x origin takes `start9`'s master password over SSH. A 0.3.5.x origin locks that password and accepts SSH keys only, so the package logs in with an ed25519 keypair of its own, kept in `import-key/` on the main volume: Initialize Wallet creates it on the first run and shows the public key, the user adds that key under System → SSH on the origin, and a second run verifies the key login before scheduling the import. The keypair is deleted when the import completes or Start Fresh runs, and is never backed up. The import detects the origin's layout and checks its LND volume and wallet before stopping anything. The wallet password comes from `pwd.dat` on a 0.3.5.x origin and from `store.json` on a 0.4.x origin.
 
 An import changes what happens next. The copy runs as the only thing in the service, bounded at six hours because a busy routing node's channel database is multi-gigabyte over LAN. If the imported node was on bolt, a **conversion phase** then runs before LND is allowed to open the data, reporting its own progress as a separate health check. Only after that does LND itself start.
 
@@ -300,7 +300,7 @@ That state is indistinguishable from a large legitimate backfill through `getinf
 
 The `main` volume is copied wholesale — `sdk.Backups.ofVolumes('main')` — with a substantial exclude list, and the exclusions are the substance.
 
-- **Excluded:** the network graph, the channel database, the sphinx replay database, the Neutrino chain data and header files, the logs, `startup-flags.json`, `.channel-backup-state.json`, `.channel-backup-email.json`, `.channel-backup.lock`, `unlock-status.json`, and the restore's staging: `channel.backup.startos-restore`, its `.tmp`, and `.channel-backup-restore/`, where the copies retrieved from the targets land.
+- **Excluded:** the import keypair (`import-key/`), the network graph, the channel database, the sphinx replay database, the Neutrino chain data and header files, the logs, `startup-flags.json`, `.channel-backup-state.json`, `.channel-backup-email.json`, `.channel-backup.lock`, `unlock-status.json`, and the restore's staging: `channel.backup.startos-restore`, its `.tmp`, and `.channel-backup-restore/`, where the copies retrieved from the targets land.
 - **Included:** `lnd.conf`, `store.json` with the wallet password and seed (both null while Cold Storage Mode is on), `cold-storage.json`, the TLS pair, the macaroons, the wallet database, `channel.backup`, and `channel-backup.json`.
 
 **The channel database is deliberately not backed up.** Restoring a stale one claims channel states the network has moved past, which is how funds are lost — so a restore recovers the wallet and relies on the static channel backup, which asks each peer to force-close and return the funds, rather than resuming the channels.

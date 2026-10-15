@@ -11,6 +11,7 @@ const importPending = z
       source: z.enum(['umbrel', 'mynode', 'startos']),
       host: z.string(),
       password: z.string(),
+      auth: z.enum(['password', 'key']).catch('password'),
     }),
     z.literal(false),
   ])

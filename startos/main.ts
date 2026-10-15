@@ -40,6 +40,8 @@ import {
   backupAgentScript,
   bitcoindMnt,
   describeFailures,
+  importKeyPath,
+  importKeySubdir,
   channelBackupPath,
   getBitcoindBundle,
   GetInfo,
@@ -358,6 +360,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
                 env: {
                   STARTOS_HOST: pending.host,
                   STARTOS_PASS: pending.password,
+                  ...(pending.auth === 'key' && { STARTOS_KEY: importKeyPath }),
                 },
               },
             }[pending.source]
@@ -438,6 +441,11 @@ export const main = sdk.setupMain(async ({ effects }) => {
               message: i18n('Imported LND data from ${source}.', {
                 source: label,
               }),
+            })
+
+            await rm(sdk.volumes.main.subpath(importKeySubdir), {
+              recursive: true,
+              force: true,
             })
 
             // Swaps this phase out for whatever the data needs next.
