@@ -151,7 +151,7 @@ Wallet setup is the substantial one, and [Initialize Wallet](#actions) offers th
 
 - **Create** a new wallet, generating a seed the package records.
 - **Restore** from an existing seed.
-- **Import** an entire node from Umbrel, myNode, or another StartOS — copying its data directory over the network.
+- **Import** an entire node from Umbrel, myNode, or another StartOS server on 0.4.0 or later — copying its data directory over the network.
 
 An import changes what happens next. The copy runs as the only thing in the service, bounded at six hours because a busy routing node's channel database is multi-gigabyte over LAN. If the imported node was on bolt, a **conversion phase** then runs before LND is allowed to open the data, reporting its own progress as a separate health check. Only after that does LND itself start.
 
@@ -249,13 +249,13 @@ Not user-facing, and raised as a task by a companion package with its tunnel con
 
 Three at install, one raised on Bitcoin, and one raised at each lock while Cold Storage Mode is on.
 
-| Task                         | Raised on | Severity    | Raised when                                                            | Cleared when                                              |
-| ---------------------------- | --------- | ----------- | ---------------------------------------------------------------------- | --------------------------------------------------------- |
-| Initialize Wallet            | this      | `critical`  | At install                                                             | The action runs                                           |
-| Bitcoin Backend              | this      | `critical`  | At install                                                             | The action runs                                           |
-| Configure Continuous Backups | this      | `important` | At install                                                             | The action runs                                           |
-| Unlock Wallet                | this      | `important` | Each time LND is found locked while Cold Storage Mode is on            | The wallet opens, or Turn Off runs                        |
-| Auto-Configure               | Bitcoin   | `critical`  | The backend is bitcoind and its ZeroMQ is disabled                     | Bitcoin's config matches; it returns if changed again     |
+| Task                         | Raised on | Severity    | Raised when                                                         | Cleared when                                                         |
+| ---------------------------- | --------- | ----------- | ------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Initialize Wallet            | this      | `critical`  | At install                                                          | The action runs                                                      |
+| Bitcoin Backend              | this      | `critical`  | At install                                                          | The action runs                                                      |
+| Configure Continuous Backups | this      | `important` | At install                                                          | The action runs                                                      |
+| Unlock Wallet                | this      | `important` | Each time LND is found locked while Cold Storage Mode is on         | The wallet opens, or Turn Off runs                                   |
+| Auto-Configure               | Bitcoin   | `critical`  | The backend is bitcoind and its ZeroMQ is disabled                  | Bitcoin's config matches; it returns if changed again                |
 | Clearnet VPN                 | this      | `important` | Only when a companion package raises it with a tunnel for this node | The stored configuration matches what the companion package proposes |
 
 The Bitcoin task appears on **Bitcoin's** page with nothing there explaining which service asked for it. LND needs ZeroMQ to be told about new blocks and transactions; polling is not a substitute.
@@ -273,7 +273,7 @@ Which checks exist depends on what the service is doing.
 | `sync-progress`  | "Network and Graph Sync Progress" | Normal operation                                       |
 | `channel-backup` | "Continuous Backup"               | Normal operation; `disabled` until a target is enabled |
 | `reachability`   | "Node Reachability"               | Normal operation                                       |
-| `vpn-tunnel`     | "Clearnet VPN"                    | While a tunnel is configured               |
+| `vpn-tunnel`     | "Clearnet VPN"                    | While a tunnel is configured                           |
 | `restored`       | Restore notice                    | After a seed restore                                   |
 
 **`wallet-unlock` reports errors from LND's normal wallet unlock request while the wallet remains locked.** It distinguishes LND's exact wrong-passphrase response from other errors. Unlock attempts continue automatically. While Cold Storage Mode is on, a locked wallet is reported as a failure rather than as start-up, since the node stays offline until someone runs Unlock Wallet.
