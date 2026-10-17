@@ -3,6 +3,7 @@ import type { IncomingMessage } from 'http'
 import * as https from 'https'
 import { URLSearchParams } from 'url'
 import { channelBackupJson } from '../fileModels/channel-backup.json'
+import { channelBackupStateJson } from '../fileModels/channel-backup-state.json'
 import { i18n } from '../i18n'
 import { sdk } from '../sdk'
 import {
@@ -257,7 +258,7 @@ async function exchangeGoogleCode(
   clientId: string,
   clientSecret: string,
   authCodeRaw: string,
-): Promise<string> {
+) {
   const r = await httpsPostJson(
     'oauth2.googleapis.com',
     '/token',
@@ -269,19 +270,33 @@ async function exchangeGoogleCode(
       grant_type: 'authorization_code',
     }).toString(),
     { 'Content-Type': 'application/x-www-form-urlencoded' },
-  )
+  ).catch((e: Error) => {
+    throw /"invalid_client"/.test(e.message)
+      ? new Error(
+          i18n(
+            'Google rejected this Client ID and Client Secret. Copy both again from the same client in Google Cloud.',
+          ),
+        )
+      : e
+  })
   if (!r.access_token || !r.refresh_token)
     throw new Error(
       i18n(
         'Google did not return valid tokens. Re-copy the full authorization code.',
       ),
     )
-  return JSON.stringify({
-    access_token: r.access_token,
-    token_type: r.token_type || 'Bearer',
-    refresh_token: r.refresh_token,
-    expiry: new Date(Date.now() + r.expires_in * 1000).toISOString(),
-  })
+  return {
+    token: JSON.stringify({
+      access_token: r.access_token,
+      token_type: r.token_type || 'Bearer',
+      refresh_token: r.refresh_token,
+      expiry: new Date(Date.now() + r.expires_in * 1000).toISOString(),
+    }),
+    // Google sends this only for a time-limited grant, as an app in Testing gets.
+    signinEnds: r.refresh_token_expires_in
+      ? new Date(Date.now() + r.refresh_token_expires_in * 1000)
+      : null,
+  }
 }
 
 async function exchangeDropboxCode(
@@ -477,7 +492,9 @@ const forgetToggle = () =>
 const gdriveFields = {
   'gdrive-client-id': sdk.Value.text({
     name: i18n('OAuth Client ID'),
-    description: i18n('From Google Cloud Console (Drive API, Desktop app).'),
+    description: i18n(
+      'From Google Cloud Console (Drive API, Desktop app). Publish the app before signing in, or Google ends the sign-in after 7 days. Publishing needs a home page, a privacy policy link and an authorized domain under Branding, and no logo.',
+    ),
     default: '',
     required: false,
   }),
@@ -900,6 +917,12 @@ export const configureChannelBackup = sdk.Action.withInput(
     }> = []
     const forgotten: string[] = []
     let hostKeyNote = ''
+    const refused = new Set(
+      ((await channelBackupStateJson.read().once())?.failures ?? [])
+        .filter((f) => f.code === 'signin')
+        .map((f) => f.target),
+    )
+    const renewed = new Set<string>()
 
     for (const provider of VALID_PROVIDERS) {
       const o = (input as any)[provider] || {}
@@ -922,10 +945,18 @@ export const configureChannelBackup = sdk.Action.withInput(
         const label = google ? 'Google Drive' : 'Dropbox'
         const clientId =
           clean(o[`${provider}-client-id`], label) || prev.clientId || ''
-        const clientSecret =
-          secret(o[`${provider}-client-secret`], label) ||
-          prev.clientSecret ||
-          ''
+        const newSecret = secret(o[`${provider}-client-secret`], label)
+        if (prev.clientId && clientId !== prev.clientId && !newSecret)
+          throw new Error(
+            google
+              ? i18n(
+                  'Google Drive: a new Client ID needs its own Client Secret. Paste the secret from the same client.',
+                )
+              : i18n(
+                  'Dropbox: a new App Key needs its own App Secret. Paste the secret from the same app.',
+                ),
+          )
+        const clientSecret = newSecret || prev.clientSecret || ''
         const authCodeRaw = clean(o[`${provider}-auth-code`], label)
         const refreshToken = clean(o[`${provider}-refresh-token`], label)
         const path = folder(o[`${provider}-path`], label, prev.path)
@@ -951,6 +982,7 @@ export const configureChannelBackup = sdk.Action.withInput(
           })
         } else if (refreshToken) {
           token = tokenFromRefresh(refreshToken, google)
+          renewed.add(provider)
         }
         patch[provider] = { enabled, clientId, clientSecret, token, path }
       } else if (provider === 'nextcloud') {
@@ -1139,23 +1171,34 @@ export const configureChannelBackup = sdk.Action.withInput(
     }
 
     const exchanged = new Set<string>()
+    let signinEndsNote = ''
     for (const pending of oauthCodes) {
-      const token = pending.google
-        ? await exchangeGoogleCode(
-            pending.clientId,
-            pending.clientSecret,
-            pending.authCodeRaw,
+      let token: string
+      if (pending.google) {
+        const google = await exchangeGoogleCode(
+          pending.clientId,
+          pending.clientSecret,
+          pending.authCodeRaw,
+        )
+        token = google.token
+        if (google.signinEnds)
+          signinEndsNote = i18n(
+            'Google will end this sign-in on ${date}, because the Google Cloud app is still in Testing. Sign in here again before then, or publish the app and sign in again: publishing needs a home page, a privacy policy link and an authorized domain under Branding, and no logo.',
+            { date: google.signinEnds.toISOString().slice(0, 10) },
           )
-        : await exchangeDropboxCode(
-            pending.clientId,
-            pending.clientSecret,
-            pending.authCodeRaw,
-          )
+      } else {
+        token = await exchangeDropboxCode(
+          pending.clientId,
+          pending.clientSecret,
+          pending.authCodeRaw,
+        )
+      }
       patch[pending.provider].token = token
       await channelBackupJson.merge(effects, {
         [pending.provider]: patch[pending.provider],
       })
       exchanged.add(pending.provider)
+      renewed.add(pending.provider)
     }
     await channelBackupJson.merge(
       effects,
@@ -1164,10 +1207,14 @@ export const configureChannelBackup = sdk.Action.withInput(
       ),
     )
 
+    const signedIn = (provider: 'gdrive' | 'dropbox') =>
+      !!patch[provider].token &&
+      (renewed.has(provider) || !refused.has(provider))
     const operational = VALID_PROVIDERS.filter((provider) => {
       const target = patch[provider]
       if (!target?.enabled) return false
-      if (provider === 'gdrive' || provider === 'dropbox') return !!target.token
+      if (provider === 'gdrive' || provider === 'dropbox')
+        return signedIn(provider)
       if (provider === 'sftp') return !!target.hostKeyVerified
       return true
     })
@@ -1175,7 +1222,7 @@ export const configureChannelBackup = sdk.Action.withInput(
       (provider) => patch[provider]?.enabled && !operational.includes(provider),
     )
     const authorization = (['gdrive', 'dropbox'] as const)
-      .filter((provider) => patch[provider]?.enabled && !patch[provider].token)
+      .filter((provider) => patch[provider]?.enabled && !signedIn(provider))
       .map((provider) => ({
         provider,
         url:
@@ -1216,6 +1263,7 @@ export const configureChannelBackup = sdk.Action.withInput(
       version: '1' as const,
       title: i18n('Continuous Backups'),
       message: [
+        signinEndsNote,
         operationalNote,
         notReadyNote,
         disabledNote,
