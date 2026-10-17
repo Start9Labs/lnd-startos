@@ -54,7 +54,7 @@ log() { echo "[channel-backup] $*" >&2; }
 reason() {
   tr -d '\000-\010\013\014\016-\037\177' \
     | grep -v '^[[:space:]]*$' | tail -n 1 \
-    | sed 's|^[0-9/]* [0-9:]* [A-Z]*: ||; s|^Failed to create file system for destination "[^"]*": ||' \
+    | sed -E 's|^[0-9/]* [0-9:]* [A-Z]*: ||; s|^Failed to create file system for destination "[^"]*": ||; s@(Get|Post|Put|Patch|Delete|Head|Options|Connect|Trace) "https?://[^"]*": @@g' \
     | cut -c1-160
 }
 reason_file() { tail -c 8192 "$1" 2>/dev/null | reason; }
