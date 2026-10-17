@@ -71,8 +71,8 @@ export const shape = z.looseObject({
   // ──── Application Options ────
   // LND debuglevel: a global level, optionally with per-subsystem overrides.
   // The default `info,BTWL=error` keeps Info logging but silences btcwallet's
-  // per-block warnings. `.catch` sets the package default, which the file model
-  // applies to existing installs on their next start.
+  // per-block warnings. `.catch` applies it only where the key is missing or
+  // invalid, so a node whose lnd.conf already says `info` keeps `info`.
   debuglevel: z
     .enum([
       'trace',
@@ -123,7 +123,7 @@ export const shape = z.looseObject({
   'bitcoin.feerate': iniNumber,
   'bitcoin.timelockdelta': iniNumber,
 
-  // ──── Database backend (enforced by StartOS) ────
+  // ──── Database ────
   // Always SQLite. New installs are born here; existing bolt nodes are
   // converted before LND opens the data — by the update migration
   // (versions/current.ts) or main's conversion phase (sqliteBackend.ts).
@@ -140,6 +140,9 @@ export const shape = z.looseObject({
   // model strips any stale `db.use-native-sql=true` an older build wrote.
   'db.backend': z.literal('sqlite').catch('sqlite'),
   'db.use-native-sql': z.literal(undefined).catch(undefined),
+  // At LND's default of 2, two invoice subscriptions resuming from a settle
+  // index deadlock lnd.sqlite (lightningnetwork/lnd#11346).
+  'db.sqlite.maxconnections': iniNumber.transform((v) => v ?? 25),
 
   // ──── Performance ────
   'gc-canceled-invoices-on-startup': iniBoolean,
