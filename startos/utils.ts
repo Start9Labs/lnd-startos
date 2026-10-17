@@ -203,6 +203,26 @@ function describeFailure(f: BackupFailure): string {
         '${target}: not reached before the run ran out of time. The watcher retries on its own.',
         { target },
       )
+    case 'signin':
+      return f.target === 'gdrive'
+        ? i18n(
+            '${target}: Google refused the saved sign-in. Sign in again in Configure Continuous Backups. While the Google Cloud app is in Testing, Google ends every sign-in after 7 days; publishing the app stops that.',
+            { target },
+          )
+        : i18n(
+            '${target}: the saved sign-in was refused. Sign in again in Configure Continuous Backups.',
+            { target },
+          )
+    case 'nocreds':
+      return f.target === 'gdrive' || f.target === 'dropbox'
+        ? i18n(
+            '${target}: not signed in yet. Finish the sign-in in Configure Continuous Backups.',
+            { target },
+          )
+        : i18n(
+            '${target}: its saved settings are incomplete. Save it again in Configure Continuous Backups.',
+            { target },
+          )
     default:
       return `${target}: ${f.code} ${f.detail}`.trim()
   }

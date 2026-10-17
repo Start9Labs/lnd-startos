@@ -1252,11 +1252,9 @@ export const main = sdk.setupMain(async ({ effects }) => {
       .addHealthCheck('channel-backup', {
         ready: {
           display: i18n('Continuous Backup'),
-          // The backup agent retries a failing target every five minutes.
           trigger: sdk.trigger.statusTrigger(30_000, {
             starting: 5_000,
             waiting: 5_000,
-            failure: 300_000,
           }),
           fn: async () => {
             const cfg = await channelBackupJson.read().once()

@@ -352,6 +352,15 @@ fail_target() {
   jq -nc --arg t "$1" --arg c "$2" --arg d "$3" '{target:$t,code:$c,detail:$d}' >> "$FAILURES" || return 1
 }
 
+# A refused sign-in: invalid_grant on a token refresh (past where reason() cuts), authError from Drive.
+fail_remote() {
+  if grep -Eq 'invalid_grant|Reason: authError' "$WORK/remote.out" 2>/dev/null; then
+    fail_target "$1" signin ''
+  else
+    fail_target "$1" "$2" "$(reason_file "$WORK/remote.out")"
+  fi
+}
+
 ship_target() {
   _remote=$1
   target "$_remote"
@@ -365,6 +374,10 @@ ship_target() {
       return 1
     fi
   fi
+  if ! has_creds "$REMOTE_NAME"; then
+    fail_target "$REMOTE_NAME" nocreds ''
+    return 1
+  fi
   _suffix=$(random_suffix) || {
     fail_target "$REMOTE_NAME" local 'could not create a temporary name'
     return 1
@@ -372,16 +385,14 @@ ship_target() {
   REMOTE_TMP=".$OBJECT.tmp.$_suffix"
   # shellcheck disable=SC2086
   if ! rc --config "$RCONF" copyto "$SNAPSHOT" "$REMOTE_NAME:$REMOTE_PATH/$REMOTE_TMP" $RCLONE_FLAGS $REMOTE_EXTRA --log-level NOTICE > "$WORK/remote.out" 2>&1; then
-    _detail=$(reason_file "$WORK/remote.out")
     cleanup_remote_tmp
-    fail_target "$REMOTE_NAME" upload "$_detail"
+    fail_remote "$REMOTE_NAME" upload
     return 1
   fi
   # shellcheck disable=SC2086
   if ! rc --config "$RCONF" moveto "$REMOTE_NAME:$REMOTE_PATH/$REMOTE_TMP" "$REMOTE_NAME:$REMOTE_PATH/$OBJECT" $RCLONE_FLAGS $REMOTE_EXTRA --log-level NOTICE > "$WORK/remote.out" 2>&1; then
-    _detail=$(reason_file "$WORK/remote.out")
     cleanup_remote_tmp
-    fail_target "$REMOTE_NAME" publish "$_detail"
+    fail_remote "$REMOTE_NAME" publish
     return 1
   fi
   REMOTE_TMP=''
@@ -745,7 +756,7 @@ do_pull() {
         log "[$_provider] holds no channel.backup"
       else
         _incomplete=1
-        fail_target "$_provider" check "$(reason_file "$WORK/remote.out")" || {
+        fail_remote "$_provider" check || {
           unlock
           return 1
         }
