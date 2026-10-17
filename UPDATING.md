@@ -35,6 +35,7 @@
 - **`Dockerfile`** — bump `FROM lightninglabs/lnd:v<new version>` **and** the `COPY --from=lightninglabs/lndinit:v<lndinit>-lnd-v<new version>` tag.
 - **`startos/manifest/index.ts`** — the comment above `images.lnd` names the pinned LND version; keep it accurate. There is no tag to change here.
 - **`routing.assumechanvalid`** — confirm the new version still accepts it (`lncfg/routing.go`). `main` writes it on every node whose Bitcoin is pruned, and LND refuses to start on a config key it does not know.
+- **`db.sqlite.maxconnections`** — confirm the new version still accepts it (`sqldb/config.go`); every node's `lnd.conf` carries it. Once a release fixes [lightningnetwork/lnd#11346](https://github.com/lightningnetwork/lnd/issues/11346) (`InvoicesSettledSince` in `invoices/sql_store.go` stops calling `i.db.` inside its transaction), retire the key in `startos/fileModels/lnd.conf.ts` with `z.undefined().catch(undefined)`: deleting the line leaves `25` in every node's `lnd.conf`.
 - **rclone** — update `ARG RCLONE_VERSION` in the `Dockerfile` and refresh both checksums from the release `SHA256SUMS`:
 
   ```sh
