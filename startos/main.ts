@@ -20,6 +20,7 @@ import {
   isPastUnlock,
   parseGatewayReply,
   refusedWalletPassword,
+  STATE_TIMED_OUT,
   UNLOCK_TIMEOUT_MS,
 } from './walletUnlocker'
 import {
@@ -572,6 +573,13 @@ export const main = sdk.setupMain(async ({ effects }) => {
 
   const lndChain = () => {
     const vpnStartedAt = Date.now()
+    let lastLndState: string | null = null
+    // A timeout means LND accepted the connection, so its last answer still stands.
+    const lndStateNow = async () => {
+      const state = await getLndState(STATE_TIMED_OUT)
+      if (state !== STATE_TIMED_OUT) lastLndState = state
+      return { state: lastLndState, slow: state === STATE_TIMED_OUT }
+    }
     return sdk.Daemons.of(effects)
       .addOneshot('stage-local-restore', () =>
         restore
@@ -629,15 +637,21 @@ export const main = sdk.setupMain(async ({ effects }) => {
         ready: {
           display: i18n('LND Server'),
           fn: async () => {
-            const lndState = await getLndState()
+            const { state, slow } = await lndStateNow()
+            // Any non-success here stops every daemon that requires `lnd`.
             // WAITING_TO_START (255) is earliest in the state machine — the
             // wallet unlocker sub-server isn't up yet, so don't let the
             // unlock-wallet oneshot fire. LOCKED onward means the unlocker
             // endpoint is serving.
-            if (!lndState || lndState === 'WAITING_TO_START') {
+            if (!state || state === 'WAITING_TO_START') {
               return { result: 'starting', message: null }
             }
-            return { result: 'success', message: i18n('LND is ready') }
+            return {
+              result: 'success',
+              message: slow
+                ? i18n('LND is running but slow to respond')
+                : i18n('LND is ready'),
+            }
           },
         },
         requires: restore ? ['stage-local-restore', 'vpn'] : ['vpn'],
@@ -800,7 +814,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
             failure: 10_000,
           }),
           fn: async () => {
-            const state = await getLndState()
+            const { state } = await lndStateNow()
             if (state === 'LOCKED' && unlockError) {
               return {
                 result: 'failure',
@@ -942,16 +956,13 @@ export const main = sdk.setupMain(async ({ effects }) => {
               },
             )
 
-            // `lncli getinfo` only succeeds once LND's RPC server is fully
-            // active, so any non-zero (or null) exit here means LND is still
-            // coming up — e.g. the wallet isn't unlocked yet, or the RPC server
-            // reports "waiting to start" / "the RPC server is in the process of
-            // starting up". That exact wording varies by LND version, so rather
-            // than match a fixed string (the old check pinned "waiting to start"
-            // and missed 0.20's phrasing, surfacing hundreds of spurious
-            // failures per boot) we treat every non-success as a transient
-            // startup state. A genuine crash/outage is owned by the lnd daemon's
-            // `ready` check and the LND Server (/v1/state) health check.
+            // getinfo's start-up refusal changes wording per LND release; /v1/state doesn't.
+            if ((await lndStateNow()).state === 'SERVER_ACTIVE') {
+              return {
+                message: i18n('LND is running but not responding'),
+                result: 'loading',
+              }
+            }
             return {
               message: i18n('LND is starting…'),
               result: 'starting',
