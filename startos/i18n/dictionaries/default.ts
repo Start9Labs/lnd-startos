@@ -462,6 +462,8 @@ const dict = {
   '${target}: the saved sign-in was refused. Sign in again in Configure Continuous Backups.': 629,
   '${target}: not signed in yet. Finish the sign-in in Configure Continuous Backups.': 634,
   '${target}: its saved settings are incomplete. Save it again in Configure Continuous Backups.': 635,
+  'LND is running but not responding': 636,
+  'LND is running but slow to respond': 637,
   'The backup settings could not be read. Try again in a moment.': 477,
   'SFTP: the host key ${host} presented could not be read. Try saving again.': 479,
   '${label}: must be at most ${max} characters.': 480,

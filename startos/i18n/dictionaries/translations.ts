@@ -531,6 +531,8 @@ export default {
     633: 'Google rechazó este ID de cliente y este secreto de cliente. Vuelve a copiar ambos del mismo cliente en Google Cloud.',
     634: '${target}: aún no se ha iniciado sesión. Termina el inicio de sesión en Configurar copias continuas.',
     635: '${target}: su configuración guardada está incompleta. Vuelve a guardarla en Configurar copias continuas.',
+    636: 'LND está en marcha pero no responde',
+    637: 'LND está en marcha pero tarda en responder',
   },
   de_DE: {
     309: 'Kontinuierliche Backups',
@@ -1062,6 +1064,8 @@ export default {
     633: 'Google hat diese Client-ID und dieses Client-Secret abgelehnt. Kopiere beide erneut aus demselben Client in Google Cloud.',
     634: '${target}: noch nicht angemeldet. Schließe die Anmeldung unter Kontinuierliche Backups einrichten ab.',
     635: '${target}: Die gespeicherten Einstellungen sind unvollständig. Speichere sie unter Kontinuierliche Backups einrichten erneut.',
+    636: 'LND läuft, antwortet aber nicht',
+    637: 'LND läuft, antwortet aber langsam',
   },
   pl_PL: {
     309: 'Kopie ciągłe',
@@ -1593,6 +1597,8 @@ export default {
     633: 'Google odrzucił ten identyfikator klienta i klucz tajny klienta. Skopiuj oba ponownie z tego samego klienta w Google Cloud.',
     634: '${target}: jeszcze nie zalogowano. Dokończ logowanie w Skonfiguruj kopie ciągłe.',
     635: '${target}: zapisane ustawienia są niekompletne. Zapisz je ponownie w Skonfiguruj kopie ciągłe.',
+    636: 'LND działa, ale nie odpowiada',
+    637: 'LND działa, ale odpowiada powoli',
   },
   fr_FR: {
     309: 'Sauvegardes continues',
@@ -2124,5 +2130,7 @@ export default {
     633: 'Google a refusé cet ID client et ce code secret client. Copiez-les de nouveau tous les deux depuis le même client dans Google Cloud.',
     634: '${target} : pas encore connecté. Terminez la connexion dans Configurer les sauvegardes continues.',
     635: '${target} : ses paramètres enregistrés sont incomplets. Enregistrez-les de nouveau dans Configurer les sauvegardes continues.',
+    636: 'LND fonctionne mais ne répond pas',
+    637: 'LND fonctionne mais répond lentement',
   },
 } satisfies Record<string, LangDict>
