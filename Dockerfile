@@ -21,6 +21,9 @@ RUN case "${TARGETARCH}" in \
 
 FROM lightninglabs/lnd:v0.21.4-beta
 
+# The base image's CA store is only as current as its last release.
+RUN apk add --no-cache --upgrade ca-certificates ca-certificates-bundle
+
 # curl calls LND's REST API for wallet setup and migration polling; sqlite
 # scrubs the migrated database; openssh-client and sshpass import remote wallets;
 # flock serializes copies; wireguard-tools and iptables bring up and fence the Clearnet VPN tunnel (startos/vpn.ts).
