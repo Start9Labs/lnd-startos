@@ -48,7 +48,7 @@ The added tools are `curl`, `sqlite3`, OpenSSH, `sshpass`, `rclone`, `flock`, `w
 **`main` runs in one of three modes**, and only the third is the ordinary one:
 
 1. **Import** — a wallet migration from another node is pending, so the only thing running is the copy.
-2. **Conversion** — an imported bolt database has to be converted before LND may open it.
+2. **Conversion** — a bolt database the update migration did not convert (an import, a restored pre-conversion backup, data carried over from StartOS 0.3.5.1) has to be converted before LND may open it.
 3. **Normal** — the LND daemon, the channel-backup agent, and their supporting oneshots.
 
 ## Volume and Data Layout

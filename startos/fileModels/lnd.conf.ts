@@ -126,8 +126,8 @@ export const shape = z.looseObject({
   // ──── Database ────
   // Always SQLite. New installs are born here; existing bolt nodes are
   // converted before LND opens the data — by the update migration
-  // (versions/current.ts) or main's conversion phase (sqliteBackend.ts).
-  // Enforced (not optional) so the migration never has to
+  // (versions/v0.21.2-beta_5.ts) or main's conversion phase
+  // (sqliteBackend.ts). Enforced (not optional) so the migration never has to
   // *write* it — a write would trip main's lnd.conf `.const` watch and restart
   // the service. The conversion's brief schema-finalize run overrides the
   // backend to bolt on the CLI (`--db.backend=bolt`) to operate on the
