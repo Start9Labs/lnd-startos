@@ -77,9 +77,9 @@ type LndState =
 
 /**
  * Whether the bolt → SQLite conversion still needs to run. Checked by the
- * update migration (versions/current.ts) and by main's conversion phase
- * ({@link migrateOnStart}); when false, no conversion runs and the service
- * starts normally.
+ * update migration (versions/v0.21.2-beta_5.ts) and by main's conversion
+ * phase ({@link migrateOnStart}); when false, no conversion runs and the
+ * service starts normally.
  *
  * Decided from startup-flags (read `.once`) and on-disk files only — never from
  * lnd.conf's db.backend, which is enforced to 'sqlite' (see lnd.conf.ts) and so
@@ -110,11 +110,12 @@ export async function needsSqliteMigration(): Promise<boolean> {
 
 /**
  * The same conversion, driven from `main` — the path for every bolt arrival
- * except an update (whose version migration converts inside the update, where
- * the progress UI is): an Initialize Wallet import, a conversion interrupted
- * and resumed across boot or rebuild, a restored pre-conversion backup. A
- * migration runs on updates only, so boot and rebuild never stall behind an
- * hours-long conversion — it lands here, after a fast boot, instead.
+ * the update migration leaves (it converts inside an update, where the
+ * progress UI is): an Initialize Wallet import, a conversion interrupted and
+ * resumed across boot or rebuild, a restored pre-conversion backup, data
+ * carried over from StartOS 0.3.5.1. A migration runs on updates only, so
+ * boot and rebuild never stall behind an hours-long conversion — it lands
+ * here, after a fast boot, instead.
  *
  * Runs as the oneshot of main's conversion phase (main.ts), not as a blocking
  * step ahead of the daemon chain — so the service reaches `started` and can be
@@ -154,7 +155,8 @@ export async function migrateOnStart(effects: T.Effects): Promise<void> {
 
 /**
  * Convert bolt → SQLite, run before LND opens the data — from the update
- * migration (versions/current.ts), or from main via {@link migrateOnStart}.
+ * migration (versions/v0.21.2-beta_5.ts), or from main via
+ * {@link migrateOnStart}.
  * Two temporary daemon chains (runUntilSuccess); writes only startup-flags.
  * Resumable, and throws on failure so the caller retries until a run succeeds.
  *
