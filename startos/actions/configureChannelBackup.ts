@@ -829,7 +829,7 @@ export const configureChannelBackup = sdk.Action.withInput(
     email: storageTarget(
       i18n('Email'),
       i18n(
-        'Send channel.backup as an attachment over SMTP, to any mailbox. A StartOS restore does not read email; keep the messages, or enable another target for restore coverage.',
+        'Send channel.backup as an attachment over SMTP, to any mailbox. A StartOS restore does not read email; keep the messages, and after a restore give the newest attachment to Restore Channels from File.',
       ),
       emailFields,
     ),

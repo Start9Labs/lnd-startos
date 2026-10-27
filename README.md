@@ -150,10 +150,9 @@ Four interfaces, two of which appear only once a wallet exists.
 
 Install raises **two `critical` tasks** and the service does not run until both are cleared: choose a Bitcoin backend, and set up a wallet.
 
-Wallet setup is the substantial one, and [Initialize Wallet](#actions) offers three paths:
+Wallet setup is the substantial one, and [Initialize Wallet](#actions) offers two paths:
 
 - **Create** a new wallet, generating a seed the package records.
-- **Restore** from an existing seed.
 - **Import** an entire node from Umbrel, myNode, or another StartOS server on 0.4.0 or later — copying its data directory over the network.
 
 An import changes what happens next. The copy runs as the only thing in the service, bounded at six hours because a busy routing node's channel database is multi-gigabyte over LAN. If the imported node was on bolt, a **conversion phase** then runs before LND is allowed to open the data, reporting its own progress as a separate health check. Only after that does LND itself start.
@@ -162,7 +161,7 @@ The TLS pair is issued at init for every address LND answers on — the containe
 
 ## Actions
 
-Twenty-four actions: ten configure the node, three manage its wallet and credentials, two send and receive payments, two report node information, two manage continuous backups, three manage Cold Storage, one manages a companion-provided VPN, and one serves dependent packages. Four of them are always hidden from the ordinary Actions list.
+Twenty-five actions: ten configure the node, three manage its wallet and credentials, two send and receive payments, two report node information, two manage continuous backups, one restores channels from a supplied backup, three manage Cold Storage, one manages a companion-provided VPN, and one serves dependent packages. Four of them are always hidden from the ordinary Actions list.
 
 ### Configuration
 
@@ -176,7 +175,7 @@ Nine actions grouped under Configuration, each writing its own part of `lnd.conf
 
 ### Initialize Wallet — hidden
 
-**Not in the Actions list.** It is `visibility: 'hidden'` and `only-stopped`, reached through the install task. It creates, restores, or imports a wallet as described above, and for an import it verifies the origin's credentials before scheduling the copy — so a wrong password fails here rather than six hours later. Re-running it with corrected credentials replaces the pending import without disturbing anything else.
+**Not in the Actions list.** It is `visibility: 'hidden'` and `only-stopped`, reached through the install task. It creates or imports a wallet as described above, and for an import it verifies the origin's credentials before scheduling the copy — so a wrong password fails here rather than six hours later. Re-running it with corrected credentials replaces the pending import without disturbing anything else.
 
 ### Reset Wallet Transactions
 
@@ -216,14 +215,24 @@ Google ends the sign-in it gives a Google Cloud app still in Testing after 7 day
 
 SFTP servers are pinned by host key, and the pin is confirmed before it is used. Saving the target records the keys the server presents (`ssh-keyscan`) and reports their fingerprints, but nothing is sent until a later save with _Host key verified_ turned on; the health check says so in the meantime, and saving with the toggle off withdraws that trust. Only a scan that finished cleanly, every line a whole key that `ssh-keygen` can fingerprint, is recorded. A changed host or port drops the pin, as does _Record a new host key_ after a server reinstall. Folder paths on every target must be relative, with no `..` segments. An SFTP path is resolved against the directory the server puts the login in, which rclone reads from the server on connect: the home directory on a stock OpenSSH server, the top of a share or of the chroot on a NAS or a chrooted account.
 
-Email is a different kind of target: the agent sends `channel.backup` as a MIME attachment over SMTP instead of storing a file, so there is nothing for a restore to read back — `backup-agent.sh --pull` skips it, and it never appears in a restore's list of targets. The SMTP server, port, sender and at least one recipient are required, and a username without a password is refused. Port 465 is taken as implicit TLS; every other port must upgrade with STARTTLS, so the login and the attachment never travel without TLS. The sender must be an address the SMTP server allows this login to send as, and recipients are a comma-separated list. A blank subject and a blank message are filled in, the subject naming the time the copy was sent, and a blank username means a server that needs no login. The message body allows line breaks and tabs and nothing else, so no header line can be smuggled into the message. The password reaches curl through a mode-0600 temporary file, never as a command line argument, and the file is removed as soon as the send ends. Mail goes out when `channel.backup` changes, when a failed send is retried, and every time Back Up Channels Now runs; a copy already delivered for the current file is not sent again. The message is base64, not encryption: what protects the contents in the mailbox is LND's own encryption of `channel.backup` under a key derived from your seed.
+Email is a different kind of target: the agent sends `channel.backup` as a MIME attachment over SMTP instead of storing a file, so there is nothing for a restore to read back — `backup-agent.sh --pull` skips it, and it never appears in a restore's list of targets. An attachment reaches LND through [Restore Channels from File](#restore-channels-from-file). The SMTP server, port, sender and at least one recipient are required, and a username without a password is refused. Port 465 is taken as implicit TLS; every other port must upgrade with STARTTLS, so the login and the attachment never travel without TLS. The sender must be an address the SMTP server allows this login to send as, and recipients are a comma-separated list. A blank subject and a blank message are filled in, the subject naming the time the copy was sent, and a blank username means a server that needs no login. The message body allows line breaks and tabs and nothing else, so no header line can be smuggled into the message. The password reaches curl through a mode-0600 temporary file, never as a command line argument, and the file is removed as soon as the send ends. Mail goes out when `channel.backup` changes, when a failed send is retried, and every time Back Up Channels Now runs; a copy already delivered for the current file is not sent again. The message is base64, not encryption: what protects the contents in the mailbox is LND's own encryption of `channel.backup` under a key derived from your seed.
 
 - **What it changes:** writes `channel-backup.json`. No restart.
 - **Repeat safety:** safe; secrets are never prefilled, and left blank they keep their stored value. Email's other fields are the exception: left blank they clear, and the agent fills in what has a default, so blanking the username moves to a server that needs no login. A changed OAuth client id or secret drops the stored token, and a fresh authorization code always replaces it.
 
-**Back Up Channels Now** asks for confirmation, then runs one copy immediately and fails with whatever each target said. Once LND has created `channel.backup` by opening its first channel, use the action to check a freshly configured target without waiting for another channel change. It refuses until LND has reported the node's identity, which the agent needs to name the node's folder.
+**Back Up Channels Now** asks for confirmation, then runs one copy immediately and fails with whatever each target said. Use it to check a freshly configured target without waiting for a channel change; LND writes `channel.backup` at every start, once it has caught up with the chain, whether or not it has channels. It refuses until LND has reported the node's identity, which the agent needs to name the node's folder.
 
 - **Cost:** seconds to a minute; running only.
+
+### Restore Channels from File
+
+Grouped under Continuous Backups. Hands a `channel.backup` the user supplies — an Email target's attachment, or any copy kept by hand — to `lncli restorechanbackup --multi_file`, as the restore oneshot does with the copies it finds. The file is pasted as base64 into a textarea; whitespace and the `BEGIN`/`END` lines `certutil -encode` writes are dropped, and the rest must decode as strict base64. The bytes go to `/tmp` in a temporary subcontainer, never to the volume.
+
+- **Confirmation:** a toggle stating that peers force-close every channel the file recovers, whose warning carries the Lightning Labs advice the restore notice shows; the handler refuses without it.
+- **When:** running only. It waits up to 30 seconds for `/v1/state` to report `SERVER_ACTIVE`, which `restorechanbackup` requires, and refuses after that; LND's call is bounded to 60 seconds.
+- **Result:** the count of channels recovered, LND's `num_restored`. A file LND cannot open, matched as the restore oneshot matches the copies it skips, is reported as another seed's or damaged; any other failure returns LND's error.
+- **Repeat safety:** safe. LND skips every channel its outpoint index holds, open or closed, so a second run, or a run on the node that wrote the file, recovers nothing.
+- **Availability:** every node, not only a restored one. Only a node restored from a StartOS backup lacks channels its own file can name; on any other, the run changes nothing or is refused.
 
 ### Cold Storage
 
@@ -279,7 +288,7 @@ Which checks exist depends on what the service is doing.
 | `channel-backup` | "Continuous Backup"               | Normal operation; `disabled` until a target is enabled |
 | `reachability`   | "Node Reachability"               | Normal operation                                       |
 | `vpn-tunnel`     | "Clearnet VPN"                    | While a tunnel is configured                           |
-| `restored`       | Restore notice                    | After a seed restore                                   |
+| `restored`       | Restore notice                    | After a restore from a StartOS backup                  |
 
 **`wallet-unlock` reports errors from LND's normal wallet unlock request while the wallet remains locked.** It distinguishes LND's exact wrong-passphrase response from other errors. Unlock attempts continue automatically. While Cold Storage Mode is on, a locked wallet is reported as a failure rather than as start-up, since the node stays offline until someone runs Unlock Wallet.
 
@@ -320,7 +329,7 @@ A StartOS backup carries the `channel.backup` that existed when it was taken, so
 
 The agent publishes one stable file named `channel.backup` at `<folder>/<node id>/` on each target, where the folder is the target's configured path and the node id is the SHA-256 of the node's identity pubkey (`lncli getinfo`). The id keeps nodes that share one account apart. A restored seed reproduces it, so a restore looks in its own folder on any hardware, and a reinstall with a new seed leaves the old node's copy untouched. The agent reads the identity from LND on each run and exits 7 until LND reports it, which the watcher treats as not ready and retries at the next poll. Every successful upload replaces the copy with the current one; the agent creates no companion markers, generations, or history. An email target is the exception: it stores no file and has no folder — the agent only sends a message, so there is no copy there for anything to replace or for another node to overwrite.
 
-On a restore, LND recovers its channels from every copy that can be found. The restore hook stages the `channel.backup` carried inside the StartOS backup before LND starts, since LND rewrites its own file shortly after unlocking. Once LND reaches `SERVER_ACTIVE` (`restorechanbackup` answers _server is still in the process of starting_ until then), the `restore` oneshot hands that copy to `restorechanbackup`, then asks the agent (`backup-agent.sh --pull`) for the `channel.backup` held by every target with saved credentials, enabled or not, and hands each of those over too. An email target is never consulted: it holds no copy, only the messages it has already sent. Order does not matter and nothing is compared: `restorechanbackup` is additive, skipping channels LND already holds, so what it ends up with is the union of every copy, and a channel opened after the StartOS backup is recovered from the target that has it. A copy LND cannot open belongs to another seed or is damaged; it is skipped with a log line. Any other failure fails the oneshot, and the SDK retries it with the restore flag still set.
+On a restore, LND recovers its channels from every copy that can be found. The restore hook stages the `channel.backup` carried inside the StartOS backup before LND starts, since LND rewrites its own file shortly after unlocking. Once LND reaches `SERVER_ACTIVE` (`restorechanbackup` answers _server is still in the process of starting_ until then), the `restore` oneshot hands that copy to `restorechanbackup`, then asks the agent (`backup-agent.sh --pull`) for the `channel.backup` held by every target with saved credentials, enabled or not, and hands each of those over too. An email target is never consulted: it holds no copy, only the messages it has already sent, and an attachment from one goes to LND through Restore Channels from File instead. Order does not matter and nothing is compared: `restorechanbackup` is additive, skipping channels LND already holds, so what it ends up with is the union of every copy, and a channel opened after the StartOS backup is recovered from the target that has it. A copy LND cannot open belongs to another seed or is damaged; it is skipped with a log line. Any other failure fails the oneshot, and the SDK retries it with the restore flag still set.
 
 A target that cannot be reached is waited for, because its copy may be the only one holding a channel opened since the StartOS backup: the restore notice names the target, the oneshot asks again every five minutes, and clearing that target's saved credentials in Configure Continuous Backups is how to stop waiting. The channel-backup agent does not start, and Back Up Channels Now refuses, until the restore has finished, so the older local copy never replaces a newer one on a target. The oneshot clears the restore flag itself as its last step, after removing the staged copies.
 
@@ -398,6 +407,7 @@ actions:
   - autoconfig # hidden; driven by dependents
   - configure-channel-backup
   - backup-channels-now # only-running
+  - restore-channels-from-file # only-running; a pasted base64 channel.backup to restorechanbackup
   - cold-storage-prepare
   - cold-storage-toggle # Turn On, only-running, while the mode is off; Turn Off while it is on
   - unlock-wallet # only-running; offered while Cold Storage Mode is on or the stored password was refused
@@ -416,5 +426,5 @@ health_checks:
   - vpn-tunnel # displayed "Clearnet VPN"; only while a tunnel is configured; last-handshake age
   - import # only while a wallet import runs
   - db-migration # only while a bolt database is converted
-  - restored # only after a seed restore
+  - restored # only after a restore from a StartOS backup
 ```
