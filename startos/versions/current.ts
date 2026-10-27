@@ -1,17 +1,18 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 export const current = VersionInfo.of({
-  version: '0.21.4-beta:7',
+  version: '0.21.4-beta:8',
   releaseNotes: {
     en_US:
-      'LND can be installed or updated over data kept from StartOS 0.3.5.1. Its one-time database conversion then runs the first time LND starts, shown as Database Conversion.',
+      'Restore Channels from File, under Continuous Backups, recovers the channels in a channel.backup you supply, such as an emailed copy, including those opened after the StartOS backup a node was restored from. It first lists the channels this node does not know, and restores them only once you turn that on; each is then force-closed by its peer.',
     es_ES:
-      'LND se puede instalar o actualizar sobre datos conservados de StartOS 0.3.5.1. Su conversión única de la base de datos se ejecuta entonces la primera vez que LND arranca, y se muestra como Conversión de la base de datos.',
+      'Restaurar canales desde archivo, en Copias continuas, recupera los canales de un channel.backup que aportes, como una copia recibida por correo, incluidos los abiertos después de la copia de seguridad de StartOS desde la que se restauró el nodo. Primero lista los canales que este nodo no conoce, y solo los restaura cuando lo activas; su par fuerza entonces el cierre de cada uno.',
     de_DE:
-      'LND lässt sich über aus StartOS 0.3.5.1 übernommene Daten installieren oder aktualisieren. Die einmalige Datenbankkonvertierung läuft dann beim ersten Start von LND und wird als Datenbankkonvertierung angezeigt.',
+      'Kanäle aus Datei wiederherstellen unter Kontinuierliche Backups stellt die Kanäle aus einem channel.backup wieder her, das du bereitstellst, etwa aus einer per E-Mail erhaltenen Kopie, auch solche, die nach dem StartOS-Backup geöffnet wurden, aus dem der Knoten wiederhergestellt wurde. Zuerst listet es die Kanäle auf, die dieser Knoten nicht kennt, und stellt sie erst wieder her, wenn du das einschaltest; ihr Peer schließt dann jeden erzwungen.',
     pl_PL:
-      'LND można zainstalować lub zaktualizować na danych zachowanych ze StartOS 0.3.5.1. Jednorazowa konwersja bazy danych uruchamia się wtedy przy pierwszym starcie LND i jest widoczna jako Konwersja bazy danych.',
-    fr_FR: `LND peut être installé ou mis à jour sur des données conservées de StartOS 0.3.5.1. Sa conversion unique de la base de données s'exécute alors au premier démarrage de LND et s'affiche comme Conversion de la base de données.`,
+      'Przywróć kanały z pliku, w sekcji Kopie ciągłe, odzyskuje kanały z dostarczonego pliku channel.backup, na przykład z kopii otrzymanej e-mailem, także te otwarte po kopii zapasowej StartOS, z której przywrócono węzeł. Najpierw wypisuje kanały, których ten węzeł nie zna, i przywraca je dopiero po włączeniu tej opcji; partner każdego z nich wymusza wtedy jego zamknięcie.',
+    fr_FR:
+      "Restaurer les canaux depuis un fichier, dans Sauvegardes continues, récupère les canaux d'un channel.backup que vous fournissez, comme une copie reçue par e-mail, y compris ceux ouverts après la sauvegarde StartOS à partir de laquelle le nœud a été restauré. Elle liste d'abord les canaux que ce nœud ne connaît pas, et ne les restaure que lorsque vous l'activez ; le pair de chacun force alors sa fermeture.",
   },
   migrations: {
     up: async () => {},

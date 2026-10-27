@@ -47,3 +47,5 @@ verified, tried, and decided belongs in the commit message and the PR body.
 - **Keep the onion-message protocol keys forced to `undefined`**: a carried-over `custom-init`/`nodeann` override makes LND 0.21 crash-loop.
 - **LND's self-calls use loopback, not the bridge**: the bridge answers REST with the proxy's certificate, which fails the `tls.cert` pin.
 - **Read the pending import inside the oneshot's `fn`, not in the chain builder**: the reconciler's config hash cannot see closures, so only a re-read picks up corrected credentials.
+- **Keep Restore Channels from File on pasted base64, not `Value.file`, until Start9Labs/start-technologies#3585 is fixed**: the UI submits an action's file input as `{}`, so validation always fails.
+- **Classify a `restorechanbackup` failure by LND's inner error, never by `unable to unpack chan backup`**: LND prefixes every restore failure with it, a peer it cannot dial included.

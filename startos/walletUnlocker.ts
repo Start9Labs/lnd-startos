@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { request } from 'node:https'
 import { base64 } from 'rfc4648'
-import { lndDataDir, mainVolumeHost, selfRestUrl } from './utils'
+import { lndDataDir, mainVolumeHost, selfRestUrl, sleep } from './utils'
 
 export const certPath = `${mainVolumeHost}/tls.cert`
 
@@ -39,6 +39,17 @@ export async function getLndState(
 
 export const isPastUnlock = (state: string | null) =>
   state === 'UNLOCKED' || state === 'RPC_ACTIVE' || state === 'SERVER_ACTIVE'
+
+// restorechanbackup answers "server is still in the process of starting" until
+// SERVER_ACTIVE, which waits on the chain sync.
+export async function serverActiveWithin(ms: number, abort?: AbortSignal) {
+  const deadline = Date.now() + ms
+  while ((await getLndState()) !== 'SERVER_ACTIVE') {
+    if (abort?.aborted || Date.now() > deadline) return false
+    await sleep(5_000, abort)
+  }
+  return true
+}
 
 export const refusedWalletPassword =
   /^invalid passphrase for master public key$/i

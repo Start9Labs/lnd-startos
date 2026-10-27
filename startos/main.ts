@@ -20,6 +20,7 @@ import {
   isPastUnlock,
   parseGatewayReply,
   refusedWalletPassword,
+  serverActiveWithin,
   STATE_TIMED_OUT,
   UNLOCK_TIMEOUT_MS,
 } from './walletUnlocker'
@@ -54,6 +55,7 @@ import {
   selfGrpcHost,
   selfRestUrl,
   sleep,
+  unopenableChannelBackup,
 } from './utils'
 
 // Bounded by the channel db an origin node hands over — multi-GB on a busy
@@ -995,19 +997,12 @@ export const main = sdk.setupMain(async ({ effects }) => {
                       result: 'failure',
                     })
 
-                  // restorechanbackup answers "server is still in the process
-                  // of starting" until SERVER_ACTIVE, which waits on the chain
-                  // sync.
-                  const deadline = Date.now() + 60 * 60_000
-                  while ((await getLndState()) !== 'SERVER_ACTIVE') {
-                    if (abort.aborted)
-                      throw new Error('aborted before LND finished starting')
-                    if (Date.now() > deadline)
-                      throw new Error(
-                        'LND did not finish starting within an hour',
-                      )
-                    await sleep(5_000, abort)
-                  }
+                  if (!(await serverActiveWithin(60 * 60_000, abort)))
+                    throw new Error(
+                      abort.aborted
+                        ? 'aborted before LND finished starting'
+                        : 'LND did not finish starting within an hour',
+                    )
 
                   // Every copy is offered and LND keeps the union: it skips
                   // channels it already holds, so nothing has to be compared.
@@ -1034,11 +1029,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
                     const reason = tail(res.stderr)
                     // Only a file LND cannot open is the copy's own fault:
                     // another seed's, or damaged.
-                    if (
-                      /unable to (unpack|decrypt|read nonce)|message authentication failed|unknown multi-version|unexpected EOF/i.test(
-                        reason,
-                      )
-                    ) {
+                    if (unopenableChannelBackup.test(reason)) {
                       console.warn(
                         `skipped the channel.backup from ${label}: ${reason}`,
                       )
@@ -1309,7 +1300,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
                       ago: agoText,
                     })
                   : i18n(
-                      'Sent by email ${ago} ago. A StartOS restore does not read email; channels opened since your last StartOS backup are not covered.',
+                      'Sent by email ${ago} ago. A StartOS restore does not read email: after one, run Restore Channels from File with the newest attachment.',
                       { ago: agoText },
                     ),
               }
@@ -1317,7 +1308,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
             return {
               result: 'starting',
               message: i18n(
-                'No channel.backup yet: LND writes it when your first channel opens.',
+                'No channel.backup yet: LND writes it once it has caught up with the chain.',
               ),
             }
           },
