@@ -101,7 +101,7 @@ export const restoreChannelsFromFile = sdk.Action.withInput(
           ? i18n(
               'LND could not open this channel.backup: it was made under another seed, or it is damaged. Nothing was restored.',
             )
-          : i18n('LND could not restore the channels: ${error}', {
+          : i18n('LND reported an error during the restore: ${error}', {
               error: literal(res.timedOutAfter ? i18n('timed out') : reason),
             }),
       )

@@ -616,7 +616,7 @@ const dict = {
   'That is not base64. Paste all of what base64 or certutil printed.': 644,
   'LND has not finished starting: it restores channels only once it has caught up with the chain. Try again later.': 645,
   'LND could not open this channel.backup: it was made under another seed, or it is damaged. Nothing was restored.': 646,
-  'LND could not restore the channels: ${error}': 647,
+  'LND reported an error during the restore: ${error}': 647,
   'Channels recovered: ${count}. LND is asking their peers to force-close them; the funds return to your on-chain wallet once the closes confirm.': 648,
   'Every channel in this file is already known to LND, so nothing was restored.': 649,
 } as const
