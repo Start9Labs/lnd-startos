@@ -226,13 +226,14 @@ Email is a different kind of target: the agent sends `channel.backup` as a MIME 
 
 ### Restore Channels from File
 
-Grouped under Continuous Backups. Hands a `channel.backup` the user supplies — an Email target's attachment, or any copy kept by hand — to `lncli restorechanbackup --multi_file`, as the restore oneshot does with the copies it finds. The file is pasted as base64 into a textarea; whitespace and the `BEGIN`/`END` lines `certutil -encode` writes are dropped, and the rest must decode as strict base64. The bytes go to `/tmp` in a temporary subcontainer, never to the volume.
+Grouped under Continuous Backups. Previews a `channel.backup` the user supplies — an Email target's attachment, or any copy kept by hand — and, once confirmed, hands it to `lncli restorechanbackup --multi_file`, as the restore oneshot does with the copies it finds. The file is pasted as base64 into a textarea; whitespace and the `BEGIN`/`END` lines `certutil -encode` writes are dropped, and the rest must decode as strict base64. The bytes go to `/tmp` in a temporary subcontainer, never to the volume.
 
-- **Confirmation:** a toggle stating that peers force-close every channel the file recovers, whose warning carries the Lightning Labs advice the restore notice shows; the handler refuses without it.
-- **When:** running only. It waits up to 30 seconds for `/v1/state` to report `SERVER_ACTIVE`, which `restorechanbackup` requires, and refuses after that; LND's call is bounded to 60 seconds.
-- **Result:** the count of channels recovered, LND's `num_restored`. A file LND cannot open, matched as the restore oneshot matches the copies it skips, is reported as another seed's or damaged; any other failure returns LND's error.
+- **Preview:** every run first decrypts the file with `lncli verifychanbackup --multi_file`, which restores nothing, and compares its `chan_points` with every channel point in `listchannels`, the four `pendingchannels` categories and `closedchannels`. A file LND cannot open, matched as the restore oneshot matches the copies it skips, is refused there as another seed's or damaged. When every channel in the file is known, the run says restoring changes nothing and stops, whatever the toggle. Otherwise, with **Restore the channels** off, it changes nothing and lists the unknown channel points, with the same-seed warning below.
+- **Confirmation:** turning **Restore the channels** on raises a warning that the action is only for a node that lost its channel data, since a channel of this seed still running on another node would be force-closed, followed by the Lightning Labs advice the restore notice shows.
+- **Result:** the count of channels recovered, LND's `num_restored`, with the next steps: watch the closes confirm, sweep the funds, then uninstall and reinstall. A peer that is offline is still recovered; LND keeps a persistent connection request to it. `ConnectPeer` fails only when the backup gives a peer no dialable address — none, or only Tor v2 onions, which LND strips — with `unable to connect to peer <pubkey> for SCB restore`. LND has then recorded that channel and every earlier one in the file, has not processed the rest, and has queued no connection to that peer; it dials the addresses the graph announces for it at its next start. The action reports that and asks for another run, which skips the recorded channels. Any other failure returns LND's error.
+- **When:** running only. It waits up to 20 seconds for `/v1/state` to report `SERVER_ACTIVE`, which the preview and `restorechanbackup` require, and refuses after that. LND's calls are bounded to 10 seconds for the decrypt, 15 for the listings, run together, and 45 for the restore, inside StartOS's 120-second action limit.
 - **Repeat safety:** safe. LND skips every channel its outpoint index holds, open or closed, so a second run, or a run on the node that wrote the file, recovers nothing.
-- **Availability:** every node, not only a restored one. Only a node restored from a StartOS backup lacks channels its own file can name; on any other, the run changes nothing or is refused.
+- **Availability:** every node, not only a restored one. Only a node restored from a StartOS backup lacks channels its own file can name; on a node that kept its channel database, the preview finds nothing to restore, and another seed's file is refused. The exception is a seed whose LND still runs on another node, whose live channels the restore would force-close; the same-seed warning names that case.
 
 ### Cold Storage
 
@@ -407,7 +408,7 @@ actions:
   - autoconfig # hidden; driven by dependents
   - configure-channel-backup
   - backup-channels-now # only-running
-  - restore-channels-from-file # only-running; a pasted base64 channel.backup to restorechanbackup
+  - restore-channels-from-file # only-running; previews a pasted base64 channel.backup, restores only with its toggle on
   - cold-storage-prepare
   - cold-storage-toggle # Turn On, only-running, while the mode is off; Turn Off while it is on
   - unlock-wallet # only-running; offered while Cold Storage Mode is on or the stored password was refused

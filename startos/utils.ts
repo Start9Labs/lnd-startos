@@ -125,6 +125,8 @@ export const localRestoreBackupTempPath = `${localRestoreBackupPath}.tmp`
 export const remoteRestoreDir = `${lndDataDir}/.channel-backup-restore`
 export const unopenableChannelBackup =
   /unable to (decrypt|read nonce)|message authentication failed|unknown multi-version|unexpected EOF|payload size too small/i
+export const undialableScbPeer =
+  /unable to connect to peer ([0-9a-f]{66}) for SCB restore/
 export const backupAgentScript = '/usr/local/bin/backup-agent.sh'
 export const backupFolderDefault = 'lnd-channel-backups'
 

@@ -611,14 +611,18 @@ const dict = {
   'Recover the channels in a channel.backup you hold, such as an emailed copy.': 639,
   'Channel Backup (base64)': 640,
   'On macOS or Linux, base64 < channel.backup prints it. On Windows, certutil -encode channel.backup channel.txt writes it to channel.txt; paste the whole of that file.': 641,
-  'I understand peers will force-close every channel this recovers': 642,
-  'Confirm that peers will force-close every channel this recovers.': 643,
+  'Restore the channels': 642,
   'That is not base64. Paste all of what base64 or certutil printed.': 644,
   'LND has not finished starting: it restores channels only once it has caught up with the chain. Try again later.': 645,
   'LND could not open this channel.backup: it was made under another seed, or it is damaged. Nothing was restored.': 646,
   'LND reported an error during the restore: ${error}': 647,
-  'Channels recovered: ${count}. LND is asking their peers to force-close them; the funds return to your on-chain wallet once the closes confirm.': 648,
-  'Every channel in this file is already known to LND, so nothing was restored.': 649,
+  'Channels recovered: ${count}. LND asks the peer of each to force-close it, and keeps trying any peer that is offline.\n\nNext:\n1. Watch these channels under pending channels, in a wallet or node manager connected to LND, until the closes confirm.\n2. Sweep the funds to another wallet.\n3. Uninstall LND, then install it again if you want to keep using it.': 648,
+  'LND already knows every channel in this file, so restoring it changes nothing.': 649,
+  'Leave this off to preview: the action lists the channels in this file that this node does not know, and changes nothing. Turn it on to restore them; the peer of each force-closes it.': 650,
+  'Run this only on a node that lost its channel data. If LND with this seed is running anywhere else, stop it first, or its channels get force-closed.': 651,
+  'Channels in this file that this node does not know: ${count}, listed below. Restoring asks the peer of each to force-close it. Nothing has changed yet: to restore them, run this action again with Restore the channels turned on.': 652,
+  'LND stopped after recording the channel with ${peer}: the backup holds no address LND can dial for that peer. It is asked to force-close once the two nodes connect, which LND tries at each start with the addresses the network announces for it. Run this action again to restore the rest of the file.': 653,
+  'LND reported an error during the preview: ${error}': 654,
 } as const
 
 /**
