@@ -50,7 +50,7 @@ Other nodes connect to you over the **Peer** interface; run **Node Info** for yo
 
 ### Configuration
 
-Configure LND through its settings actions — General, Routing Fees, Channel Settings, Autopilot, Performance, Watchtower Server/Client, Bitcoin Backend, Tor, and Custom External Host. You can also edit `lnd.conf` directly: your settings are preserved across restarts, except for a few keys StartOS manages for you (`externalip`/`externalhosts`, `tor.socks`, the Bitcoin backend connection settings, and `routing.assumechanvalid`).
+Configure LND through its settings actions — General, Routing Fees, Channel Settings, Autopilot, Performance, Watchtower Server/Client, Bitcoin Backend, Tor, and Custom External Host. You can also edit `lnd.conf` directly: your settings are preserved across restarts, except for a few keys StartOS manages for you (`externalip`/`externalhosts`, `tor.socks`, the Bitcoin backend connection settings, and `routing.assumechanvalid`). The SQLite connection pool uses LND's default of 2 connections per database; StartOS removes any `db.sqlite.maxconnections` override.
 
 **Not routing any payments?** Check **Reject Routing Requests** under **Channel Settings**. With it on, LND still sends and receives payments but refuses to be used as a hop, and the log shows `node configured to disallow forwards` each time it turns one away.
 

@@ -140,9 +140,7 @@ export const shape = z.looseObject({
   // model strips any stale `db.use-native-sql=true` an older build wrote.
   'db.backend': z.literal('sqlite').catch('sqlite'),
   'db.use-native-sql': z.literal(undefined).catch(undefined),
-  // At LND's default of 2, two invoice subscriptions resuming from a settle
-  // index deadlock lnd.sqlite (lightningnetwork/lnd#11346).
-  'db.sqlite.maxconnections': iniNumber.transform((v) => v ?? 25),
+  'db.sqlite.maxconnections': z.undefined().catch(undefined),
 
   // ──── Performance ────
   'gc-canceled-invoices-on-startup': iniBoolean,
