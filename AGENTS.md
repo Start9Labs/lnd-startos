@@ -38,7 +38,6 @@ verified, tried, and decided belongs in the commit message and the PR body.
 - **Take the `tls.cert` address set from the binding (`utils.filledAddress(host, { internalPort })`), never an exported interface**: `main` restarts on any certificate change, and an interface disappears with its binding.
 - **Put `db.use-native-sql` on the daemon's CLI, never in the conf**: the conversion's bolt schema-finalize run reads the same conf and bolt rejects it.
 - **Keep `db.backend` enforced in the shape, not optional**: the migration must never write it, since a write trips `main`'s `lnd.conf` watch mid-conversion.
-- **Keep `db.sqlite.maxconnections` above LND's default of 2 until an LND release fixes lightningnetwork/lnd#11346**: at 2, two invoice subscriptions resuming from a settle index deadlock `lnd.sqlite`.
 - **Leave the `channel-backup` health check's `failure` interval at the trigger default, never minutes**: the SDK shows a failure within 10 s of start as `starting`, and StartOS disables LND's actions until the next check runs.
 - **`sync-progress` must keep returning `loading` while the graph sync is pending, never `failure`**: `albyhub`, `mempool`, `helipad`, `mostro` and `fedimint-gateway` gate on it. Report a stall in the message.
 - **Don't add an auto-heal watchdog for a stalled graph sync**: nothing over RPC tells the wedged state from a large legitimate backfill, so a timed disconnect or restart can kill real progress.
