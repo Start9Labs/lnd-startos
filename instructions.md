@@ -42,6 +42,8 @@ Other nodes connect to you over the **Peer** interface; run **Node Info** for yo
 - **Clearnet** — set a **Custom External Host** (e.g. a VPN endpoint) to advertise a clearnet address alongside any onion. A public domain on the Peer interface also works, but only with **Skip for clearnet peers** enabled in **Tor Settings**.
 - If no address is advertised, the **Node Reachability** health check shows _disabled_: you can still open channels outbound, but others can't open channels to you.
 
+If you publish the **Peer** interface through StartTunnel to keep your home IP private, also select that tunnel on LND's **Outbound Traffic** tab. Connections LND opens itself, to the peers it connects to and opens channels with, otherwise leave through your home router, so those peers see your home IP. While LND sends clearnet connections through Tor, this doesn't apply. If you use the tunnel for another reason, such as a port your router can't forward, there is nothing to change.
+
 ### Paying and receiving
 
 **Pay Invoice** pays a Lightning invoice from your node without a wallet app: paste it, enter an amount only if the invoice leaves it open, set the most you are willing to pay in routing fees, verify the amount and destination, and confirm. The result shows what was paid and the preimage. A service that needs a payment from you can raise the same prompt with the invoice filled in; LND decodes and locks that invoice and shows its amount, destination and description before you approve it.
