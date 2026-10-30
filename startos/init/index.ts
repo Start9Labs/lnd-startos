@@ -2,7 +2,7 @@ import { actions } from '../actions'
 import { restoreInit } from '../backups'
 import { dependencies } from '../dependencies'
 import { versionGraph } from '../versions'
-import { setInterfaces } from '../interfaces'
+import { setInterfaces, setupControlBinding } from '../interfaces'
 import { sdk } from '../sdk'
 import { seedFiles } from './seedFiles'
 import { setupCerts } from './setupCerts'
@@ -14,6 +14,7 @@ import { watchTorSocks } from './watchTorSocks'
 
 export const init = sdk.setupInit(
   restoreInit,
+  setupControlBinding,
   versionGraph,
   seedFiles,
   setInterfaces,

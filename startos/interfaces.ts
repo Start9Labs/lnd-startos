@@ -1,4 +1,4 @@
-import { FileHelper } from '@start9labs/start-sdk'
+import { FileHelper, T } from '@start9labs/start-sdk'
 import { readFile } from 'fs/promises'
 import { i18n } from './i18n'
 import { sdk } from './sdk'
@@ -22,7 +22,56 @@ export const controlInterfaceId = 'control'
 export const lndconnectRestId = 'lnd-connect-rest'
 export const watchtowerInterfaceId = 'watchtower'
 
+// `protocol: 'https'` alone would not put the proxy in front; the addSsl
+// block is what does. See README § Network Access and Interfaces.
+async function bindControlPort(effects: T.Effects) {
+  return sdk.MultiHost.of(effects, controlHostId).bindPort(restPort, {
+    protocol: 'https',
+    preferredExternalPort: restPort,
+    addSsl: {
+      alpn: null,
+      auth: null,
+      preferredExternalPort: restPort,
+      addXForwardedHeaders: false,
+    },
+  })
+}
+
+export const setupControlBinding = sdk.setupOnInit(async (effects) => {
+  await bindControlPort(effects)
+})
+
 export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
+  const restMultiOrigin = await bindControlPort(effects)
+  // Not addSsl like REST: an addSsl rewrap negotiates no ALPN with the
+  // client, and gRPC-go rejects that ("missing selected ALPN property").
+  const gRPCMultiOrigin = await sdk.MultiHost.of(effects, gRPCHostId).bindPort(
+    gRPCPort,
+    {
+      protocol: null,
+      addSsl: null,
+      preferredExternalPort: gRPCPort,
+      secure: { ssl: true },
+    },
+  )
+  const peerMultiOrigin = await sdk.MultiHost.of(effects, peerHostId).bindPort(
+    peerPort,
+    {
+      protocol: null,
+      addSsl: null,
+      preferredExternalPort: peerPort,
+      secure: { ssl: false },
+    },
+  )
+  const watchtowerMultiOrigin = await sdk.MultiHost.of(
+    effects,
+    watchtowerHostId,
+  ).bindPort(watchtowerPort, {
+    protocol: null,
+    addSsl: null,
+    preferredExternalPort: watchtowerPort,
+    secure: { ssl: false },
+  })
   const receipts = []
 
   // Stable host paths — the SDK mounts volumes from /media/startos/volumes/<volumeId>,
@@ -31,7 +80,6 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
   // which is deleted on teardown — the watch never fires, so setInterfaces never re-runs.
   const macHostPath =
     '/media/startos/volumes/main/data/chain/bitcoin/mainnet/admin.macaroon'
-  const certHostPath = '/media/startos/volumes/main/tls.cert'
 
   // A macaroon root-key rotation deletes the file before re-baking it, so react
   // to a replacement and never to the gap.
@@ -49,20 +97,6 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
       const macaroon = await readFile(macHostPath).then((buf) =>
         buf.toString('base64url'),
       )
-      // `protocol: 'https'` alone would not put the proxy in front; the addSsl
-      // block is what does. See README § Network Access and Interfaces.
-      const restMulti = sdk.MultiHost.of(effects, controlHostId)
-      const restMultiOrigin = await restMulti.bindPort(restPort, {
-        protocol: 'https',
-        preferredExternalPort: restPort,
-        addSsl: {
-          alpn: null,
-          auth: null,
-          preferredExternalPort: restPort,
-          addXForwardedHeaders: false,
-        },
-      })
-
       const lndConnect = sdk.createInterface(effects, {
         name: i18n('REST LND Connect'),
         id: lndconnectRestId,
@@ -81,28 +115,11 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
 
       // lndconnect carries one DER-encoded certificate, so send the root CA
       // that anchors the chain LND serves — it never rotates, unlike the leaf.
-      // Read after REST exports, so a bad file cannot take REST down with gRPC.
-      const cert = await readFile(certHostPath, 'utf8').then((pem) => {
-        const chain = pem.match(
-          /-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFICATE-----/g,
-        )
-        if (!chain) throw new Error(`${certHostPath} holds no certificate`)
-        return Buffer.from(
-          chain[chain.length - 1].replace(/-----[^-]+-----|\s/g, ''),
-          'base64',
-        ).toString('base64url')
-      })
-
-      const gRPCMulti = sdk.MultiHost.of(effects, gRPCHostId)
-
-      // Not addSsl like REST: an addSsl rewrap negotiates no ALPN with the
-      // client, and gRPC-go rejects that ("missing selected ALPN property").
-      const gRPCMultiOrigin = await gRPCMulti.bindPort(gRPCPort, {
-        protocol: null,
-        addSsl: null,
-        preferredExternalPort: gRPCPort,
-        secure: { ssl: true },
-      })
+      const rootCa = await sdk.getRootCa(effects)
+      const cert = Buffer.from(
+        rootCa.replace(/-----[^-]+-----|\s/g, ''),
+        'base64',
+      ).toString('base64url')
 
       const lndgRpcConnect = sdk.createInterface(effects, {
         name: i18n('gRPC LND Connect'),
@@ -121,20 +138,13 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
       const gRPCReceipt = await gRPCMultiOrigin.export([lndgRpcConnect])
       receipts.push(gRPCReceipt)
     } catch (e) {
-      console.log('Error reading macaroon/cert:', e)
+      console.log('Error exporting LND Connect interfaces:', e)
     }
   } else {
     console.log('waiting for admin.macaroon to be created...')
   }
 
   // peer
-  const peerMulti = sdk.MultiHost.of(effects, peerHostId)
-  const peerMultiOrigin = await peerMulti.bindPort(peerPort, {
-    protocol: null,
-    addSsl: null,
-    preferredExternalPort: peerPort,
-    secure: { ssl: false },
-  })
   const peer = sdk.createInterface(effects, {
     name: i18n('Peer Interface'),
     id: peerInterfaceId,
@@ -149,13 +159,6 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
   receipts.push(await peerMultiOrigin.export([peer]))
 
   // watchtower — always exported; LND only listens when watchtower.active=true
-  const watchtowerMulti = sdk.MultiHost.of(effects, watchtowerHostId)
-  const watchtowerMultiOrigin = await watchtowerMulti.bindPort(watchtowerPort, {
-    protocol: null,
-    addSsl: null,
-    preferredExternalPort: watchtowerPort,
-    secure: { ssl: false },
-  })
   const watchtower = sdk.createInterface(effects, {
     name: i18n('Watchtower'),
     id: watchtowerInterfaceId,

@@ -48,7 +48,7 @@ The added tools are `curl`, `sqlite3`, OpenSSH, `sshpass`, `rclone`, `flock`, `w
 **`main` runs in one of three modes**, and only the third is the ordinary one:
 
 1. **Import** — a wallet migration from another node is pending, so the only thing running is the copy.
-2. **Conversion** — a bolt database the update migration did not convert (an import, a restored pre-conversion backup, data carried over from StartOS 0.3.5.1) has to be converted before LND may open it.
+2. **Conversion** — a bolt database the update migration did not convert (an import or a restored pre-conversion backup) has to be converted before LND may open it.
 3. **Normal** — the LND daemon, the channel-backup agent, and their supporting oneshots.
 
 ## Volume and Data Layout
@@ -136,6 +136,8 @@ Four interfaces, two of which appear only once a wallet exists.
 | Watchtower       | `watchtower`       | p2p  | 9911  | always exported                |
 | REST LND Connect | `lnd-connect-rest` | api  | 8080  | once the admin macaroon exists |
 | gRPC LND Connect | `grpc`             | api  | 10009 | once the admin macaroon exists |
+
+The REST/control binding is established before version migrations, authorizing the loopback and bridge IPs used by the conversion's TLS certificate. The normal interface pass declares all four bindings independently of wallet credentials; only the connection-URI exports wait for credentials. The gRPC URI takes its trust anchor directly from StartOS's root CA, independently of the local `tls.cert` file.
 
 **The two connect interfaces embed credentials in their address.** Each carries the macaroon — and, for gRPC, the server's root CA certificate, DER-encoded as the `lndconnect` scheme specifies — as query parameters, which is what lets a wallet app pair by scanning one. Both are masked for that reason. They cannot exist before the wallet is created, because the macaroon does not exist until then; the package watches for it and publishes them when it appears.
 
