@@ -1,7 +1,6 @@
 import { VersionInfo } from '@start9labs/start-sdk'
 import { lndConfFile } from '../fileModels/lnd.conf'
 import { writeCerts } from '../init/setupCerts'
-import { gRPCHostId } from '../interfaces'
 import { sdk } from '../sdk'
 import { needsSqliteMigration, runSqliteMigration } from '../sqliteBackend'
 
@@ -49,12 +48,7 @@ Les nœuds qui ne l'ont jamais activée ne sont pas concernés : le paramètre r
       // already-converted node no-ops, and bolt data that arrives outside an
       // update (an Initialize Wallet import, a restored pre-conversion backup)
       // is converted by main's conversion phase instead (sqliteBackend.ts).
-      // So is data carried over from StartOS 0.3.5.1, which has no grpc host
-      // yet, and getSslKey refuses writeCerts' IPs until a binding lists them.
-      if (
-        (await needsSqliteMigration()) &&
-        (await sdk.host.getOwn(effects, gRPCHostId).once())
-      ) {
+      if (await needsSqliteMigration()) {
         // Migrations run before the seedFiles and setupCerts init steps, and
         // the conversion's finalize stage runs LND against both on-disk
         // artifacts — so bring each current first. The conf re-render strips
