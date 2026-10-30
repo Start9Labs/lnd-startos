@@ -22,6 +22,8 @@ export const controlInterfaceId = 'control'
 export const lndconnectRestId = 'lnd-connect-rest'
 export const watchtowerInterfaceId = 'watchtower'
 
+// `protocol: 'https'` alone would not put the proxy in front; the addSsl
+// block is what does. See README § Network Access and Interfaces.
 async function bindControlPort(effects: T.Effects) {
   return sdk.MultiHost.of(effects, controlHostId).bindPort(restPort, {
     protocol: 'https',
@@ -41,6 +43,8 @@ export const setupControlBinding = sdk.setupOnInit(async (effects) => {
 
 export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
   const restMultiOrigin = await bindControlPort(effects)
+  // Not addSsl like REST: an addSsl rewrap negotiates no ALPN with the
+  // client, and gRPC-go rejects that ("missing selected ALPN property").
   const gRPCMultiOrigin = await sdk.MultiHost.of(effects, gRPCHostId).bindPort(
     gRPCPort,
     {
@@ -109,6 +113,8 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
       const restReceipt = await restMultiOrigin.export([lndConnect])
       receipts.push(restReceipt)
 
+      // lndconnect carries one DER-encoded certificate, so send the root CA
+      // that anchors the chain LND serves — it never rotates, unlike the leaf.
       const rootCa = await sdk.getRootCa(effects)
       const cert = Buffer.from(
         rootCa.replace(/-----[^-]+-----|\s/g, ''),
