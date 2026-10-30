@@ -112,10 +112,9 @@ export async function needsSqliteMigration(): Promise<boolean> {
  * The same conversion, driven from `main` — the path for every bolt arrival
  * the update migration leaves (it converts inside an update, where the
  * progress UI is): an Initialize Wallet import, a conversion interrupted and
- * resumed across boot or rebuild, a restored pre-conversion backup, data
- * carried over from StartOS 0.3.5.1. A migration runs on updates only, so
- * boot and rebuild never stall behind an hours-long conversion — it lands
- * here, after a fast boot, instead.
+ * resumed across boot or rebuild, a restored pre-conversion backup.
+ * A migration runs on updates only, so boot and rebuild never stall behind an
+ * hours-long conversion — it lands here, after a fast boot, instead.
  *
  * Runs as the oneshot of main's conversion phase (main.ts), not as a blocking
  * step ahead of the daemon chain — so the service reaches `started` and can be
