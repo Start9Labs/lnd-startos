@@ -140,6 +140,7 @@ export const shape = z.looseObject({
   // model strips any stale `db.use-native-sql=true` an older build wrote.
   'db.backend': z.literal('sqlite').catch('sqlite'),
   'db.use-native-sql': z.literal(undefined).catch(undefined),
+  // Forced to undefined, not removed: removing it would leave older builds' `25` in existing confs.
   'db.sqlite.maxconnections': z.undefined().catch(undefined),
 
   // ──── Performance ────
