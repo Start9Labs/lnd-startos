@@ -36,7 +36,6 @@
 - **`Dockerfile`** — bump `FROM lightninglabs/lnd:v<new version>` **and** the `COPY --from=lightninglabs/lndinit:v<lndinit>-lnd-v<new version>` tag.
 - **`startos/manifest/index.ts`** — the comment above `images.lnd` names the pinned LND version; keep it accurate. There is no tag to change here.
 - **`routing.assumechanvalid`** — confirm the new version still accepts it (`lncfg/routing.go`). `main` writes it on every node whose Bitcoin is pruned, and LND refuses to start on a config key it does not know.
-- **`db.sqlite.maxconnections`** — keep the key retired in `startos/fileModels/lnd.conf.ts` with `z.undefined().catch(undefined)`. LND 0.21.5 fixes [lightningnetwork/lnd#11346](https://github.com/lightningnetwork/lnd/issues/11346), so the upstream pool default is safe again. Deleting the field from the shape leaves the old `25` override in existing nodes' `lnd.conf`.
 - **rclone** — update `ARG RCLONE_VERSION` in the `Dockerfile` and refresh both checksums from the release `SHA256SUMS`:
 
   ```sh
