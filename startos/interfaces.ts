@@ -28,12 +28,8 @@ async function bindControlPort(effects: T.Effects) {
   return sdk.MultiHost.of(effects, controlHostId).bindPort(restPort, {
     protocol: 'https',
     preferredExternalPort: restPort,
-    addSsl: {
-      alpn: null,
-      auth: null,
-      preferredExternalPort: restPort,
-      addXForwardedHeaders: false,
-    },
+    addSsl: { alpn: null, preferredExternalPort: restPort },
+    proxy: { addXForwardedHeaders: false },
   })
 }
 
