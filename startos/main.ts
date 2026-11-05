@@ -812,7 +812,6 @@ export const main = sdk.setupMain(async ({ effects }) => {
           display: i18n('Wallet Unlock'),
           trigger: sdk.trigger.statusTrigger(30_000, {
             starting: 1_000,
-            waiting: 1_000,
             failure: 10_000,
           }),
           fn: async () => {
@@ -1256,7 +1255,6 @@ export const main = sdk.setupMain(async ({ effects }) => {
           display: i18n('Continuous Backup'),
           trigger: sdk.trigger.statusTrigger(30_000, {
             starting: 5_000,
-            waiting: 5_000,
           }),
           fn: async () => {
             const cfg = await channelBackupJson.read().once()
