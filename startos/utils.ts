@@ -92,12 +92,24 @@ export const mainMounts = sdk.Mounts.of()
     readonly: false,
   })
 
-// `payments` lacks onchain:write, which opening and closing channels and sending on-chain each require.
+// Grants invoice and payment RPCs, never channel or node administration.
+const paymentsRpcMethods = [
+  '/lnrpc.Lightning/ChannelBalance',
+  '/lnrpc.Lightning/AddInvoice',
+  '/lnrpc.Lightning/LookupInvoice',
+  '/lnrpc.Lightning/SubscribeInvoices',
+  '/routerrpc.Router/SendPaymentV2',
+  '/routerrpc.Router/TrackPaymentV2',
+  '/invoicesrpc.Invoices/AddHoldInvoice',
+  '/invoicesrpc.Invoices/SettleInvoice',
+  '/invoicesrpc.Invoices/CancelInvoice',
+] as const
+
 export const exportCredentials = `set -e
 cd ${publicDir}
 mkdir -p payments readonly
 rm -f payments/.macaroon
-timeout 25 lncli --rpcserver=${selfGrpcHost} bakemacaroon --save_to payments/.macaroon invoices:read invoices:write offchain:read offchain:write
+timeout 25 lncli --rpcserver=${selfGrpcHost} bakemacaroon --save_to payments/.macaroon ${paymentsRpcMethods.map((method) => `uri:${method}`).join(' ')}
 mv payments/.macaroon payments/payments.macaroon
 cp ${lndDataDir}/data/chain/bitcoin/mainnet/readonly.macaroon readonly/.macaroon
 mv readonly/.macaroon readonly/readonly.macaroon
