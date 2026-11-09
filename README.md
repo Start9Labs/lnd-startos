@@ -90,7 +90,7 @@ Five models, and the split between two of them is load-bearing.
 
 ### lnd.conf
 
-**Enforced** — rewritten whenever the package writes the file: the three listen addresses (peer and gRPC on `[::]`, which takes IPv4 and IPv6; REST on `0.0.0.0`, which StartOS reaches over IPv4), `bitcoin.mainnet`, `rpcmiddleware.enable`, and `db.backend`. `bitcoind.rpcuser`, `bitcoind.rpcpass`, and the deprecated `bitcoin.active` and `tor.v3` are modelled as "must be absent" and deleted — Bitcoin authentication is the cookie read through the mount.
+**Enforced** — rewritten whenever the package writes the file: the listen addresses (peer on dual-stack `[::]`; gRPC on separate `0.0.0.0` and `[::]` listeners; REST on `0.0.0.0`, which StartOS reaches over IPv4), `bitcoin.mainnet`, `rpcmiddleware.enable`, and `db.backend`. `bitcoind.rpcuser`, `bitcoind.rpcpass`, and the deprecated `bitcoin.active` and `tor.v3` are modelled as "must be absent" and deleted — Bitcoin authentication is the cookie read through the mount.
 
 Five values depart from LND's own defaults. The first two are enforced, and the rest are starting points a config action can change:
 
