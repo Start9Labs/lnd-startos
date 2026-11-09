@@ -1,7 +1,11 @@
 import { rm } from 'fs/promises'
 import { lndConfFile } from '../../fileModels/lnd.conf'
 import { i18n } from '../../i18n'
-import { watchtowerHostId, watchtowerInterfaceId } from '../../interfaces'
+import {
+  watchtowerHostId,
+  watchtowerInterfaceId,
+  watchtowerPort,
+} from '../../interfaces'
 import { sdk } from '../../sdk'
 import { watchtowerServerDir } from '../../utils'
 
@@ -47,7 +51,7 @@ export const watchtowerServerConfig = sdk.Action.withInput(
       watchtowerEnabled
         ? {
             'watchtower.active': true,
-            'watchtower.listen': ['0.0.0.0:9911'],
+            'watchtower.listen': [`[::]:${watchtowerPort}`],
             'watchtower.externalip': address,
           }
         : {
