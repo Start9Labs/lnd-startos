@@ -10,7 +10,7 @@ export const manifest = setupManifest({
   marketingUrl: 'https://lightning.engineering/',
   donationUrl: null,
   description: { short, long },
-  volumes: ['main'],
+  volumes: ['main', 'public'],
   virtualNetworking: true,
   images: {
     lnd: {
