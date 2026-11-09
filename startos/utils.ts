@@ -76,12 +76,35 @@ export const neutrinoBundle = {
   'fee.url': 'https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json',
 } as const
 
-export const mainMounts = sdk.Mounts.of().mountVolume({
-  volumeId: 'main',
-  subpath: null,
-  mountpoint: lndDataDir,
-  readonly: false,
-})
+export const publicDir = '/mnt/public'
+
+export const mainMounts = sdk.Mounts.of()
+  .mountVolume({
+    volumeId: 'main',
+    subpath: null,
+    mountpoint: lndDataDir,
+    readonly: false,
+  })
+  .mountVolume({
+    volumeId: 'public',
+    subpath: null,
+    mountpoint: publicDir,
+    readonly: false,
+  })
+
+// `payments` lacks onchain:write, which opening and closing channels and sending on-chain each require.
+export const exportCredentials = `set -e
+cd ${publicDir}
+mkdir -p payments readonly
+rm -f payments/.macaroon
+timeout 25 lncli --rpcserver=${selfGrpcHost} bakemacaroon --save_to payments/.macaroon invoices:read invoices:write offchain:read offchain:write
+mv payments/.macaroon payments/payments.macaroon
+cp ${lndDataDir}/data/chain/bitcoin/mainnet/readonly.macaroon readonly/.macaroon
+mv readonly/.macaroon readonly/readonly.macaroon
+for tier in payments readonly; do
+  cp ${lndDataDir}/tls.cert $tier/.tls.cert
+  mv $tier/.tls.cert $tier/tls.cert
+done`
 
 export type GetInfo = {
   identity_pubkey: string

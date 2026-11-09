@@ -50,6 +50,7 @@ import {
   localRestoreBackupPath,
   localRestoreBackupTempPath,
   remoteRestoreDir,
+  exportCredentials,
   mainMounts,
   neutrinoBundle,
   selfGrpcHost,
@@ -1234,6 +1235,26 @@ export const main = sdk.setupMain(async ({ effects }) => {
             } as const)
           : null,
       )
+      .addOneshot('export-credentials', {
+        subcontainer: lndSub,
+        exec: {
+          fn: async (subcontainer, abort) => {
+            while (!abort.aborted) {
+              const res = await subcontainer.exec(
+                ['sh', '-c', exportCredentials],
+                { abort: { abort: abort.reason, signal: abort } },
+              )
+              if (res.exitCode === 0) return null
+              console.log(
+                `export-credentials: retrying: ${String(res.stderr).trim()}`,
+              )
+              await sleep(5_000, abort)
+            }
+            return null
+          },
+        },
+        requires: ['lnd', 'unlock-wallet'],
+      })
       .addDaemon('channel-backup-agent', {
         subcontainer: sdk.SubContainer.of(
           effects,

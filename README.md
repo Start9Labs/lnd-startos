@@ -53,11 +53,19 @@ The added tools are `curl`, `sqlite3`, OpenSSH, `sshpass`, `rclone`, `flock`, `w
 
 ## Volume and Data Layout
 
-One volume, plus a read-only view of Bitcoin's.
+Two volumes, plus a read-only view of Bitcoin's.
 
-| Volume | Mount Point  | Purpose                                                                                                                                                               |
-| ------ | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `main` | `/root/.lnd` | `lnd.conf`, wallet and channel data, TLS and macaroons, `store.json`, `startup-flags.json`, `channel.backup`, `channel-backup.json`, and `.channel-backup-state.json` |
+| Volume   | Mount Point   | Purpose                                                                                                                                                               |
+| -------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `main`   | `/root/.lnd`  | `lnd.conf`, wallet and channel data, TLS and macaroons, `store.json`, `startup-flags.json`, `channel.backup`, `channel-backup.json`, and `.channel-backup-state.json` |
+| `public` | `/mnt/public` | Credentials for dependent services, one subdirectory per tier, each with a copy of `tls.cert`. Not backed up                                                          |
+
+**Dependents mount a tier of `public`, never `main`**, which holds the seed and wallet password in `store.json`. The `export-credentials` oneshot rewrites every tier on each start once the wallet is unlocked, so a reissued certificate or a rotated macaroon root key reaches them on the next start:
+
+| Tier       | Macaroon             | Can                                                                                                                       |
+| ---------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `payments` | `payments.macaroon`  | baked with `invoices:read invoices:write offchain:read offchain:write`: create and settle invoices, pay. No `onchain:write`, so it cannot open or close channels or send on-chain |
+| `readonly` | `readonly.macaroon`  | LND's own read-only macaroon                                                                                              |
 
 Bitcoin's data directory is mounted **read-only** at `/mnt/bitcoin` when bitcoind is the backend — that is how LND reads its RPC cookie.
 
@@ -366,6 +374,7 @@ subcontainers:
   - import-umbrel # created only for a scheduled import (also -mynode, -startos)
 volumes:
   main: /root/.lnd
+  public: /mnt/public # credentials for dependents; not backed up
 file_models:
   - /root/.lnd/lnd.conf
   - /root/.lnd/store.json
