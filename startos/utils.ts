@@ -107,13 +107,15 @@ const paymentsRpcMethods = [
 
 export const exportCredentials = `set -e
 cd ${publicDir}
-mkdir -p payments readonly
+mkdir -p payments readonly admin
 rm -f payments/.macaroon
 timeout 25 lncli --rpcserver=${selfGrpcHost} bakemacaroon --save_to payments/.macaroon ${paymentsRpcMethods.map((method) => `uri:${method}`).join(' ')}
 mv payments/.macaroon payments/payments.macaroon
 cp ${lndDataDir}/data/chain/bitcoin/mainnet/readonly.macaroon readonly/.macaroon
 mv readonly/.macaroon readonly/readonly.macaroon
-for tier in payments readonly; do
+cp ${lndDataDir}/data/chain/bitcoin/mainnet/admin.macaroon admin/.macaroon
+mv admin/.macaroon admin/admin.macaroon
+for tier in payments readonly admin; do
   cp ${lndDataDir}/tls.cert $tier/.tls.cert
   mv $tier/.tls.cert $tier/tls.cert
 done`
