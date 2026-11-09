@@ -51,9 +51,9 @@ export const shape = z.looseObject({
   // since v0.14.3), so re-enabling buys a log line, not a shutdown. LND's disk
   // and TLS checks are off by upstream default, not here.
   'healthcheck.chainbackend.attempts': z.literal(0).catch(0),
-  rpclisten: z.tuple([z.literal('0.0.0.0:10009')]).catch(['0.0.0.0:10009']),
+  rpclisten: z.tuple([z.literal('[::]:10009')]).catch(['[::]:10009']),
   restlisten: z.tuple([z.literal('0.0.0.0:8080')]).catch(['0.0.0.0:8080']),
-  listen: z.literal('0.0.0.0:9735').catch('0.0.0.0:9735'),
+  listen: z.literal('[::]:9735').catch('[::]:9735'),
   'rpcmiddleware.enable': z.literal(true).catch(true),
   'bitcoin.mainnet': z.literal(true).catch(true),
   'bitcoind.rpcuser': z.undefined().catch(undefined),

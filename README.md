@@ -90,7 +90,7 @@ Five models, and the split between two of them is load-bearing.
 
 ### lnd.conf
 
-**Enforced** — rewritten whenever the package writes the file: the three listen addresses, `bitcoin.mainnet`, `rpcmiddleware.enable`, and `db.backend`. `bitcoind.rpcuser`, `bitcoind.rpcpass`, and the deprecated `bitcoin.active` and `tor.v3` are modelled as "must be absent" and deleted — Bitcoin authentication is the cookie read through the mount.
+**Enforced** — rewritten whenever the package writes the file: the three listen addresses (peer and gRPC on `[::]`, which takes IPv4 and IPv6; REST on `0.0.0.0`, which StartOS reaches over IPv4), `bitcoin.mainnet`, `rpcmiddleware.enable`, and `db.backend`. `bitcoind.rpcuser`, `bitcoind.rpcpass`, and the deprecated `bitcoin.active` and `tor.v3` are modelled as "must be absent" and deleted — Bitcoin authentication is the cookie read through the mount.
 
 Five values depart from LND's own defaults. The first two are enforced, and the rest are starting points a config action can change:
 
@@ -152,7 +152,7 @@ The REST/control binding is established before version migrations, authorizing t
 
 **REST and gRPC are terminated differently, and not interchangeably.** REST goes through the reverse proxy. gRPC does not: a proxy rewrap negotiates no ALPN, and gRPC clients reject the connection outright for it — so its binding passes TLS through and the client validates the certificate LND itself serves, anchored on the root CA its connect URI carries.
 
-**The watchtower interface is always exported**, even when the server is off. LND simply does not listen on it until the server is enabled.
+**The watchtower interface is always exported**, even when the server is off. LND simply does not listen on it until the server is enabled, and then listens on `[::]`, IPv4 and IPv6 alike.
 
 **A server carried over from StartOS 0.3.5** had gRPC on the `control` host's internal port 10009, beside REST's 8080. The 0.21.4-beta:1 migration retires that port; gRPC is served from its own `grpc` host, and no address moves to it.
 
