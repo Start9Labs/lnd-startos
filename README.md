@@ -66,6 +66,7 @@ Two volumes, plus a read-only view of Bitcoin's.
 | ---------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `payments` | `payments.macaroon`  | RPC allowlist in `startos/utils.ts`: read channel balance; create, look up, and subscribe to invoices; create, settle, and cancel hold invoices; send and track Lightning payments. No channel administration, on-chain spending, or payment-history deletion |
 | `readonly` | `readonly.macaroon`  | LND's own read-only macaroon                                                                                              |
+| `admin`    | `admin.macaroon`     | LND's own admin macaroon: full control of the node                                                                        |
 
 Bitcoin's data directory is mounted **read-only** at `/mnt/bitcoin` when bitcoind is the backend — that is how LND reads its RPC cookie.
 
