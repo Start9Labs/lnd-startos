@@ -3,18 +3,18 @@ import { lndConfFile } from '../fileModels/lnd.conf'
 import { watchtowerPort } from '../interfaces'
 
 export const current = VersionInfo.of({
-  version: '0.21.6-beta:4',
+  version: '0.21.8-beta:0',
   releaseNotes: {
     en_US:
-      'Requires StartOS 0.4.1 or later. Peers, watchtower clients and gRPC clients can now reach LND over your server’s IPv6 addresses.',
+      'Updated LND to 0.21.8-beta. Full release notes: https://github.com/lightningnetwork/lnd/releases/tag/v0.21.8-beta',
     es_ES:
-      'Requiere StartOS 0.4.1 o posterior. Los pares, los clientes de watchtower y los clientes gRPC ahora pueden conectarse a LND a través de las direcciones IPv6 de tu servidor.',
+      'Actualiza LND a 0.21.8-beta. Notas completas: https://github.com/lightningnetwork/lnd/releases/tag/v0.21.8-beta',
     de_DE:
-      'Erfordert StartOS 0.4.1 oder neuer. Peers, Watchtower-Clients und gRPC-Clients können LND jetzt über die IPv6-Adressen deines Servers erreichen.',
+      'Aktualisiert LND auf 0.21.8-beta. Vollständige Versionshinweise: https://github.com/lightningnetwork/lnd/releases/tag/v0.21.8-beta',
     pl_PL:
-      'Wymaga StartOS 0.4.1 lub nowszego. Peery, klienci watchtowera i klienci gRPC mogą teraz łączyć się z LND przez adresy IPv6 twojego serwera.',
+      'Aktualizuje LND do 0.21.8-beta. Pełne informacje o wydaniu: https://github.com/lightningnetwork/lnd/releases/tag/v0.21.8-beta',
     fr_FR:
-      'Nécessite StartOS 0.4.1 ou une version ultérieure. Les pairs, les clients watchtower et les clients gRPC peuvent désormais joindre LND via les adresses IPv6 de votre serveur.',
+      'Met à jour LND vers 0.21.8-beta. Notes complètes : https://github.com/lightningnetwork/lnd/releases/tag/v0.21.8-beta',
   },
   migrations: {
     up: async ({ effects }) => {
