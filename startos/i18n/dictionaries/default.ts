@@ -628,6 +628,7 @@ const dict = {
   'Turn on once the fingerprint shown after a first run matches the one the origin reports. Nothing is sent to it until then.': 657,
   "The origin's host key has not been verified. Run Initialize Wallet again.": 658,
   'This request presets the amount, fee or confirmation, which only you may set. Run Pay Invoice yourself with its invoice instead.': 659,
+  'LND could not create the wallet: ${error}': 660,
 } as const
 
 /**

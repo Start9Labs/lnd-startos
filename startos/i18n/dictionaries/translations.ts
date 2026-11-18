@@ -554,6 +554,7 @@ export default {
     657: 'Actívalo cuando la huella mostrada tras una primera ejecución coincida con la que indica el origen. No se le envía nada hasta entonces.',
     658: 'La clave de host del origen no se ha verificado. Vuelve a ejecutar Inicializar billetera.',
     659: 'Esta solicitud predefine el importe, la comisión o la confirmación, que solo tú puedes fijar. Ejecuta Pagar factura tú mismo con su factura.',
+    660: 'LND no pudo crear el monedero: ${error}',
   },
   de_DE: {
     309: 'Kontinuierliche Backups',
@@ -1108,6 +1109,7 @@ export default {
     657: 'Einschalten, sobald der nach einem ersten Durchlauf angezeigte Fingerabdruck mit dem übereinstimmt, den der Ursprung meldet. Bis dahin wird nichts an ihn gesendet.',
     658: 'Der Host-Schlüssel des Ursprungs wurde nicht überprüft. Führe Wallet initialisieren erneut aus.',
     659: 'Diese Anfrage gibt den Betrag, die Gebühr oder die Bestätigung vor, die nur du festlegen darfst. Führe stattdessen Rechnung bezahlen selbst mit ihrer Rechnung aus.',
+    660: 'LND konnte die Wallet nicht erstellen: ${error}',
   },
   pl_PL: {
     309: 'Kopie ciągłe',
@@ -1662,6 +1664,7 @@ export default {
     657: 'Włącz, gdy odcisk pokazany po pierwszym uruchomieniu zgadza się z tym, który podaje węzeł źródłowy. Do tego czasu nic nie jest do niego wysyłane.',
     658: 'Klucz hosta węzła źródłowego nie został zweryfikowany. Uruchom ponownie Zainicjalizuj portfel.',
     659: 'To żądanie z góry ustawia kwotę, opłatę lub potwierdzenie, które możesz ustawić tylko Ty. Zamiast tego uruchom samodzielnie Zapłać fakturę z jej fakturą.',
+    660: 'LND nie mógł utworzyć portfela: ${error}',
   },
   fr_FR: {
     309: 'Sauvegardes continues',
@@ -2216,5 +2219,6 @@ export default {
     657: "Activez-le une fois que l'empreinte affichée après une première exécution correspond à celle que l'origine indique. Rien ne lui est envoyé d'ici là.",
     658: "La clé d'hôte de l'origine n'a pas été vérifiée. Relancez Initialiser le portefeuille.",
     659: 'Cette demande préremplit le montant, les frais ou la confirmation, que vous seul pouvez fixer. Lancez plutôt Payer une facture vous-même avec sa facture.',
+    660: "LND n'a pas pu créer le portefeuille : ${error}",
   },
 } satisfies Record<string, LangDict>
