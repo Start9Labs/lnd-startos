@@ -1,5 +1,10 @@
 import { FileHelper, utils, z } from '@start9labs/start-sdk'
 import { manifest as bitcoinManifest } from 'bitcoin-core-startos/startos/manifest'
+import {
+  rpcCookieName,
+  rpcPruneName,
+  rpcVolumeId,
+} from 'bitcoin-core-startos/startos/utils'
 import { base64 } from 'rfc4648'
 import { initializeWallet } from './actions/initializeWallet'
 import {
@@ -216,7 +221,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
   if (useBitcoind) {
     mounts = mounts.mountDependency<typeof bitcoinManifest>({
       dependencyId: 'bitcoind',
-      volumeId: 'main',
+      volumeId: rpcVolumeId,
       mountpoint: bitcoindMnt,
       subpath: null,
       readonly: true,
@@ -233,7 +238,9 @@ export const main = sdk.setupMain(async ({ effects }) => {
   // Restart only when bitcoind writes a replacement cookie — an absent cookie
   // means bitcoind is down, and stopping LND then hangs its shutdown.
   if (useBitcoind) {
-    await FileHelper.string(`${await lndSub.rootfs}${bitcoindMnt}/.cookie`)
+    await FileHelper.string(
+      `${await lndSub.rootfs}${bitcoindMnt}/${rpcCookieName}`,
+    )
       .read(
         (cookie) => cookie,
         (prev, next) => next === null || prev === next,
@@ -243,12 +250,11 @@ export const main = sdk.setupMain(async ({ effects }) => {
 
   const bitcoindPruned =
     useBitcoind &&
-    !!(await FileHelper.ini(
-      `${await lndSub.rootfs}${bitcoindMnt}/bitcoin.conf`,
-      z.looseObject({ prune: z.coerce.number().catch(0) }),
+    !!(await FileHelper.string(
+      `${await lndSub.rootfs}${bitcoindMnt}/${rpcPruneName}`,
     )
       .read(
-        (c) => c.prune > 0,
+        (s) => Number(s.trim()) > 0,
         (prev, next) => next === null || prev === next,
       )
       .const(effects))

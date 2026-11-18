@@ -68,7 +68,7 @@ Two volumes, plus a read-only view of Bitcoin's.
 | `readonly` | `readonly.macaroon` | LND's own read-only macaroon                                                                                                                                                                                                                                  |
 | `admin`    | `admin.macaroon`    | LND's own admin macaroon: full control of the node                                                                                                                                                                                                            |
 
-Bitcoin's data directory is mounted **read-only** at `/mnt/bitcoin` when bitcoind is the backend — that is how LND reads its RPC cookie.
+Only Bitcoin's `public` volume is mounted, **read-only** at `/mnt/bitcoin`, when bitcoind is the backend: LND reads Bitcoin's RPC cookie (`.cookie`) and its `prune` setting there, never the rest of its data directory.
 
 ## File Models
 
@@ -126,14 +126,14 @@ Two further keys are forced absent for correctness rather than preference: **`db
 
 Both are optional and conditional on configuration.
 
-| Dependency | When                         | Kind      | Health checks               | Mount                     |
-| ---------- | ---------------------------- | --------- | --------------------------- | ------------------------- |
-| Bitcoin    | The backend is bitcoind      | `running` | `bitcoind`, `sync-progress` | `/mnt/bitcoin`, read-only |
-| Tor        | Tor is enabled in the config | `running` | `tor`                       | none                      |
+| Dependency | When                         | Kind      | Health checks               | Mount                                 |
+| ---------- | ---------------------------- | --------- | --------------------------- | ------------------------------------- |
+| Bitcoin    | The backend is bitcoind      | `running` | `bitcoind`, `sync-progress` | `public` at `/mnt/bitcoin`, read-only |
+| Tor        | Tor is enabled in the config | `running` | `tor`                       | none                                  |
 
 Choosing bitcoind also raises a `critical` task on **Bitcoin** requiring ZeroMQ — see [Tasks](#tasks).
 
-The daemon **restarts when Bitcoin writes a replacement RPC cookie**, but not when the cookie merely disappears: an absent cookie means Bitcoin is down, and stopping LND at that moment hangs its shutdown. It also restarts when pruning is turned on or off in Bitcoin's `bitcoin.conf`, to set or clear `routing.assumechanvalid`.
+The daemon **restarts when Bitcoin writes a replacement RPC cookie**, but not when the cookie merely disappears: an absent cookie means Bitcoin is down, and stopping LND at that moment hangs its shutdown. It also restarts when Bitcoin's published `prune` setting changes between pruned and unpruned, to set or clear `routing.assumechanvalid`.
 
 ## Network Access and Interfaces
 
@@ -393,7 +393,7 @@ channel_backup_files:
   - /root/.lnd/data/chain/bitcoin/mainnet/channel.backup
 startos_managed_env_vars: []
 dependencies: # both conditional on configuration
-  - bitcoind # when the backend is bitcoind; /mnt/bitcoin, read-only
+  - bitcoind # when the backend is bitcoind; its public volume at /mnt/bitcoin, read-only
   - tor # when Tor is enabled
 interfaces:
   peer: { type: p2p, port: 9735 }
