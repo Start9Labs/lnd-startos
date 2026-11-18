@@ -57,6 +57,9 @@ export const umbrelWalletPassword = 'moneyprintergobrrr'
 export const refusedWalletPassword =
   /^invalid passphrase for master public key$/i
 
+// The macaroon store's refusal, which changepassword reaches only after opening the wallet.
+export const refusedMacaroonPassword = /^invalid password$/i
+
 export function parseGatewayReply(
   stdout: string,
 ): Record<string, unknown> | null {
