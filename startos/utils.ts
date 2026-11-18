@@ -1,5 +1,6 @@
 import { T } from '@start9labs/start-sdk'
 import {
+  rpcCookieName,
   rpcHostId as btcRpcHostId,
   rpcPort as btcRpcPort,
   zmqHostId as btcZmqHostId,
@@ -60,7 +61,7 @@ export const getBitcoindBundle = async (effects: T.Effects) => {
   return {
     'bitcoin.node': 'bitcoind' as const,
     'bitcoind.rpchost': rpchost ?? undefined,
-    'bitcoind.rpccookie': `${bitcoindMnt}/.cookie`,
+    'bitcoind.rpccookie': `${bitcoindMnt}/${rpcCookieName}`,
     'bitcoind.zmqpubrawblock': block ? `tcp://${block}` : undefined,
     'bitcoind.zmqpubrawtx': tx ? `tcp://${tx}` : undefined,
     'fee.url': undefined,
