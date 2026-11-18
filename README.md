@@ -133,7 +133,7 @@ Both are optional and conditional on configuration.
 
 Choosing bitcoind also raises a `critical` task on **Bitcoin** requiring ZeroMQ — see [Tasks](#tasks).
 
-The daemon **restarts when Bitcoin writes a replacement RPC cookie**, but not when the cookie merely disappears: an absent cookie means Bitcoin is down, and stopping LND at that moment hangs its shutdown. It also restarts when pruning is turned on or off in Bitcoin's `bitcoin.conf`, to set or clear `routing.assumechanvalid`.
+The daemon **restarts when Bitcoin writes a replacement RPC cookie**, but not when the cookie merely disappears: an absent cookie means Bitcoin is down, and stopping LND at that moment hangs its shutdown. It also restarts when Bitcoin's published `prune` setting changes between pruned and unpruned, to set or clear `routing.assumechanvalid`.
 
 ## Network Access and Interfaces
 
