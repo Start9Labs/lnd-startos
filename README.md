@@ -118,7 +118,7 @@ Two further keys are forced absent for correctness rather than preference: **`db
 
 ### store.json and startup-flags.json
 
-`store.json` holds the wallet password, the seed if the package generated one, the registered watchtower clients, any custom external hosts, and the Clearnet VPN's WireGuard configuration and public address (`clearnetVpn`), kept verbatim. `vpn/wg0.conf` is generated from it on every start — a `wg-quick` file with `Table = off` and the policy-routing rules as `PostUp` lines — and is never hand-edited.
+`store.json` holds the wallet password, the seed if the package generated one, the registered watchtower clients, any custom external hosts, and the Clearnet VPN's WireGuard configuration and public address (`clearnetVpn`), kept verbatim, with the Tor setting to put back when it is turned off. `vpn/wg0.conf` is generated from it on every start — a `wg-quick` file with `Table = off` and the policy-routing rules as `PostUp` lines — and is never hand-edited.
 
 `startup-flags.json` holds one-time requests: a pending wallet import (**including the origin node's password**, since nothing else persists it) and the origin host key scan it is pinned to, a wallet-transaction reset, a macaroon rotation, a restore marker, and whether the sync notification has fired. Each is consumed by `main` and cleared once the work it asked for has run.
 
@@ -266,7 +266,7 @@ A StartOS backup taken while the mode is on carries neither the password nor the
 
 ### Clearnet VPN — hidden
 
-Not user-facing, and raised as a task by a companion package with its tunnel configuration and public address filled in. Its only known uses are the TunnelSats community package and running it by hand with some other WireGuard configuration, which is unsupported. It is not how a node is made reachable or routed: inbound reachability comes from addresses on the node's StartOS interfaces, and outbound traffic leaves through the gateway StartOS selects for it. It stores the configuration and the address; `watchHosts` advertises the VPN address alongside any user-configured external host, and the action turns on `tor.skip-proxy-for-clearnet-targets`, since clearnet peers have to be dialed directly for the tunnel to carry them. Costs a restart. A new configuration replaces the tunnel; an empty one turns it off and drops only the VPN address. Safe to repeat.
+Not user-facing, and raised as a task by a companion package with its tunnel configuration and public address filled in. Its only known uses are the TunnelSats community package and running it by hand with some other WireGuard configuration, which is unsupported. It is not how a node is made reachable or routed: inbound reachability comes from addresses on the node's StartOS interfaces, and outbound traffic leaves through the gateway StartOS selects for it. It stores the configuration and the address; `watchHosts` advertises the VPN address alongside any user-configured external host, and the action turns on `tor.skip-proxy-for-clearnet-targets`, since clearnet peers have to be dialed directly for the tunnel to carry them. Costs a restart. A new configuration replaces the tunnel; an empty one turns it off, drops the VPN address, and puts back the `tor.skip-proxy-for-clearnet-targets` value that turning it on found, recorded in `clearnetVpn.skipProxyBefore`. A configuration line it cannot parse is reported by number, never quoted. Safe to repeat.
 
 ### Auto-Configure — hidden
 

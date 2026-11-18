@@ -15,6 +15,7 @@ export const shape = z.looseObject({
     .looseObject({
       config: z.string(),
       announce: z.string().nullable().catch(null),
+      skipProxyBefore: z.boolean().catch(true),
     })
     .nullable()
     .catch(null),

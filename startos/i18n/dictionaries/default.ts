@@ -533,7 +533,7 @@ const dict = {
   'The WireGuard client configuration for the tunnel. Leave it empty to turn the VPN off.': 551,
   'Public Address': 552,
   'The address peers reach this node at through the tunnel, as host:port.': 553,
-  'Unrecognized line in the WireGuard configuration: ${line}': 554,
+  'Line ${line} of the WireGuard configuration is not recognized.': 554,
   'The WireGuard configuration needs a PrivateKey and an Address under [Interface].': 555,
   'The WireGuard configuration needs exactly one [Peer] with a PublicKey and an Endpoint.': 556,
   'AllowedIPs must include 0.0.0.0/0 so that all clearnet traffic uses the tunnel.': 557,

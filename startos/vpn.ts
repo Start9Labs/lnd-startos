@@ -19,7 +19,7 @@ export type WireguardConfig = {
 }
 
 export type WireguardConfigError =
-  | { error: 'line'; line: string }
+  | { error: 'line'; line: number }
   | { error: 'interface' | 'peer' | 'allowedIps' }
 
 export function parseWireguardConfig(
@@ -28,7 +28,7 @@ export function parseWireguardConfig(
   const sections: Record<string, Record<string, string>>[] = []
   let current: Record<string, string> | null = null
   let peers = 0
-  for (const raw of text.split(/\r?\n/)) {
+  for (const [i, raw] of text.split(/\r?\n/).entries()) {
     const line = raw.replace(/[#;].*$/, '').trim()
     if (!line) continue
     const section = line.match(/^\[(\w+)\]$/)
@@ -40,7 +40,7 @@ export function parseWireguardConfig(
       continue
     }
     const kv = line.match(/^([A-Za-z]+)\s*=\s*(.+)$/)
-    if (!kv || !current) return { error: 'line', line: raw.trim() }
+    if (!kv || !current) return { error: 'line', line: i + 1 }
     current[kv[1].toLowerCase()] = kv[2].trim()
   }
   const iface = sections.find((s) => s.interface)?.interface
