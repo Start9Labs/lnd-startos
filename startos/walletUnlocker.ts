@@ -51,8 +51,14 @@ export async function serverActiveWithin(ms: number, abort?: AbortSignal) {
   return true
 }
 
+// Every Umbrel node's LND wallet password.
+export const umbrelWalletPassword = 'moneyprintergobrrr'
+
 export const refusedWalletPassword =
   /^invalid passphrase for master public key$/i
+
+// The macaroon store's refusal, which changepassword reaches only after opening the wallet.
+export const refusedMacaroonPassword = /^invalid password$/i
 
 export function parseGatewayReply(
   stdout: string,

@@ -12,6 +12,7 @@ import {
   literal,
   mainMounts,
   nextcloudDavUrl,
+  scanHostKeys,
 } from '../utils'
 
 const VALID_PROVIDERS = [
@@ -411,66 +412,6 @@ async function normalizeKeyPem(
   if (valid.exitCode !== 0)
     throw new Error(i18n('SFTP: that is not a valid OpenSSH private key.'))
   return stored
-}
-
-// Record the server's host keys. They are used only once the user has
-// confirmed the fingerprints returned here.
-async function scanHostKeys(
-  effects: T.Effects,
-  host: string,
-  port: string,
-): Promise<{ knownHosts: string; fingerprints: string }> {
-  return sdk.SubContainer.withTemp(
-    effects,
-    { imageId: 'lnd' },
-    mainMounts,
-    'sftp-keyscan',
-    async (sub) => {
-      const scan = await sub.exec(
-        ['ssh-keyscan', '-T', '10', '-p', port, host],
-        { timeout: 40_000 },
-      )
-      // Only whole key lines from a scan that finished: a cut-off run leaves
-      // partial lines that ssh-keygen and rclone reject, or none at all.
-      const lines = String(scan.stdout)
-        .split('\n')
-        .filter((l) => l && !l.startsWith('#'))
-      const unreachable = i18n(
-        'SFTP: ${host} did not answer with a host key. Check the address and port, and that the server is reachable from here.',
-        { host: literal(`${host}:${port}`) },
-      )
-      if (!lines.length) throw new Error(unreachable)
-      if (
-        scan.exitCode !== 0 ||
-        !lines.every((l) =>
-          /^\S+ (ssh-(rsa|ed25519|dss)|ecdsa-sha2-nistp(256|384|521)|sk-\S+) [A-Za-z0-9+/]+={0,2}$/.test(
-            l,
-          ),
-        )
-      )
-        throw new Error(
-          i18n(
-            'SFTP: the host key ${host} presented could not be read. Try saving again.',
-            { host: literal(`${host}:${port}`) },
-          ),
-        )
-      const knownHosts = lines.join('\n')
-      const fp = await sub.exec(['ssh-keygen', '-lf', '-'], {
-        input: knownHosts + '\n',
-      })
-      const fingerprints = String(fp.stdout)
-        .split('\n')
-        .filter((l) => l.trim())
-      if (fp.exitCode !== 0 || fingerprints.length !== lines.length)
-        throw new Error(
-          i18n(
-            'SFTP: the host key ${host} presented could not be read. Try saving again.',
-            { host: literal(`${host}:${port}`) },
-          ),
-        )
-      return { knownHosts, fingerprints: fingerprints.join('\n') }
-    },
-  )
 }
 
 const enabledToggle = () =>
@@ -1142,7 +1083,7 @@ export const configureChannelBackup = sdk.Action.withInput(
         }
         let scanned = false
         if (enabled && !knownHosts) {
-          const scan = await scanHostKeys(effects, host, port)
+          const scan = await scanHostKeys(effects, host, port, 'SFTP')
           knownHosts = scan.knownHosts
           fingerprints = scan.fingerprints
           scanned = true

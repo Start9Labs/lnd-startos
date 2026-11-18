@@ -4,7 +4,16 @@ import { startupFlagsJson } from '../fileModels/startupFlags.json'
 import { storeJson } from '../fileModels/store.json'
 import { i18n } from '../i18n'
 import { sdk } from '../sdk'
-import { lndDataDir, mainMounts, seedGrid, selfRestUrl, sleep } from '../utils'
+import { parseGatewayReply } from '../walletUnlocker'
+import {
+  literal,
+  lndDataDir,
+  mainMounts,
+  scanHostKeys,
+  seedGrid,
+  selfRestUrl,
+  sleep,
+} from '../utils'
 
 const { InputSpec, Value, Variants } = sdk
 
@@ -17,6 +26,14 @@ const lanHost: T.inputSpecTypes.Pattern = {
   ).matches(),
   description: 'Must be a valid IPv4 address or .local hostname',
 }
+
+const hostKeyVerified = Value.toggle({
+  name: i18n('Host key verified'),
+  description: i18n(
+    'Turn on once the fingerprint shown after a first run matches the one the origin reports. Nothing is sent to it until then.',
+  ),
+  default: false,
+})
 
 const initWalletSpec = InputSpec.of({
   method: Value.union({
@@ -53,6 +70,7 @@ const initWalletSpec = InputSpec.of({
             masked: true,
             placeholder: 'password',
           }),
+          'host-key-verified': hostKeyVerified,
         }),
       },
       mynode: {
@@ -78,6 +96,7 @@ const initWalletSpec = InputSpec.of({
             masked: true,
             placeholder: 'password',
           }),
+          'host-key-verified': hostKeyVerified,
         }),
       },
       startos: {
@@ -103,6 +122,7 @@ const initWalletSpec = InputSpec.of({
             masked: true,
             placeholder: 'password',
           }),
+          'host-key-verified': hostKeyVerified,
         }),
       },
     }),
@@ -184,6 +204,7 @@ export const initializeWallet = sdk.Action.withInput(
           user: 'umbrel',
           host: input.method.value['umbrel-host'],
           password: input.method.value['umbrel-password'],
+          verified: input.method.value['host-key-verified'],
           reached: i18n(
             'Your Umbrel was reached and its credentials verified.',
           ),
@@ -195,6 +216,7 @@ export const initializeWallet = sdk.Action.withInput(
           user: 'admin',
           host: input.method.value['mynode-host'],
           password: input.method.value['mynode-password'],
+          verified: input.method.value['host-key-verified'],
           reached: i18n(
             'Your myNode was reached and its credentials verified.',
           ),
@@ -206,6 +228,7 @@ export const initializeWallet = sdk.Action.withInput(
           user: 'start9',
           host: input.method.value['startos-host'],
           password: input.method.value['startos-password'],
+          verified: input.method.value['host-key-verified'],
           reached: i18n(
             'Your old StartOS server was reached and its credentials verified.',
           ),
@@ -244,7 +267,6 @@ async function initFresh(
         const res = await subc.exec([
           'curl',
           '--no-progress-meter',
-          'GET',
           '--cacert',
           `${lndDataDir}/tls.cert`,
           '--fail-with-body',
@@ -266,35 +288,49 @@ async function initFresh(
       const walletPassword = (await storeJson.read().once())?.walletPassword
       if (!walletPassword) throw new Error('No wallet password found')
 
-      const status = await subc.exec([
-        'curl',
-        '--no-progress-meter',
-        '-X',
-        'POST',
-        '--cacert',
-        `${lndDataDir}/tls.cert`,
-        '--fail-with-body',
-        `${selfRestUrl}/v1/initwallet`,
-        '-d',
-        JSON.stringify({
-          wallet_password: base64.stringify(
-            Buffer.from(walletPassword, 'latin1'),
-          ),
-          cipher_seed_mnemonic: cipherSeed,
-        }),
-      ])
-
-      if (status.stderr !== '' && typeof status.stderr === 'string') {
-        console.log(`Error running initwallet: ${status.stderr}`)
-      }
-
+      // Before the call, so a wallet created despite a failed reply keeps its seed.
       await storeJson.merge(effects, { aezeedCipherSeed: cipherSeed })
+      const status = await subc.exec(
+        [
+          'curl',
+          '--no-progress-meter',
+          '-X',
+          'POST',
+          '--cacert',
+          `${lndDataDir}/tls.cert`,
+          '--fail-with-body',
+          `${selfRestUrl}/v1/initwallet`,
+          '--data-binary',
+          '@-',
+        ],
+        {
+          input: JSON.stringify({
+            wallet_password: base64.stringify(
+              Buffer.from(walletPassword, 'latin1'),
+            ),
+            cipher_seed_mnemonic: cipherSeed,
+          }),
+        },
+      )
 
       child.kill(T.SIGTERM)
       await new Promise<void>((resolve) => {
         child.on('exit', () => resolve())
         setTimeout(resolve, 60_000)
       })
+
+      if (status.exitCode !== 0) {
+        const message = parseGatewayReply(String(status.stdout))?.message
+        throw new Error(
+          i18n('LND could not create the wallet: ${error}', {
+            error: literal(
+              (typeof message === 'string' && message.trim()) ||
+                String(status.stderr).trim() ||
+                `curl exited ${status.exitCode}`,
+            ),
+          }),
+        )
+      }
 
       return cipherSeed
     },
@@ -338,9 +374,23 @@ async function scheduleImport(
     user: string
     host: string
     password: string
+    verified: boolean
     reached: string
   },
 ): Promise<T.ActionResult & { version: '1' }> {
+  const scanned = await startupFlagsJson.read((f) => f.importHostKey).once()
+  if (!source.verified || scanned?.host !== source.host) {
+    const scan = await scanHostKeys(effects, source.host, '22', source.label)
+    await startupFlagsJson.merge(effects, {
+      importHostKey: { host: source.host, ...scan },
+    })
+    throw new Error(
+      i18n(
+        '${source} identified itself as ${fingerprint}. Compare it with the fingerprint the origin reports, then run this again with Host key verified turned on. Nothing has been sent to it.',
+        { source: source.label, fingerprint: literal(scan.fingerprints) },
+      ),
+    )
+  }
   const res = await sdk.SubContainer.withTemp(
     effects,
     { imageId: 'lnd' },
@@ -349,18 +399,16 @@ async function scheduleImport(
     (subc) =>
       subc.exec(
         [
-          'sshpass',
-          '-e',
-          'ssh',
-          '-o',
-          'StrictHostKeyChecking=no',
-          '-o',
-          'ConnectTimeout=10',
-          '-T',
+          'sh',
+          '-c',
+          `printf '%s\\n' "$KNOWN_HOSTS" > /tmp/known_hosts && exec sshpass -e ssh -o UserKnownHostsFile=/tmp/known_hosts -o StrictHostKeyChecking=yes -o ConnectTimeout=10 -T "$1" true`,
+          'sh',
           `${source.user}@${source.host}`,
-          'true',
         ],
-        { env: { SSHPASS: source.password }, timeout: 30_000 },
+        {
+          env: { SSHPASS: source.password, KNOWN_HOSTS: scanned.knownHosts },
+          timeout: 30_000,
+        },
       ),
   )
 
@@ -379,7 +427,9 @@ async function scheduleImport(
       source: source.id,
       host: source.host,
       password: source.password,
+      knownHosts: scanned.knownHosts,
     },
+    importHostKey: null,
   })
 
   return {

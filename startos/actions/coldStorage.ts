@@ -12,6 +12,7 @@ import {
   getLndState,
   isPastUnlock,
   UNLOCK_TIMEOUT_MS,
+  umbrelWalletPassword,
   unlockWallet as requestUnlock,
 } from '../walletUnlocker'
 import { unlockWalletTaskId } from './unlockWallet'
@@ -209,6 +210,13 @@ async function turnOn(
   }
   if (!cold?.prepared) {
     throw new Error(i18n('Run Show Credentials first'))
+  }
+  if (store.walletPassword === umbrelWalletPassword) {
+    throw new Error(
+      i18n(
+        'The wallet still has the password every Umbrel node shares. Restart LND so it can replace it, then run Show Credentials again.',
+      ),
+    )
   }
   // The password may only leave once it has proven itself: LND's own chain
   // running unlocked (not the conversion's temporary one), opened by main's

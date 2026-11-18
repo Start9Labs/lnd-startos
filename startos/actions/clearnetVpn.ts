@@ -48,7 +48,13 @@ export const clearnetVpn = sdk.Action.withInput(
   },
   async ({ effects, input }) => {
     const announce = input.announce?.trim() || null
+    const vpn = await storeJson.read((s) => s.clearnetVpn).once()
     if (!input.config?.trim()) {
+      if (vpn) {
+        await lndConfFile.merge(effects, {
+          'tor.skip-proxy-for-clearnet-targets': vpn.skipProxyBefore,
+        })
+      }
       await storeJson.merge(effects, { clearnetVpn: null })
       return null
     }
@@ -56,9 +62,12 @@ export const clearnetVpn = sdk.Action.withInput(
     if ('error' in parsed) {
       throw new Error(
         parsed.error === 'line'
-          ? i18n('Unrecognized line in the WireGuard configuration: ${line}', {
-              line: parsed.line,
-            })
+          ? i18n(
+              'Line ${line} of the WireGuard configuration is not recognized.',
+              {
+                line: parsed.line,
+              },
+            )
           : parsed.error === 'interface'
             ? i18n(
                 'The WireGuard configuration needs a PrivateKey and an Address under [Interface].',
@@ -76,7 +85,16 @@ export const clearnetVpn = sdk.Action.withInput(
       throw new Error(i18n('The public address must be host:port.'))
     }
     await storeJson.merge(effects, {
-      clearnetVpn: { config: input.config, announce },
+      clearnetVpn: {
+        config: input.config,
+        announce,
+        skipProxyBefore:
+          vpn?.skipProxyBefore ??
+          (await lndConfFile
+            .read((c) => c['tor.skip-proxy-for-clearnet-targets'])
+            .once()) ??
+          true,
+      },
     })
     // Clearnet peers have to be dialed directly for the tunnel to carry them.
     await lndConfFile.merge(effects, {

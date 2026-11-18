@@ -19,10 +19,12 @@ import {
   getLndState,
   isPastUnlock,
   parseGatewayReply,
+  refusedMacaroonPassword,
   refusedWalletPassword,
   serverActiveWithin,
   STATE_TIMED_OUT,
   UNLOCK_TIMEOUT_MS,
+  umbrelWalletPassword,
 } from './walletUnlocker'
 import {
   handshakeStaleMs,
@@ -342,6 +344,13 @@ export const main = sdk.setupMain(async ({ effects }) => {
               .read((f) => f.importPending)
               .once()
             if (!pending) return null
+            if (!pending.knownHosts) {
+              throw new Error(
+                i18n(
+                  "The origin's host key has not been verified. Run Initialize Wallet again.",
+                ),
+              )
+            }
             const { label, env } = {
               umbrel: {
                 label: 'Umbrel',
@@ -383,7 +392,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
             const res = await subcontainer.exec(
               ['sh', `/scripts/import-${pending.source}.sh`],
               {
-                env,
+                env: { ...env, KNOWN_HOSTS: pending.knownHosts },
                 timeout: IMPORT_TIMEOUT_MS,
                 abort: { abort: abort.reason, signal: abort },
               },
@@ -422,7 +431,10 @@ export const main = sdk.setupMain(async ({ effects }) => {
             // still land and the restarted main opens on the conversion phase.
             await storeJson.merge(
               effects,
-              { walletPassword: oldStore.data.walletPassword },
+              {
+                walletPassword: oldStore.data.walletPassword,
+                pendingWalletPassword: oldStore.data.pendingWalletPassword,
+              },
               { allowWriteAfterConst: true },
             )
 
@@ -669,6 +681,37 @@ export const main = sdk.setupMain(async ({ effects }) => {
               storedPasswordVerified: false,
               storedPasswordRefused: false,
             })
+            const pending = coldStorage
+              ? null
+              : await storeJson.read((s) => s.pendingWalletPassword).once()
+            // Only unlockwallet applies a recovery window or a transaction reset.
+            const unlockOnly = restore || resetWalletTransactions
+            const rotation =
+              pending ??
+              (!unlockOnly && walletPassword === umbrelWalletPassword
+                ? utils.getDefaultString({ charset: 'A-Z,2-7', len: 22 })
+                : null)
+            if (rotation && rotation !== pending) {
+              await storeJson.merge(
+                effects,
+                { pendingWalletPassword: rotation },
+                { allowWriteAfterConst: true },
+              )
+            }
+            // changepassword deletes macaroon files before checking their store's password.
+            const rotateRootKey =
+              rotateMacaroonRootKey && !coldStorage && rotation === null
+            // changepassword commits the wallet before the macaroon store, so an
+            // interruption can change the wallet alone; unlockwallet then makes
+            // LND exit on the macaroon store. Every step is a changepassword:
+            // rotate (stored → pending), confirm (pending → pending), and
+            // rollback (pending → stored), which the macaroon store always
+            // refuses after moving the wallet back to the stored password.
+            type Step = 'rotate' | 'confirm' | 'rollback'
+            let step: Step = 'rotate'
+            let rolledBack = false
+            let opened: string | null = null
+            let changed = false
             while (true) {
               if (abort.aborted) {
                 console.log('wallet-unlock aborted')
@@ -714,23 +757,34 @@ export const main = sdk.setupMain(async ({ effects }) => {
               if (!walletPassword)
                 throw new Error('Wallet Password is undefined!')
 
-              const pw = base64.stringify(Buffer.from(walletPassword, 'latin1'))
+              const encode = (p: string) =>
+                base64.stringify(Buffer.from(p, 'latin1'))
               // changepassword also unlocks, so it replaces the unlock call
               // rather than joining it. Passing the same password back is what
-              // keeps this a macaroon rotation and not a password change; LND
+              // keeps a macaroon rotation from changing the password; LND
               // regenerates the root key and rewrites every macaroon file.
-              const body = rotateMacaroonRootKey
-                ? JSON.stringify({
-                    current_password: pw,
-                    new_password: pw,
-                    new_macaroon_root_key: true,
-                  })
-                : restore
+              const [current, replacement]: [string, string | null] = !rotation
+                ? [walletPassword, rotateRootKey ? walletPassword : null]
+                : step === 'rotate'
+                  ? [walletPassword, rotation]
+                  : step === 'confirm'
+                    ? [rotation, rotation]
+                    : [rotation, walletPassword]
+              const change: boolean = replacement !== null
+              const pw = encode(current)
+              const body =
+                replacement !== null
                   ? JSON.stringify({
-                      wallet_password: pw,
-                      recovery_window: 2_500,
+                      current_password: pw,
+                      new_password: encode(replacement),
+                      new_macaroon_root_key: rotateRootKey,
                     })
-                  : JSON.stringify({ wallet_password: pw })
+                  : restore
+                    ? JSON.stringify({
+                        wallet_password: pw,
+                        recovery_window: 2_500,
+                      })
+                    : JSON.stringify({ wallet_password: pw })
               const res = await subcontainer.exec(
                 [
                   'curl',
@@ -739,7 +793,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
                   'POST',
                   '--cacert',
                   `${lndDataDir}/tls.cert`,
-                  rotateMacaroonRootKey
+                  change
                     ? `${selfRestUrl}/v1/changepassword`
                     : `${selfRestUrl}/v1/unlockwallet`,
                   '--data-binary',
@@ -754,21 +808,21 @@ export const main = sdk.setupMain(async ({ effects }) => {
                   ? reply.message.trim()
                   : null
 
-              // A successful rotation response carries the new admin macaroon.
+              // A successful changepassword response carries the new admin macaroon.
               console.log('wallet-unlock response', {
                 exitCode: res.exitCode,
-                stdout: rotateMacaroonRootKey ? '(redacted)' : stdout,
+                stdout: change ? '(redacted)' : stdout,
                 stderr: String(res.stderr).trim(),
               })
               if (
                 res.exitCode === 0 &&
-                (rotateMacaroonRootKey
+                (change
                   ? typeof reply?.admin_macaroon === 'string' &&
                     reply.admin_macaroon.length > 0
                   : stdout === '{}' ||
                     stdout.includes('wallet already unlocked'))
               ) {
-                if (!rotateMacaroonRootKey) {
+                if (!rotateRootKey) {
                   unlockError = null
                   // A wallet found already open proves nothing about the
                   // stored password.
@@ -777,16 +831,31 @@ export const main = sdk.setupMain(async ({ effects }) => {
                     storedPasswordRefused: false,
                   })
                 }
+                if (change || stdout === '{}') opened = replacement ?? current
+                changed = change
                 break
               }
-              if (!rotateMacaroonRootKey) {
+              const refused = !!message && refusedWalletPassword.test(message)
+              const macaroonsRefused: boolean =
+                change && !!message && refusedMacaroonPassword.test(message)
+              if (rotation) {
+                const after: Step | null =
+                  step === 'rotate' && refused
+                    ? 'confirm'
+                    : step === 'confirm' && macaroonsRefused && !rolledBack
+                      ? 'rollback'
+                      : step === 'rollback' && macaroonsRefused
+                        ? 'rotate'
+                        : null
+                if (after) {
+                  rolledBack ||= after === 'rollback'
+                  step = after
+                  continue
+                }
+              }
+              if (!rotateRootKey) {
                 unlockError = message
-                  ? {
-                      kind: refusedWalletPassword.test(message)
-                        ? 'passphrase'
-                        : 'lnd',
-                      message,
-                    }
+                  ? { kind: refused ? 'passphrase' : 'lnd', message }
                   : null
                 if (unlockError?.kind === 'passphrase') {
                   await unlockStatusJson.merge(effects, {
@@ -798,10 +867,49 @@ export const main = sdk.setupMain(async ({ effects }) => {
             }
             // Cleared here, not from a dependent oneshot: a restart lands in
             // the window between the two and arms the flag for every start after.
+            const unresolvedChange =
+              (rotation !== null || rotateRootKey) && opened === null
             await startupFlagsJson.merge(effects, {
-              resetWalletTransactions: false,
-              rotateMacaroonRootKey: false,
+              ...(changed || unresolvedChange
+                ? {}
+                : { resetWalletTransactions: false }),
+              ...(rotateRootKey && changed
+                ? { rotateMacaroonRootKey: false }
+                : {}),
             })
+            const adopt =
+              opened !== null && (opened !== walletPassword || pending !== null)
+            if (adopt) {
+              await storeJson.merge(
+                effects,
+                { walletPassword: opened, pendingWalletPassword: null },
+                { allowWriteAfterConst: true },
+              )
+            }
+            // An observed unlock cannot prove a rotation or apply a deferred reset.
+            if (
+              unresolvedChange ||
+              (changed && unlockOnly) ||
+              (rotation !== null && rotateMacaroonRootKey)
+            ) {
+              await new Promise<void>((resolve) => {
+                if (abort.aborted) return resolve()
+                abort.addEventListener('abort', () => resolve(), { once: true })
+                if (!adopt) {
+                  void (async () => {
+                    while (!abort.aborted) {
+                      try {
+                        await sdk.restart(effects)
+                        return
+                      } catch (e) {
+                        console.error('failed to restart for the unlock', e)
+                        await sleep(5_000, abort)
+                      }
+                    }
+                  })()
+                }
+              })
+            }
             return null
           },
         },

@@ -7,12 +7,13 @@ STARTOS_USER="start9"
 STARTOS_LND_VOLUME="/media/startos/data/package-data/volumes/lnd/data/main"
 
 export SSHPASS="$STARTOS_PASS"
+printf '%s\n' "$KNOWN_HOSTS" > /tmp/known_hosts
 
 # The password reaches the remote sudo over ssh's stdin (-S), never the command
 # string. start9's sudo is passwordless on StartOS, so the line on stdin simply
 # goes unread there; -S covers a box where it isn't.
 startos_ssh() {
-  sshpass -e ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -T "${STARTOS_USER}@${STARTOS_HOST}" "$1"
+  sshpass -e ssh -o UserKnownHostsFile=/tmp/known_hosts -o StrictHostKeyChecking=yes -o ConnectTimeout=10 -T "${STARTOS_USER}@${STARTOS_HOST}" "$1"
 }
 startos_sudo() {
   printf '%s\n' "$STARTOS_PASS" | startos_ssh "sudo -S $1"

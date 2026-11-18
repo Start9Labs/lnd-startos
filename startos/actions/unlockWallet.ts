@@ -103,7 +103,10 @@ export const unlockWallet = sdk.Action.withInput(
     // With the mode off this is the way back from a stored password LND
     // refuses: the one that just opened the wallet becomes the stored one.
     if (stored !== null) {
-      await storeJson.merge(effects, { walletPassword: input.password })
+      await storeJson.merge(effects, {
+        walletPassword: input.password,
+        pendingWalletPassword: null,
+      })
       return done(
         i18n(
           'The node is coming online, and the password you entered is now the stored one, so LND unlocks itself from the next start.',
