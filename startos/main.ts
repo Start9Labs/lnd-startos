@@ -430,7 +430,10 @@ export const main = sdk.setupMain(async ({ effects }) => {
             // still land and the restarted main opens on the conversion phase.
             await storeJson.merge(
               effects,
-              { walletPassword: oldStore.data.walletPassword },
+              {
+                walletPassword: oldStore.data.walletPassword,
+                pendingWalletPassword: oldStore.data.pendingWalletPassword,
+              },
               { allowWriteAfterConst: true },
             )
 
