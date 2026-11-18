@@ -698,6 +698,9 @@ export const main = sdk.setupMain(async ({ effects }) => {
                 { allowWriteAfterConst: true },
               )
             }
+            // changepassword deletes macaroon files before checking their store's password.
+            const rotateRootKey =
+              rotateMacaroonRootKey && !coldStorage && rotation === null
             // changepassword commits the wallet before the macaroon store, so an
             // interruption can change the wallet alone; unlockwallet then makes
             // LND exit on the macaroon store. Every step is a changepassword:
@@ -761,10 +764,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
               // keeps a macaroon rotation from changing the password; LND
               // regenerates the root key and rewrites every macaroon file.
               const [current, replacement]: [string, string | null] = !rotation
-                ? [
-                    walletPassword,
-                    rotateMacaroonRootKey ? walletPassword : null,
-                  ]
+                ? [walletPassword, rotateRootKey ? walletPassword : null]
                 : step === 'rotate'
                   ? [walletPassword, rotation]
                   : step === 'confirm'
@@ -777,8 +777,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
                   ? JSON.stringify({
                       current_password: pw,
                       new_password: encode(replacement),
-                      new_macaroon_root_key:
-                        rotateMacaroonRootKey && step !== 'rollback',
+                      new_macaroon_root_key: rotateRootKey,
                     })
                   : restore
                     ? JSON.stringify({
@@ -823,7 +822,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
                   : stdout === '{}' ||
                     stdout.includes('wallet already unlocked'))
               ) {
-                if (!rotateMacaroonRootKey) {
+                if (!rotateRootKey) {
                   unlockError = null
                   // A wallet found already open proves nothing about the
                   // stored password.
@@ -854,7 +853,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
                   continue
                 }
               }
-              if (!rotateMacaroonRootKey) {
+              if (!rotateRootKey) {
                 unlockError = message
                   ? { kind: refused ? 'passphrase' : 'lnd', message }
                   : null
@@ -868,9 +867,15 @@ export const main = sdk.setupMain(async ({ effects }) => {
             }
             // Cleared here, not from a dependent oneshot: a restart lands in
             // the window between the two and arms the flag for every start after.
+            const unresolvedChange =
+              (rotation !== null || rotateRootKey) && opened === null
             await startupFlagsJson.merge(effects, {
-              ...(changed ? {} : { resetWalletTransactions: false }),
-              rotateMacaroonRootKey: false,
+              ...(changed || unresolvedChange
+                ? {}
+                : { resetWalletTransactions: false }),
+              ...(rotateRootKey && changed
+                ? { rotateMacaroonRootKey: false }
+                : {}),
             })
             const adopt =
               opened !== null && (opened !== walletPassword || pending !== null)
@@ -881,17 +886,27 @@ export const main = sdk.setupMain(async ({ effects }) => {
                 { allowWriteAfterConst: true },
               )
             }
-            // The restore or reset is still owed to an unlockwallet start, so
-            // hold the chain until the restart rather than release the restore.
-            if (changed && unlockOnly) {
+            // An observed unlock cannot prove a rotation or apply a deferred reset.
+            if (
+              unresolvedChange ||
+              (changed && unlockOnly) ||
+              (rotation !== null && rotateMacaroonRootKey)
+            ) {
               await new Promise<void>((resolve) => {
                 if (abort.aborted) return resolve()
                 abort.addEventListener('abort', () => resolve(), { once: true })
                 if (!adopt) {
-                  sdk.restart(effects).catch((e) => {
-                    console.error('failed to restart for the unlock', e)
-                    resolve()
-                  })
+                  void (async () => {
+                    while (!abort.aborted) {
+                      try {
+                        await sdk.restart(effects)
+                        return
+                      } catch (e) {
+                        console.error('failed to restart for the unlock', e)
+                        await sleep(5_000, abort)
+                      }
+                    }
+                  })()
                 }
               })
             }
