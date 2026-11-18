@@ -627,6 +627,7 @@ const dict = {
   '${source} identified itself as ${fingerprint}. Compare it with the fingerprint the origin reports, then run this again with Host key verified turned on. Nothing has been sent to it.': 656,
   'Turn on once the fingerprint shown after a first run matches the one the origin reports. Nothing is sent to it until then.': 657,
   "The origin's host key has not been verified. Run Initialize Wallet again.": 658,
+  'This request presets the amount, fee or confirmation, which only you may set. Run Pay Invoice yourself with its invoice instead.': 659,
 } as const
 
 /**

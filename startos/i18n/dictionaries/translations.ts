@@ -553,6 +553,7 @@ export default {
     656: '${source} se identificó como ${fingerprint}. Compárala con la huella que indica el origen y vuelve a ejecutar esto con Clave de servidor verificada activado. No se le ha enviado nada.',
     657: 'Actívalo cuando la huella mostrada tras una primera ejecución coincida con la que indica el origen. No se le envía nada hasta entonces.',
     658: 'La clave de host del origen no se ha verificado. Vuelve a ejecutar Inicializar billetera.',
+    659: 'Esta solicitud predefine el importe, la comisión o la confirmación, que solo tú puedes fijar. Ejecuta Pagar factura tú mismo con su factura.',
   },
   de_DE: {
     309: 'Kontinuierliche Backups',
@@ -1106,6 +1107,7 @@ export default {
     656: '${source} hat sich als ${fingerprint} ausgewiesen. Vergleiche das mit dem Fingerabdruck, den der Ursprung meldet, und führe dies dann erneut mit eingeschaltetem „Host-Schlüssel geprüft“ aus. Es wurde nichts an ihn gesendet.',
     657: 'Einschalten, sobald der nach einem ersten Durchlauf angezeigte Fingerabdruck mit dem übereinstimmt, den der Ursprung meldet. Bis dahin wird nichts an ihn gesendet.',
     658: 'Der Host-Schlüssel des Ursprungs wurde nicht überprüft. Führe Wallet initialisieren erneut aus.',
+    659: 'Diese Anfrage gibt den Betrag, die Gebühr oder die Bestätigung vor, die nur du festlegen darfst. Führe stattdessen Rechnung bezahlen selbst mit ihrer Rechnung aus.',
   },
   pl_PL: {
     309: 'Kopie ciągłe',
@@ -1659,6 +1661,7 @@ export default {
     656: '${source} przedstawił się jako ${fingerprint}. Porównaj to z odciskiem, który podaje węzeł źródłowy, a następnie uruchom to ponownie z włączoną opcją „Klucz hosta zweryfikowany”. Nic nie zostało do niego wysłane.',
     657: 'Włącz, gdy odcisk pokazany po pierwszym uruchomieniu zgadza się z tym, który podaje węzeł źródłowy. Do tego czasu nic nie jest do niego wysyłane.',
     658: 'Klucz hosta węzła źródłowego nie został zweryfikowany. Uruchom ponownie Zainicjalizuj portfel.',
+    659: 'To żądanie z góry ustawia kwotę, opłatę lub potwierdzenie, które możesz ustawić tylko Ty. Zamiast tego uruchom samodzielnie Zapłać fakturę z jej fakturą.',
   },
   fr_FR: {
     309: 'Sauvegardes continues',
@@ -2212,5 +2215,6 @@ export default {
     656: "${source} s'est identifié comme ${fingerprint}. Comparez avec l'empreinte que l'origine indique, puis relancez ceci avec « Clé d'hôte vérifiée » activé. Rien ne lui a été envoyé.",
     657: "Activez-le une fois que l'empreinte affichée après une première exécution correspond à celle que l'origine indique. Rien ne lui est envoyé d'ici là.",
     658: "La clé d'hôte de l'origine n'a pas été vérifiée. Relancez Initialiser le portefeuille.",
+    659: 'Cette demande préremplit le montant, les frais ou la confirmation, que vous seul pouvez fixer. Lancez plutôt Payer une facture vous-même avec sa facture.',
   },
 } satisfies Record<string, LangDict>
