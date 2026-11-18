@@ -343,6 +343,13 @@ export const main = sdk.setupMain(async ({ effects }) => {
               .read((f) => f.importPending)
               .once()
             if (!pending) return null
+            if (!pending.knownHosts) {
+              throw new Error(
+                i18n(
+                  "The origin's host key has not been verified. Run Initialize Wallet again.",
+                ),
+              )
+            }
             const { label, env } = {
               umbrel: {
                 label: 'Umbrel',
@@ -384,7 +391,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
             const res = await subcontainer.exec(
               ['sh', `/scripts/import-${pending.source}.sh`],
               {
-                env,
+                env: { ...env, KNOWN_HOSTS: pending.knownHosts },
                 timeout: IMPORT_TIMEOUT_MS,
                 abort: { abort: abort.reason, signal: abort },
               },

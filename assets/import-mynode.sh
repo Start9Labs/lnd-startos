@@ -8,12 +8,13 @@ MYNODE_LND_DIR="/mnt/hdd/mynode/lnd"
 MYNODE_PW_FILE="/mnt/hdd/mynode/settings/.lndpw"
 
 export SSHPASS="$MYNODE_PASS"
+printf '%s\n' "$KNOWN_HOSTS" > /tmp/known_hosts
 
 # admin's sudo wants the same password. Feeding it over the remote command's
 # stdin (-S) keeps it out of both the command string and the remote process list.
 mynode_sudo() {
   printf '%s\n' "$MYNODE_PASS" |
-    sshpass -e ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -T "${MYNODE_USER}@${MYNODE_HOST}" "sudo -S $1"
+    sshpass -e ssh -o UserKnownHostsFile=/tmp/known_hosts -o StrictHostKeyChecking=yes -o ConnectTimeout=10 -T "${MYNODE_USER}@${MYNODE_HOST}" "sudo -S $1"
 }
 
 >&2 echo "Stopping myNode services"

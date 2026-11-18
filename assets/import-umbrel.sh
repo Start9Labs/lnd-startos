@@ -7,13 +7,14 @@ UMBREL_USER="umbrel"
 UMBREL_LND_DIR="/home/umbrel/umbrel/app-data/lightning/data/lnd"
 
 export SSHPASS="$UMBREL_PASS"
+printf '%s\n' "$KNOWN_HOSTS" > /tmp/known_hosts
 
 # umbrel's sudo wants the same password as SSH. Feeding it over the remote
 # command's stdin (-S) keeps it out of both the command string and the remote
 # process list.
 umbrel_sudo() {
   printf '%s\n' "$UMBREL_PASS" |
-    sshpass -e ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -T "${UMBREL_USER}@${UMBREL_HOST}" "sudo -S $1"
+    sshpass -e ssh -o UserKnownHostsFile=/tmp/known_hosts -o StrictHostKeyChecking=yes -o ConnectTimeout=10 -T "${UMBREL_USER}@${UMBREL_HOST}" "sudo -S $1"
 }
 
 >&2 echo "Stopping Umbrel services"

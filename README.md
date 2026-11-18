@@ -120,7 +120,7 @@ Two further keys are forced absent for correctness rather than preference: **`db
 
 `store.json` holds the wallet password, the seed if the package generated one, the registered watchtower clients, any custom external hosts, and the Clearnet VPN's WireGuard configuration and public address (`clearnetVpn`), kept verbatim. `vpn/wg0.conf` is generated from it on every start — a `wg-quick` file with `Table = off` and the policy-routing rules as `PostUp` lines — and is never hand-edited.
 
-`startup-flags.json` holds one-time requests: a pending wallet import (**including the origin node's password**, since nothing else persists it), a wallet-transaction reset, a macaroon rotation, a restore marker, and whether the sync notification has fired. Each is consumed by `main` and cleared once the work it asked for has run.
+`startup-flags.json` holds one-time requests: a pending wallet import (**including the origin node's password**, since nothing else persists it) and the origin host key scan it is pinned to, a wallet-transaction reset, a macaroon rotation, a restore marker, and whether the sync notification has fired. Each is consumed by `main` and cleared once the work it asked for has run.
 
 ## Dependencies
 
@@ -187,7 +187,7 @@ Nine actions grouped under Configuration, each writing its own part of `lnd.conf
 
 ### Initialize Wallet — hidden
 
-**Not in the Actions list.** It is `visibility: 'hidden'` and `only-stopped`, reached through the install task. It creates or imports a wallet as described above, and for an import it verifies the origin's credentials before scheduling the copy — so a wrong password fails here rather than six hours later. Re-running it with corrected credentials replaces the pending import without disturbing anything else.
+**Not in the Actions list.** It is `visibility: 'hidden'` and `only-stopped`, reached through the install task. It creates or imports a wallet as described above, and for an import it verifies the origin's credentials before scheduling the copy — so a wrong password fails here rather than six hours later. The origin is pinned by host key the way an SFTP backup target is: a run without _Host key verified_, or for a host with no recorded scan, records the keys `ssh-keyscan` returns in `startup-flags.json`'s `importHostKey` and fails with their fingerprints, sending nothing; a later run with the toggle on uses that scan as the only known host, with `StrictHostKeyChecking=yes`, for the preflight login and, carried in the pending import, for every connection the import script makes. A pending import without a pinned key fails until Initialize Wallet runs again. Re-running it with corrected credentials replaces the pending import without disturbing anything else.
 
 ### Reset Wallet Transactions
 

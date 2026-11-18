@@ -444,7 +444,7 @@ const dict = {
   'SFTP: that key is protected by a passphrase, which rclone cannot enter. Export an unencrypted key for this purpose.': 443,
   'Record a new host key': 444,
   'Turn on after the server was reinstalled and its host key changed. The key it presents now replaces the recorded one.': 445,
-  'SFTP: ${host} did not answer with a host key. Check the address and port, and that the server is reachable from here.': 446,
+  '${label}: ${host} did not answer with a host key. Check the address and port, and that the server is reachable from here.': 446,
   'The SFTP server identified itself as ${fingerprint}. Compare it with your server, then save again with Host key verified turned on; nothing is sent to it until then.': 447,
   '${target}: upload failed: ${detail}': 448,
   '${target}: could not be checked: ${detail}': 449,
@@ -465,7 +465,7 @@ const dict = {
   'LND is running but not responding': 636,
   'LND is running but slow to respond': 637,
   'The backup settings could not be read. Try again in a moment.': 477,
-  'SFTP: the host key ${host} presented could not be read. Try saving again.': 479,
+  '${label}: the host key ${host} presented could not be read. Try again.': 479,
   '${label}: must be at most ${max} characters.': 480,
   'Forget saved credentials': 481,
   'Remove this target and all of its saved settings. Turn off Enabled before selecting this.': 482,
@@ -624,6 +624,9 @@ const dict = {
   'LND stopped after recording the channel with ${peer}: the backup holds no address LND can dial for that peer. It is asked to force-close once the two nodes connect, which LND tries at each start with the addresses the network announces for it. Run this action again to restore the rest of the file.': 653,
   'LND reported an error during the preview: ${error}': 654,
   'The wallet still has the password every Umbrel node shares. Restart LND so it can replace it, then run Show Credentials again.': 655,
+  '${source} identified itself as ${fingerprint}. Compare it with the fingerprint the origin reports, then run this again with Host key verified turned on. Nothing has been sent to it.': 656,
+  'Turn on once the fingerprint shown after a first run matches the one the origin reports. Nothing is sent to it until then.': 657,
+  "The origin's host key has not been verified. Run Initialize Wallet again.": 658,
 } as const
 
 /**
