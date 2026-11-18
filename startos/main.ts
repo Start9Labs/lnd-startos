@@ -3,7 +3,7 @@ import { manifest as bitcoinManifest } from 'bitcoin-core-startos/startos/manife
 import {
   rpcCookieName,
   rpcPruneName,
-  rpcSubpath,
+  rpcVolumeId,
 } from 'bitcoin-core-startos/startos/utils'
 import { base64 } from 'rfc4648'
 import { initializeWallet } from './actions/initializeWallet'
@@ -221,9 +221,9 @@ export const main = sdk.setupMain(async ({ effects }) => {
   if (useBitcoind) {
     mounts = mounts.mountDependency<typeof bitcoinManifest>({
       dependencyId: 'bitcoind',
-      volumeId: 'main',
+      volumeId: rpcVolumeId,
       mountpoint: bitcoindMnt,
-      subpath: rpcSubpath,
+      subpath: null,
       readonly: true,
     })
   }
