@@ -5,6 +5,8 @@ export const shape = z.looseObject({
   // Null while Cold Storage Mode is on: the password is off the server and the
   // user supplies it at each start.
   walletPassword: z.string().nullable().catch(null),
+  // Set before a changepassword call; the unlock oneshot adopts whichever of the two opens the wallet.
+  pendingWalletPassword: z.string().nullable().catch(null),
   aezeedCipherSeed: z.array(z.string()).nullable().catch(null),
   watchtowerClients: z.array(z.string()).catch([]),
   customExternalHosts: z.array(z.string()).catch([]),

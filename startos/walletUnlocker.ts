@@ -51,6 +51,9 @@ export async function serverActiveWithin(ms: number, abort?: AbortSignal) {
   return true
 }
 
+// Every Umbrel node's LND wallet password.
+export const umbrelWalletPassword = 'moneyprintergobrrr'
+
 export const refusedWalletPassword =
   /^invalid passphrase for master public key$/i
 

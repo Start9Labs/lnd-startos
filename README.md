@@ -77,7 +77,7 @@ Five models, and the split between two of them is load-bearing.
 | File                         | Format | Modelled                | Written by                                                              |
 | ---------------------------- | ------ | ----------------------- | ----------------------------------------------------------------------- |
 | `lnd.conf`                   | INI    | Yes — `FileHelper.ini`  | Every init, every start, and the config actions                         |
-| `store.json`                 | JSON   | Yes — `FileHelper.json` | Install, and the wallet and watchtower actions                          |
+| `store.json`                 | JSON   | Yes — `FileHelper.json` | Install, the wallet and watchtower actions, and `main`'s unlock oneshot |
 | `startup-flags.json`         | JSON   | Yes — `FileHelper.json` | Actions, the restore hook, and `main` as it consumes them               |
 | `channel-backup.json`        | JSON   | Yes — `FileHelper.json` | The Configure Continuous Backups action                                 |
 | `.channel-backup-state.json` | JSON   | Yes — `FileHelper.json` | `backup-agent.sh`, on every backup attempt                              |
@@ -166,6 +166,8 @@ Wallet setup is the substantial one, and [Initialize Wallet](#actions) offers tw
 - **Import** an entire node from Umbrel, myNode, or another StartOS server on 0.4.0 or later — copying its data directory over the network.
 
 An import changes what happens next. The copy runs as the only thing in the service, bounded at six hours because a busy routing node's channel database is multi-gigabyte over LAN. If the imported node was on bolt, a **conversion phase** then runs before LND is allowed to open the data, reporting its own progress as a separate health check. Only after that does LND itself start.
+
+**An Umbrel wallet's password is replaced at its first unlock.** Every Umbrel node uses the same wallet password, so while `store.json` holds it the unlock oneshot unlocks through `/v1/changepassword` with a fresh random password instead, except on a restore's first start, whose rescan window only `/v1/unlockwallet` takes. The new password is written to `pendingWalletPassword` before the call, and adopted as `walletPassword` once a call proves it, which restarts `main`. A start that finds a pending password tries the stored one first, as a change to the pending one, then the pending one alone, so an interruption on either side of the call leaves a password that opens the wallet. Turn On refuses while the Umbrel password is stored.
 
 The TLS pair is issued at init for every address LND answers on — the container and bridge addresses, plus every address the gRPC interface is served at — and **reissued whenever that set changes**. The internal half is what REST needs, since the proxy dials the container by IP; the external half is what a gRPC client validates against, since nothing terminates that binding's TLS but LND.
 
@@ -260,7 +262,7 @@ The two halves are deliberately one switch. Deleting the seed while the password
 
 A StartOS backup taken while the mode is on carries neither the password nor the seed: `store.json` holds null for both. Restoring it yields a node in Cold Storage Mode that waits for the recorded password, and the seed, which such a backup never held, is needed only to recover on-chain funds outside StartOS.
 
-**While the mode is on, `unlock-wallet` waits instead of unlocking.** It keeps polling until the wallet passes `LOCKED`, which preserves the requires graph, so `sync-progress`, the restore oneshot and the channel-backup agent stay held rather than running against a locked wallet, and the startup flags are still cleared on the way through. On each lock it raises the Unlock Wallet task and sends one notification, retrying either that failed on the next poll; when the wallet opens, whoever opened it, it clears the task, and a lifecycle that starts with the mode off clears any task a previous one left. `main` never writes `cold-storage.json` or `store.json`'s credentials, so none of its writes can race the actions'.
+**While the mode is on, `unlock-wallet` waits instead of unlocking.** It keeps polling until the wallet passes `LOCKED`, which preserves the requires graph, so `sync-progress`, the restore oneshot and the channel-backup agent stay held rather than running against a locked wallet, and the startup flags are still cleared on the way through. On each lock it raises the Unlock Wallet task and sends one notification, retrying either that failed on the next poll; when the wallet opens, whoever opened it, it clears the task, and a lifecycle that starts with the mode off clears any task a previous one left. `main` never writes `cold-storage.json`, and writes `store.json`'s password only once its own call has opened the wallet with it.
 
 ### Clearnet VPN — hidden
 

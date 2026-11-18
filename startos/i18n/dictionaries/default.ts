@@ -623,6 +623,7 @@ const dict = {
   'Channels in this file that this node does not know: ${count}, listed below. Restoring asks the peer of each to force-close it. Nothing has changed yet: to restore them, run this action again with Restore the channels turned on.': 652,
   'LND stopped after recording the channel with ${peer}: the backup holds no address LND can dial for that peer. It is asked to force-close once the two nodes connect, which LND tries at each start with the addresses the network announces for it. Run this action again to restore the rest of the file.': 653,
   'LND reported an error during the preview: ${error}': 654,
+  'The wallet still has the password every Umbrel node shares. Restart LND so it can replace it, then run Show Credentials again.': 655,
 } as const
 
 /**

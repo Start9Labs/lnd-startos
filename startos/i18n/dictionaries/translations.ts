@@ -549,6 +549,7 @@ export default {
     652: 'Canales de este archivo que este nodo no conoce: ${count}, listados abajo. Restaurar pide al par de cada uno que fuerce su cierre. Aún no ha cambiado nada: para restaurarlos, vuelve a ejecutar esta acción con Restaurar los canales activado.',
     653: 'LND se detuvo tras registrar el canal con ${peer}: la copia no contiene ninguna dirección a la que LND pueda llamar para ese par. Se le pedirá que fuerce el cierre cuando ambos nodos se conecten, algo que LND intenta en cada arranque con las direcciones que la red anuncia para él. Vuelve a ejecutar esta acción para restaurar el resto del archivo.',
     654: 'LND informó de un error durante la previsualización: ${error}',
+    655: 'El monedero aún tiene la contraseña que comparten todos los nodos Umbrel. Reinicia LND para que pueda sustituirla y vuelve a ejecutar Mostrar credenciales.',
   },
   de_DE: {
     309: 'Kontinuierliche Backups',
@@ -1098,6 +1099,7 @@ export default {
     652: 'Kanäle in dieser Datei, die dieser Knoten nicht kennt: ${count}, unten aufgeführt. Eine Wiederherstellung bittet den Peer jedes Kanals, ihn erzwungen zu schließen. Bisher hat sich nichts geändert: Um sie wiederherzustellen, führe diese Aktion erneut mit eingeschaltetem „Kanäle wiederherstellen“ aus.',
     653: 'LND hat nach dem Erfassen des Kanals mit ${peer} angehalten: Das Backup enthält keine Adresse, über die LND diesen Peer erreichen kann. Er wird gebeten, den Kanal erzwungen zu schließen, sobald sich die beiden Knoten verbinden; LND versucht das bei jedem Start mit den Adressen, die das Netzwerk für ihn bekannt gibt. Führe diese Aktion erneut aus, um den Rest der Datei wiederherzustellen.',
     654: 'LND meldete bei der Vorschau einen Fehler: ${error}',
+    655: 'Die Wallet hat noch das Passwort, das alle Umbrel-Knoten teilen. Starte LND neu, damit es ersetzt werden kann, und führe dann erneut Zugangsdaten anzeigen aus.',
   },
   pl_PL: {
     309: 'Kopie ciągłe',
@@ -1647,6 +1649,7 @@ export default {
     652: 'Kanały z tego pliku, których ten węzeł nie zna: ${count}, wypisane poniżej. Przywrócenie prosi partnera każdego z nich o wymuszenie zamknięcia. Nic się jeszcze nie zmieniło: aby je przywrócić, uruchom tę akcję ponownie z włączoną opcją „Przywróć kanały”.',
     653: 'LND zatrzymał się po zapisaniu kanału z ${peer}: kopia nie zawiera adresu, pod którym LND może połączyć się z tym partnerem. Zostanie on poproszony o wymuszenie zamknięcia, gdy oba węzły się połączą, czego LND próbuje przy każdym uruchomieniu, używając adresów ogłaszanych dla niego w sieci. Uruchom tę akcję ponownie, aby przywrócić resztę pliku.',
     654: 'LND zgłosił błąd podczas podglądu: ${error}',
+    655: 'Portfel nadal ma hasło wspólne dla wszystkich węzłów Umbrel. Uruchom ponownie LND, aby mógł je zastąpić, a następnie ponownie uruchom Pokaż dane dostępowe.',
   },
   fr_FR: {
     309: 'Sauvegardes continues',
@@ -2196,5 +2199,6 @@ export default {
     652: "Canaux de ce fichier que ce nœud ne connaît pas : ${count}, listés ci-dessous. Les restaurer demande au pair de chacun de forcer sa fermeture. Rien n'a encore changé : pour les restaurer, relancez cette action avec « Restaurer les canaux » activé.",
     653: "LND s'est arrêté après avoir enregistré le canal avec ${peer} : la sauvegarde ne contient aucune adresse par laquelle LND peut joindre ce pair. Il lui sera demandé de forcer la fermeture dès que les deux nœuds se connecteront, ce que LND tente à chaque démarrage avec les adresses que le réseau annonce pour lui. Relancez cette action pour restaurer le reste du fichier.",
     654: "LND a signalé une erreur pendant l'aperçu : ${error}",
+    655: "Le portefeuille a encore le mot de passe que partagent tous les nœuds Umbrel. Redémarrez LND pour qu'il puisse le remplacer, puis relancez Afficher les identifiants.",
   },
 } satisfies Record<string, LangDict>
