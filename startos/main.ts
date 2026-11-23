@@ -5,6 +5,12 @@ import {
   rpcPruneName,
   rpcVolumeId,
 } from 'bitcoin-core-startos/startos/utils'
+import { manifest as rbitcoinManifest } from 'rbitcoin-startos/startos/manifest'
+import {
+  rpcCookieName as rbitcoinCookieName,
+  rpcPruneName as rbitcoinPruneName,
+  rpcVolumeId as rbitcoinVolumeId,
+} from 'rbitcoin-startos/startos/utils'
 import { base64 } from 'rfc4648'
 import { initializeWallet } from './actions/initializeWallet'
 import {
@@ -51,6 +57,7 @@ import {
   describeFailures,
   channelBackupPath,
   getBitcoindBundle,
+  getRbitcoinBundle,
   GetInfo,
   literal,
   lndDataDir,
@@ -171,6 +178,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
     .read((s) => ({
       walletPassword: s.walletPassword,
       watchtowerClients: s.watchtowerClients,
+      bitcoinNode: s.bitcoinNode,
     }))
     .const(effects)
   if (!store) {
@@ -262,12 +270,23 @@ export const main = sdk.setupMain(async ({ effects }) => {
   }
 
   const useBitcoind = conf['bitcoin.node'] === 'bitcoind'
+  const useRbitcoin = useBitcoind && store.bitcoinNode === 'rbitcoin'
+  const cookieName = useRbitcoin ? rbitcoinCookieName : rpcCookieName
+  const pruneName = useRbitcoin ? rbitcoinPruneName : rpcPruneName
 
   const { walletPassword, watchtowerClients } = store
 
   let mounts = mainMounts
 
-  if (useBitcoind) {
+  if (useRbitcoin) {
+    mounts = mounts.mountDependency<typeof rbitcoinManifest>({
+      dependencyId: 'rbitcoin',
+      volumeId: rbitcoinVolumeId,
+      mountpoint: bitcoindMnt,
+      subpath: null,
+      readonly: true,
+    })
+  } else if (useBitcoind) {
     mounts = mounts.mountDependency<typeof bitcoinManifest>({
       dependencyId: 'bitcoind',
       volumeId: rpcVolumeId,
@@ -288,7 +307,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
   // means bitcoind is down, and stopping LND then hangs its shutdown.
   if (useBitcoind) {
     await FileHelper.string(
-      `${await lndSub.rootfs}${bitcoindMnt}/${rpcCookieName}`,
+      `${await lndSub.rootfs}${bitcoindMnt}/${cookieName}`,
     )
       .read(
         (cookie) => cookie,
@@ -300,13 +319,21 @@ export const main = sdk.setupMain(async ({ effects }) => {
   const bitcoindPruned =
     useBitcoind &&
     !!(await FileHelper.string(
-      `${await lndSub.rootfs}${bitcoindMnt}/${rpcPruneName}`,
+      `${await lndSub.rootfs}${bitcoindMnt}/${pruneName}`,
     )
       .read(
         (s) => Number(s.trim()) > 0,
         (prev, next) => next === null || prev === next,
       )
       .const(effects))
+
+  // A last line behind rbitcoin's storage task. assumechanvalid does not help
+  // here: LND hangs in its restart rescan (rbitcoin-org/rbitcoin#1901).
+  if (useRbitcoin && bitcoindPruned) {
+    throw new Error(
+      'LND cannot run on a pruned rbitcoin. Turn pruning off or change the Bitcoin Backend.',
+    )
+  }
 
   // Enforce backend bundle — ensures rpchost, rpccookie, zmq, fee.url and
   // assumechanvalid stay in sync. This write also re-renders the conf through
@@ -317,7 +344,11 @@ export const main = sdk.setupMain(async ({ effects }) => {
   await lndConfFile.merge(
     effects,
     {
-      ...(useBitcoind ? await getBitcoindBundle(effects) : neutrinoBundle),
+      ...(useRbitcoin
+        ? await getRbitcoinBundle(effects)
+        : useBitcoind
+          ? await getBitcoindBundle(effects)
+          : neutrinoBundle),
       'routing.assumechanvalid': bitcoindPruned || undefined,
     },
     { allowWriteAfterConst: true },

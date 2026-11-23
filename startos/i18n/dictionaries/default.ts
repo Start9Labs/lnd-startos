@@ -161,7 +161,7 @@ const dict = {
   'Bitcoin Backend': 58,
   'Confirm the Bitcoin node to be used as the backend for LND': 59,
   'Select Bitcoin Node': 141,
-  'Where LND gets its blockchain data.\n- Local Bitcoin Node: from Bitcoin on this server.\n- Neutrino: from third-party nodes on the network, which LND then relies on.\nOnce a local Bitcoin node is selected, switching to Neutrino is not supported; LND can always switch from Neutrino to a local Bitcoin node later.': 142,
+  'Where LND gets its blockchain data.\n- Local Bitcoin Node: from Bitcoin on this server.\n- rbitcoin on this server: from the rbitcoin service, polled over RPC because it has no ZeroMQ. It must keep the full chain history.\n- Neutrino: from third-party nodes on the network, which LND then relies on.\nOnce a local Bitcoin node is selected, switching to Neutrino is not supported; LND can always switch from Neutrino to a local Bitcoin node later.': 142,
   'Local Bitcoin Node': 143,
   Neutrino: 144,
 
@@ -629,6 +629,9 @@ const dict = {
   "The origin's host key has not been verified. Run Initialize Wallet again.": 658,
   'This request presets the amount, fee or confirmation, which only you may set. Run Pay Invoice yourself with its invoice instead.': 659,
   'LND could not create the wallet: ${error}': 660,
+  'rbitcoin on this server': 661,
+  'Enable the rbitcoin RPC API that LND reads from': 662,
+  'LND needs rbitcoin to keep the full chain history': 663,
 } as const
 
 /**

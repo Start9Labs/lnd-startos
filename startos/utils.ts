@@ -7,6 +7,10 @@ import {
   zmqPortBlock as btcZmqPortBlock,
   zmqPortTransaction as btcZmqPortTransaction,
 } from 'bitcoin-core-startos/startos/utils'
+import {
+  ports as rbitcoinPorts,
+  rpcCookieName as rbitcoinCookieName,
+} from 'rbitcoin-startos/startos/utils'
 import { i18n } from './i18n'
 import { gRPCPort, restPort } from './interfaces'
 import { sdk } from './sdk'
@@ -62,8 +66,35 @@ export const getBitcoindBundle = async (effects: T.Effects) => {
     'bitcoin.node': 'bitcoind' as const,
     'bitcoind.rpchost': rpchost ?? undefined,
     'bitcoind.rpccookie': `${bitcoindMnt}/${rpcCookieName}`,
+    'bitcoind.rpcpolling': undefined,
     'bitcoind.zmqpubrawblock': block ? `tcp://${block}` : undefined,
     'bitcoind.zmqpubrawtx': tx ? `tcp://${tx}` : undefined,
+    'fee.url': undefined,
+  }
+}
+
+/**
+ * rbitcoin answers LND's bitcoind RPC calls but serves no ZeroMQ, so LND polls
+ * it. The intervals stay at LND's defaults: blocks every 10 s, the mempool
+ * every 30 to 90 s.
+ */
+export const getRbitcoinBundle = async (effects: T.Effects) => {
+  const rpchost = await sdk.host
+    .getBridgeAddress(effects, {
+      packageId: 'rbitcoin',
+      hostId: 'rpc',
+      internalPort: rbitcoinPorts.rpc,
+      ssl: false,
+    })
+    .const()
+
+  return {
+    'bitcoin.node': 'bitcoind' as const,
+    'bitcoind.rpchost': rpchost ?? undefined,
+    'bitcoind.rpccookie': `${bitcoindMnt}/${rbitcoinCookieName}`,
+    'bitcoind.rpcpolling': true as const,
+    'bitcoind.zmqpubrawblock': undefined,
+    'bitcoind.zmqpubrawtx': undefined,
     'fee.url': undefined,
   }
 }
@@ -72,6 +103,7 @@ export const neutrinoBundle = {
   'bitcoin.node': 'neutrino',
   'bitcoind.rpchost': undefined,
   'bitcoind.rpccookie': undefined,
+  'bitcoind.rpcpolling': undefined,
   'bitcoind.zmqpubrawblock': undefined,
   'bitcoind.zmqpubrawtx': undefined,
   'fee.url': 'https://nodes.lightning.computer/fees/v1/btc-fee-estimates.json',

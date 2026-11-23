@@ -30,3 +30,16 @@ export const depBitcoindDescription = {
   pl_PL: 'Używany do subskrybowania wydarzeń nowych bloków.',
   fr_FR: "Utilisé pour s'abonner aux événements de nouveaux blocs.",
 }
+
+export const depRbitcoinDescription = {
+  en_US:
+    'An alternative Bitcoin node LND can poll over RPC for blocks and transactions.',
+  es_ES:
+    'Un nodo Bitcoin alternativo que LND puede consultar por RPC para obtener bloques y transacciones.',
+  de_DE:
+    'Ein alternativer Bitcoin-Knoten, den LND per RPC nach Blöcken und Transaktionen abfragen kann.',
+  pl_PL:
+    'Alternatywny węzeł Bitcoin, który LND może odpytywać przez RPC o bloki i transakcje.',
+  fr_FR:
+    'Un nœud Bitcoin alternatif que LND peut interroger par RPC pour les blocs et les transactions.',
+}

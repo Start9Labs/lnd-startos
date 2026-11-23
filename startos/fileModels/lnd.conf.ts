@@ -69,6 +69,7 @@ export const shape = z.looseObject({
   'bitcoind.rpccookie': iniString,
   'bitcoind.zmqpubrawblock': iniString,
   'bitcoind.zmqpubrawtx': iniString,
+  'bitcoind.rpcpolling': z.literal(true).optional().catch(undefined),
   'routing.assumechanvalid': z.literal(true).optional().catch(undefined),
 
   // ──── Application Options ────
@@ -615,11 +616,12 @@ export const fullConfigSpec = InputSpec.of({
   bitcoind: Value.select({
     name: i18n('Select Bitcoin Node'),
     description: i18n(
-      'Where LND gets its blockchain data.\n- Local Bitcoin Node: from Bitcoin on this server.\n- Neutrino: from third-party nodes on the network, which LND then relies on.\nOnce a local Bitcoin node is selected, switching to Neutrino is not supported; LND can always switch from Neutrino to a local Bitcoin node later.',
+      'Where LND gets its blockchain data.\n- Local Bitcoin Node: from Bitcoin on this server.\n- rbitcoin on this server: from the rbitcoin service, polled over RPC because it has no ZeroMQ. It must keep the full chain history.\n- Neutrino: from third-party nodes on the network, which LND then relies on.\nOnce a local Bitcoin node is selected, switching to Neutrino is not supported; LND can always switch from Neutrino to a local Bitcoin node later.',
     ),
     default: 'bitcoind',
     values: {
       bitcoind: i18n('Local Bitcoin Node'),
+      rbitcoin: i18n('rbitcoin on this server'),
       neutrino: i18n('Neutrino'),
     },
   }),
@@ -735,7 +737,9 @@ export function fileToForm(conf: LndConf): PartialFormType {
     bitcoind:
       conf['bitcoin.node'] === 'neutrino'
         ? ('neutrino' as const)
-        : ('bitcoind' as const),
+        : conf['bitcoind.rpcpolling']
+          ? ('rbitcoin' as const)
+          : ('bitcoind' as const),
 
     // Watchtower Client — wt-client reads from store, not conf.
     // Actions that need it will overlay from storeJson.
@@ -860,7 +864,10 @@ export function formToFile(
   }
 
   // Backend
-  if ('bitcoind' in input) result['bitcoin.node'] = input.bitcoind
+  // rbitcoin runs as LND's bitcoind backend; only Bitcoin Backend switches it.
+  if ('bitcoind' in input)
+    result['bitcoin.node'] =
+      input.bitcoind === 'neutrino' ? 'neutrino' : 'bitcoind'
 
   // Watchtower Client — handled by action (writes to store + conf separately)
   if (input['wt-client']) {

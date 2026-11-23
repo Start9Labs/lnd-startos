@@ -10,6 +10,9 @@ export const shape = z.looseObject({
   aezeedCipherSeed: z.array(z.string()).nullable().catch(null),
   watchtowerClients: z.array(z.string()).catch([]),
   customExternalHosts: z.array(z.string()).catch([]),
+  // Which service backs `bitcoin.node=bitcoind`. rbitcoin runs as LND's
+  // bitcoind backend too, so lnd.conf cannot say which one it is.
+  bitcoinNode: z.enum(['bitcoind', 'rbitcoin']).catch('bitcoind'),
   // Verbatim: the companion's task compares it byte for byte.
   clearnetVpn: z
     .looseObject({
