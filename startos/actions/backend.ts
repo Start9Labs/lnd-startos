@@ -1,7 +1,11 @@
+import { autoconfig } from 'bitcoin-core-startos/startos/actions/config/autoconfig'
+import { apis } from 'rbitcoin-startos/startos/actions/apis'
+import { storage } from 'rbitcoin-startos/startos/actions/storage'
 import { fileToForm, fullConfigSpec, lndConfFile } from '../fileModels/lnd.conf'
+import { storeJson } from '../fileModels/store.json'
 import { i18n } from '../i18n'
 import { sdk } from '../sdk'
-import { getBitcoindBundle, neutrinoBundle } from '../utils'
+import { getBitcoindBundle, getRbitcoinBundle, neutrinoBundle } from '../utils'
 
 export const backendConfig = sdk.Action.withInput(
   // id
@@ -29,16 +33,35 @@ export const backendConfig = sdk.Action.withInput(
 
   // the execution function
   async ({ effects, input }) => {
-    const isBitcoind = input.bitcoind === 'bitcoind'
+    const node = input.bitcoind
 
-    const bitcoinSettings = isBitcoind
-      ? await getBitcoindBundle(effects)
-      : neutrinoBundle
+    const bitcoinSettings =
+      node === 'bitcoind'
+        ? await getBitcoindBundle(effects)
+        : node === 'rbitcoin'
+          ? await getRbitcoinBundle(effects)
+          : neutrinoBundle
 
-    if (!isBitcoind) {
-      await sdk.action.clearTask(effects, 'enable-zmq')
+    if (node !== 'bitcoind') {
+      await sdk.action.clearTask(
+        effects,
+        'enable-zmq',
+        `bitcoind:${autoconfig.id}`,
+      )
+    }
+    if (node !== 'rbitcoin') {
+      await sdk.action.clearTask(
+        effects,
+        `rbitcoin:${apis.id}`,
+        `rbitcoin:${storage.id}`,
+      )
     }
 
+    // The conf first: a store write restarts main, and a main that had read
+    // the old conf would write the old backend back over this choice.
     await lndConfFile.merge(effects, bitcoinSettings)
+    await storeJson.merge(effects, {
+      bitcoinNode: node === 'rbitcoin' ? 'rbitcoin' : 'bitcoind',
+    })
   },
 )

@@ -1,18 +1,18 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 export const current = VersionInfo.of({
-  version: '0.21.8-beta:4',
+  version: '0.21.8-beta:5',
   releaseNotes: {
     en_US:
-      'Continuous Backup health updates within seconds of saving Continuous Backups or of a backup finishing.',
+      'Adds rbitcoin as an optional Bitcoin backend, polled over RPC. Bitcoin Core stays the default.',
     es_ES:
-      'El estado de Copia continua se actualiza en segundos tras guardar Copias continuas o al terminar una copia.',
+      'Añade rbitcoin como backend de Bitcoin opcional, consultado por RPC. Bitcoin Core sigue siendo la opción predeterminada.',
     de_DE:
-      'Der Status von Kontinuierliches Backup aktualisiert sich innerhalb von Sekunden, nachdem Kontinuierliche Backups gespeichert wurde oder ein Backup abgeschlossen ist.',
+      'Fügt rbitcoin als optionales Bitcoin-Backend hinzu, abgefragt per RPC. Bitcoin Core bleibt die Standardeinstellung.',
     pl_PL:
-      'Stan Kopia ciągła aktualizuje się w ciągu kilku sekund po zapisaniu Kopie ciągłe lub po zakończeniu kopii.',
+      'Dodaje rbitcoin jako opcjonalny backend Bitcoin odpytywany przez RPC. Bitcoin Core pozostaje domyślny.',
     fr_FR:
-      'L’état de Sauvegarde continue se met à jour en quelques secondes après l’enregistrement de Sauvegardes continues ou la fin d’une sauvegarde.',
+      'Ajoute rbitcoin comme backend Bitcoin optionnel, interrogé par RPC. Bitcoin Core reste le choix par défaut.',
   },
   migrations: {
     up: async () => {},

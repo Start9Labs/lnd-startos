@@ -3,6 +3,7 @@
   "dependencies": {
     "@start9labs/start-sdk": "4.1.0",
     "bitcoin-core-startos": "github:Start9Labs/bitcoin-core-startos#next/28.x",
+    "rbitcoin-startos": "github:remcoros/rbitcoin-startos#01c0ae4606d55efc826af5847f4845061ab728b7",
     "rfc4648": "1.5.4",
     "tor-startos": "github:Start9Labs/tor-startos#next"
   },

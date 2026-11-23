@@ -68,7 +68,7 @@ Two volumes, plus a read-only view of Bitcoin's.
 | `readonly` | `readonly.macaroon` | LND's own read-only macaroon                                                                                                                                                                                                                                  |
 | `admin`    | `admin.macaroon`    | LND's own admin macaroon: full control of the node                                                                                                                                                                                                            |
 
-Only Bitcoin's `public` volume is mounted, **read-only** at `/mnt/bitcoin`, when bitcoind is the backend: LND reads Bitcoin's RPC cookie (`.cookie`) and its `prune` setting there, never the rest of its data directory.
+Only Bitcoin's `public` volume is mounted, **read-only** at `/mnt/bitcoin`, when bitcoind is the backend: LND reads Bitcoin's RPC cookie (`.cookie`) and its `prune` setting there, never the rest of its data directory. With rbitcoin as the backend, rbitcoin's `public` volume takes that mountpoint and holds the same two files.
 
 ## File Models
 
@@ -110,7 +110,7 @@ Five values depart from LND's own defaults. The first two are enforced, and the 
 
 Two further keys are forced absent for correctness rather than preference: **`db.use-native-sql`**, because the conversion's bolt-mode run reads the same file and bolt rejects native SQL, so it is passed on the daemon's command line instead; and the three **onion-message protocol overrides**, which LND 0.21 advertises natively and which now make it abort at startup if still present.
 
-**Derived, on every start:** the Bitcoin backend bundle — RPC host, cookie path, and both ZeroMQ addresses — resolved from Bitcoin's own bindings, plus `routing.assumechanvalid=true` while Bitcoin is pruned. Selecting Neutrino instead swaps the whole bundle out and sets a fee URL, because Neutrino cannot estimate fees locally.
+**Derived, on every start:** the Bitcoin backend bundle — RPC host, cookie path, and both ZeroMQ addresses — resolved from Bitcoin's own bindings, plus `routing.assumechanvalid=true` while Bitcoin is pruned. With rbitcoin the bundle is its RPC host and cookie plus `bitcoind.rpcpolling=true`, with no ZeroMQ addresses because rbitcoin serves none. `store.json` (`bitcoinNode`) records which of the two is selected, since both run as `bitcoin.node=bitcoind`. Selecting Neutrino instead swaps the whole bundle out and sets a fee URL, because Neutrino cannot estimate fees locally.
 
 **On a pruned Bitcoin:** `routing.assumechanvalid` stops LND fetching the block behind every channel announcement, which a pruned node would have to pull from its peers one by one until LND stops answering. The graph is taken on trust from gossip, as LND does on Neutrino by default, and a closed channel leaves it once both directions are disabled or stop updating rather than when its funding output is spent. Only the routing graph is affected; LND watches the node's own channels on-chain either way. LND logs the key as deprecated on every start but still honours it.
 
@@ -124,14 +124,15 @@ Two further keys are forced absent for correctness rather than preference: **`db
 
 ## Dependencies
 
-Both are optional and conditional on configuration.
+All are optional and conditional on configuration.
 
 | Dependency | When                         | Kind      | Health checks               | Mount                                 |
 | ---------- | ---------------------------- | --------- | --------------------------- | ------------------------------------- |
 | Bitcoin    | The backend is bitcoind      | `running` | `bitcoind`, `sync-progress` | `public` at `/mnt/bitcoin`, read-only |
+| rbitcoin   | The backend is rbitcoin      | `running` | `rpc`, `synchronization`    | `public` at `/mnt/bitcoin`, read-only |
 | Tor        | Tor is enabled in the config | `running` | `tor`                       | none                                  |
 
-Choosing bitcoind also raises a `critical` task on **Bitcoin** requiring ZeroMQ — see [Tasks](#tasks).
+Choosing bitcoind also raises a `critical` task on **Bitcoin** requiring ZeroMQ — see [Tasks](#tasks). Choosing rbitcoin instead raises `critical` tasks on **rbitcoin** to enable RPC and keep the full chain history.
 
 The daemon **restarts when Bitcoin writes a replacement RPC cookie**, but not when the cookie merely disappears: an absent cookie means Bitcoin is down, and stopping LND at that moment hangs its shutdown. It also restarts when Bitcoin's published `prune` setting changes between pruned and unpruned, to set or clear `routing.assumechanvalid`.
 
@@ -179,7 +180,7 @@ Twenty-five actions: ten configure the node, three manage its wallet and credent
 
 Nine actions grouped under Configuration, each writing its own part of `lnd.conf`: **General Settings** (alias, colour, keysend and AMP), **Routing Fees**, **Channel Settings** (acceptance policy plus the forwarding switch), **Autopilot Settings**, **Tor Settings**, **Custom External Host**, **Performance**, **Watchtower Server**, and **Watchtower Client Settings**. Each costs seconds plus a restart, is pre-filled from the current file, and is safe to re-run.
 
-**Bitcoin Backend** is in the same group but `visibility: 'hidden'` — it is reached through the install task rather than browsed to. It chooses bitcoind or Neutrino, and with it the dependency set, the mount, and the whole backend section of the config.
+**Bitcoin Backend** is in the same group but `visibility: 'hidden'` — it is reached through the install task rather than browsed to. It chooses bitcoind, rbitcoin or Neutrino, and with it the dependency set, the mount, and the whole backend section of the config.
 
 **Watchtower Server** additionally deletes the watchtower server's database when the server is switched off, so a disabled tower does not keep client session state it can no longer serve.
 
@@ -283,6 +284,8 @@ Three at install, one raised on Bitcoin, and one raised at each lock while Cold 
 | Configure Continuous Backups | this      | `important` | At install                                                          | The action runs                                                      |
 | Unlock Wallet                | this      | `important` | Each time LND is found locked while Cold Storage Mode is on         | The wallet opens, or Turn Off runs                                   |
 | Auto-Configure               | Bitcoin   | `critical`  | The backend is bitcoind and its ZeroMQ is disabled                  | Bitcoin's config matches; it returns if changed again                |
+| Client APIs                  | rbitcoin  | `critical`  | The backend is rbitcoin and its RPC API is off                      | RPC is enabled; it returns if changed again                          |
+| Storage and pruning          | rbitcoin  | `critical`  | The backend is rbitcoin and it is set to prune                      | Pruning is off; it returns if changed again                          |
 | Clearnet VPN                 | this      | `important` | Only when a companion package raises it with a tunnel for this node | The stored configuration matches what the companion package proposes |
 
 The Bitcoin task appears on **Bitcoin's** page with nothing there explaining which service asked for it. LND needs ZeroMQ to be told about new blocks and transactions; polling is not a substitute.
@@ -360,6 +363,7 @@ The daemon re-sends every stored copy daily even when nothing changed, so a dele
 8. **An import is bounded at six hours** and copies over the network from the origin node.
 9. **No riscv64 build.** x86_64 and aarch64 only.
 10. **On a pruned Bitcoin, the channel graph is not validated against the chain** (`routing.assumechanvalid`), as on Neutrino.
+11. **rbitcoin is polled and must keep its full history.** It has no ZeroMQ, so LND polls RPC at its defaults: blocks every 10 seconds, the mempool every 30 to 90 seconds. LND refuses to start on a pruned rbitcoin, because it never finishes a restart there (rbitcoin-org/rbitcoin#1901).
 
 ---
 
@@ -392,8 +396,9 @@ file_models:
 channel_backup_files:
   - /root/.lnd/data/chain/bitcoin/mainnet/channel.backup
 startos_managed_env_vars: []
-dependencies: # both conditional on configuration
+dependencies: # all conditional on configuration
   - bitcoind # when the backend is bitcoind; its public volume at /mnt/bitcoin, read-only
+  - rbitcoin # when the backend is rbitcoin; its public volume at /mnt/bitcoin, read-only
   - tor # when Tor is enabled
 interfaces:
   peer: { type: p2p, port: 9735 }
@@ -430,6 +435,8 @@ tasks:
   - { action: initialize-wallet, severity: critical }
   - { action: backend-config, severity: critical }
   - { action: autoconfig, severity: critical } # on bitcoind, for ZeroMQ
+  - { action: apis, severity: critical } # on rbitcoin, for RPC
+  - { action: storage, severity: critical } # on rbitcoin, for full history
   - { action: configure-channel-backup, severity: important }
 health_checks:
   - lnd # displayed "LND Server"
