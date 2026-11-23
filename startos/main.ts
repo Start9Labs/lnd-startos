@@ -116,6 +116,49 @@ function ago(seconds: number): string {
   return `${Math.round(seconds / 86400)}d`
 }
 
+/** A counter bumped on every change to the subscribed files. */
+function changeSignal(
+  subscribe: Array<(callback: () => { cancel: boolean }) => void>,
+) {
+  let version = 0
+  let waiters: Array<() => void> = []
+  for (const onChange of subscribe) {
+    let initial = true
+    onChange(() => {
+      // onChange reports the current value first; only later calls are changes.
+      if (initial) {
+        initial = false
+        return { cancel: false }
+      }
+      version += 1
+      const woken = waiters
+      waiters = []
+      woken.forEach((wake) => wake())
+      return { cancel: false }
+    })
+  }
+  return {
+    get version() {
+      return version
+    },
+    /** Resolves after `ms`, or as soon as the counter has moved past `seen`. */
+    wait(seen: number, ms: number): Promise<void> {
+      if (version !== seen) return Promise.resolve()
+      return new Promise((resolve) => {
+        const wake = () => {
+          clearTimeout(timer)
+          resolve()
+        }
+        const timer = setTimeout(() => {
+          waiters = waiters.filter((w) => w !== wake)
+          resolve()
+        }, ms)
+        waiters.push(wake)
+      })
+    },
+  }
+}
+
 type UnlockError = { kind: 'passphrase' | 'lnd'; message: string }
 
 export const main = sdk.setupMain(async ({ effects }) => {
@@ -206,6 +249,12 @@ export const main = sdk.setupMain(async ({ effects }) => {
     nextSyncProbeWarningAt = now + 300_000
     console.warn(message, details)
   }
+
+  // Each subscription lives as long as `effects`: built per chain, they would stack.
+  const channelBackupChanged = changeSignal([
+    (cb) => channelBackupJson.read().onChange(effects, cb),
+    (cb) => channelBackupStateJson.read().onChange(effects, cb),
+  ])
 
   const conf = await lndConfFile.read().const(effects)
   if (!conf) {
@@ -1388,9 +1437,20 @@ export const main = sdk.setupMain(async ({ effects }) => {
       .addHealthCheck('channel-backup', {
         ready: {
           display: i18n('Continuous Backup'),
-          trigger: sdk.trigger.statusTrigger(30_000, {
-            starting: 5_000,
-          }),
+          // statusTrigger(30_000, { starting: 5_000 }), cut short by any change to either file.
+          trigger: (getInput) =>
+            (async function* () {
+              let seen = channelBackupChanged.version
+              while (true) {
+                const { lastResult } = getInput()
+                await channelBackupChanged.wait(
+                  seen,
+                  !lastResult || lastResult === 'starting' ? 5_000 : 30_000,
+                )
+                seen = channelBackupChanged.version
+                yield
+              }
+            })(),
           fn: async () => {
             const cfg = await channelBackupJson.read().once()
             if (
