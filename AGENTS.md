@@ -48,3 +48,4 @@ verified, tried, and decided belongs in the commit message and the PR body.
 - **Read the pending import inside the oneshot's `fn`, not in the chain builder**: the reconciler's config hash cannot see closures, so only a re-read picks up corrected credentials.
 - **Keep Restore Channels from File on pasted base64, not `Value.file`, until Start9Labs/start-technologies#3585 is fixed**: the UI submits an action's file input as `{}`, so validation always fails.
 - **Classify a `restorechanbackup` failure by LND's inner error, never by `unable to unpack chan backup`**: LND prefixes every restore failure with it, a peer it cannot dial included.
+- **Keep the invoice's own description out of Pay Invoice's form hint; Decode Invoice and the payment result show it**: the payee writes it, so beside the decoded amount and destination it can pass for payment details.

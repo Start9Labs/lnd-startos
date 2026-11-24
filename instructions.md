@@ -46,9 +46,11 @@ If you publish the **Peer** interface through StartTunnel to keep your home IP p
 
 ### Paying and receiving
 
-**Pay Invoice** pays a Lightning invoice from your node without a wallet app: paste it, enter an amount only if the invoice leaves it open, set the most you are willing to pay in routing fees, verify the amount and destination, and confirm. The result shows what was paid and the preimage. A service that needs a payment from you can raise the same prompt with the invoice filled in; LND decodes and locks that invoice and shows its amount, destination and description before you approve it.
+**Decode Invoice** shows what an invoice asks for without paying it: its amount, destination, description, when it was created and expires, its network and its payment hash. Run it on any invoice you want to check before paying.
 
-**Receive Payment** creates an invoice for someone to pay you: set an amount (or leave it empty to let them choose), a description they will see, and how long it stays payable, then show them the QR code or send them the invoice text. Both live under **Payments**.
+**Pay Invoice** pays a Lightning invoice from your node without a wallet app: paste it, enter an amount only if the invoice leaves it open, set the most you are willing to pay in routing fees, confirm that you verified the amount and destination (with **Decode Invoice** first), and send. Payments cannot be reversed. The result shows what was paid and the preimage. A service that needs a payment from you can raise the same prompt with the invoice filled in; LND decodes and locks that invoice and shows its amount and destination before you approve it.
+
+**Receive Payment** creates an invoice for someone to pay you: set an amount (or leave it empty to let them choose), a description they will see, and how long it stays payable, then show them the QR code or send them the invoice text. All three live under **Payments**.
 
 ### Configuration
 

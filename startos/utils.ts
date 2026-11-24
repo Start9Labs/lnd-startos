@@ -93,6 +93,45 @@ export const mainMounts = sdk.Mounts.of()
     readonly: false,
   })
 
+export type DecodedPayReq = {
+  destination: string
+  payment_hash: string
+  num_satoshis: string
+  num_msat: string
+  timestamp: string
+  expiry: string
+  description: string
+  description_hash: string
+}
+
+export async function decodePayReq(
+  effects: T.Effects,
+  invoice: string,
+): Promise<DecodedPayReq> {
+  return sdk.SubContainer.withTemp(
+    effects,
+    { imageId: 'lnd' },
+    mainMounts,
+    'decode-pay-invoice',
+    async (subc) => {
+      const decodeRes = await subc.exec([
+        'lncli',
+        `--rpcserver=${selfGrpcHost}`,
+        'decodepayreq',
+        invoice,
+      ])
+      if (decodeRes.exitCode !== 0 || typeof decodeRes.stdout !== 'string') {
+        throw new Error(
+          i18n('The invoice could not be decoded: ${error}', {
+            error: literal(String(decodeRes.stderr).trim()),
+          }),
+        )
+      }
+      return JSON.parse(decodeRes.stdout) as DecodedPayReq
+    },
+  )
+}
+
 // Grants invoice and payment RPCs, never channel or node administration.
 const paymentsRpcMethods = [
   '/lnrpc.Lightning/ChannelBalance',

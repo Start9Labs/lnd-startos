@@ -8,6 +8,7 @@ import { backendConfig } from './backend'
 import { autopilotConfig } from './config/autopilot'
 import { channelsConfig } from './config/channels'
 import { clearnetVpn } from './clearnetVpn'
+import { decodeInvoice } from './decodeInvoice'
 import { payInvoice } from './payInvoice'
 import { receivePayment } from './receivePayment'
 import { restoreChannelsFromFile } from './restoreChannelsFromFile'
@@ -48,5 +49,6 @@ export const actions = sdk.Actions.of()
   .addAction(toggleColdStorage)
   .addAction(unlockWallet)
   .addAction(clearnetVpn)
+  .addAction(decodeInvoice)
   .addAction(payInvoice)
   .addAction(receivePayment)
