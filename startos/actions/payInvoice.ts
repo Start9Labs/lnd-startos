@@ -122,7 +122,7 @@ const inputSpec = async ({
 }
 
 type PaymentUpdate = {
-  status?: 'IN_FLIGHT' | 'SUCCEEDED' | 'FAILED'
+  status?: 'UNKNOWN' | 'IN_FLIGHT' | 'SUCCEEDED' | 'FAILED' | 'INITIATED'
   failure_reason?: string
   payment_preimage?: string
   value_sat?: string
@@ -224,18 +224,60 @@ export const payInvoice = sdk.Action.withInput(
           ],
           { timeout: 90_000 },
         )
-        const updates = jsonObjects(String(payRes.stdout)) as PaymentUpdate[]
-        const final = updates[updates.length - 1]
+        const lastUpdate = (stdout: unknown) =>
+          (jsonObjects(String(stdout)) as PaymentUpdate[]).at(-1)
+        let final = lastUpdate(payRes.stdout)
         if (payRes.exitCode !== 0 || final?.status !== 'SUCCEEDED') {
-          throw new Error(
-            i18n('Payment failed: ${reason}', {
-              reason: literal(
-                final?.failure_reason?.replace(/^FAILURE_REASON_/, '') ||
-                  String(payRes.stderr).trim() ||
-                  'unknown',
-              ),
-            }),
+          // A timed-out or failed attempt can leave an HTLC in flight that still settles.
+          const tracked = lastUpdate(
+            (
+              await subc.exec(
+                [...lncli, 'trackpayment', '--json', decoded.payment_hash],
+                { timeout: 15_000 },
+              )
+            ).stdout,
           )
+          if (tracked?.status === 'SUCCEEDED') {
+            final = tracked
+          } else if (
+            tracked?.status === 'FAILED' ||
+            (tracked === undefined && payRes.exitCode !== null)
+          ) {
+            throw new Error(
+              i18n('Payment failed: ${reason}', {
+                reason: literal(
+                  (tracked ?? final)?.failure_reason?.replace(
+                    /^FAILURE_REASON_/,
+                    '',
+                  ) ||
+                    String(payRes.stderr).trim() ||
+                    'unknown',
+                ),
+              }),
+            )
+          } else {
+            return {
+              version: '1' as const,
+              title: i18n('Payment pending'),
+              message: i18n(
+                'LND is still trying to deliver ${amount} sats to ${destination}, and the payment can still complete. Do not pay a replacement invoice. Run Pay Invoice again with the same invoice to see its final result.',
+                {
+                  amount: String(amountSats),
+                  destination: decoded.destination,
+                },
+              ),
+              result: {
+                type: 'single' as const,
+                name: i18n('Payment hash'),
+                description: null,
+                copyable: true,
+                qr: false,
+                masked: false,
+                value: decoded.payment_hash,
+                launchable: false,
+              },
+            }
+          }
         }
         return {
           version: '1' as const,
