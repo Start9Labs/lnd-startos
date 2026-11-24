@@ -568,7 +568,7 @@ export default {
     671: 'Red',
     672: 'Fuera del intervalo de fechas admitido',
     673: 'Pago pendiente',
-    674: 'LND sigue intentando entregar ${amount} sats a ${destination}, y el pago aún puede completarse. No pague una factura de reemplazo. Vuelva a ejecutar Pagar factura con la misma factura para ver su resultado final.',
+    674: 'El pago de ${amount} sats a ${destination} no tiene un resultado final confirmado y aún puede completarse. No pague una factura de reemplazo. Vuelva a ejecutar Pagar factura con la misma factura para ver su resultado final.',
   },
   de_DE: {
     309: 'Kontinuierliche Backups',
@@ -1137,7 +1137,7 @@ export default {
     671: 'Netzwerk',
     672: 'Außerhalb des unterstützten Datumsbereichs',
     673: 'Zahlung ausstehend',
-    674: 'LND versucht noch, ${amount} Sats an ${destination} zu liefern, und die Zahlung kann noch abgeschlossen werden. Bezahlen Sie keine Ersatzrechnung. Führen Sie „Rechnung bezahlen“ mit derselben Rechnung erneut aus, um das endgültige Ergebnis zu sehen.',
+    674: 'Für die Zahlung von ${amount} Sats an ${destination} liegt kein bestätigtes Endergebnis vor, und sie kann noch abgeschlossen werden. Bezahlen Sie keine Ersatzrechnung. Führen Sie „Rechnung bezahlen“ mit derselben Rechnung erneut aus, um das endgültige Ergebnis zu sehen.',
   },
   pl_PL: {
     309: 'Kopie ciągłe',
@@ -1706,7 +1706,7 @@ export default {
     671: 'Sieć',
     672: 'Poza obsługiwanym zakresem dat',
     673: 'Płatność w toku',
-    674: 'LND wciąż próbuje dostarczyć ${amount} satów do ${destination}, a płatność nadal może się zakończyć. Nie płać faktury zastępczej. Uruchom ponownie Zapłać fakturę z tą samą fakturą, aby zobaczyć jej ostateczny wynik.',
+    674: 'Płatność ${amount} satów do ${destination} nie ma potwierdzonego wyniku końcowego i nadal może się zakończyć. Nie płać faktury zastępczej. Uruchom ponownie Zapłać fakturę z tą samą fakturą, aby zobaczyć jej ostateczny wynik.',
   },
   fr_FR: {
     309: 'Sauvegardes continues',
@@ -2275,6 +2275,6 @@ export default {
     671: 'Réseau',
     672: 'Au-delà de la plage de dates prise en charge',
     673: 'Paiement en attente',
-    674: 'LND essaie toujours de livrer ${amount} sats à ${destination}, et le paiement peut encore aboutir. Ne payez pas de facture de remplacement. Relancez Payer une facture avec la même facture pour voir son résultat final.',
+    674: 'Le paiement de ${amount} sats à ${destination} n’a pas de résultat final confirmé et peut encore aboutir. Ne payez pas de facture de remplacement. Relancez Payer une facture avec la même facture pour voir son résultat final.',
   },
 } satisfies Record<string, LangDict>

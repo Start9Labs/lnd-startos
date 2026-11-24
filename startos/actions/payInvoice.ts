@@ -228,20 +228,21 @@ export const payInvoice = sdk.Action.withInput(
           (jsonObjects(String(stdout)) as PaymentUpdate[]).at(-1)
         let final = lastUpdate(payRes.stdout)
         if (payRes.exitCode !== 0 || final?.status !== 'SUCCEEDED') {
-          // A timed-out or failed attempt can leave an HTLC in flight that still settles.
-          const tracked = lastUpdate(
-            (
-              await subc.exec(
-                [...lncli, 'trackpayment', '--json', decoded.payment_hash],
-                { timeout: 15_000 },
-              )
-            ).stdout,
+          // RPC errors do not establish payment failure; unconfirmed outcomes stay pending.
+          const trackRes = await subc.exec(
+            [...lncli, 'trackpayment', '--json', decoded.payment_hash],
+            { timeout: 15_000 },
           )
+          const tracked = lastUpdate(trackRes.stdout)
           if (tracked?.status === 'SUCCEEDED') {
             final = tracked
           } else if (
             tracked?.status === 'FAILED' ||
-            (tracked === undefined && payRes.exitCode !== null)
+            (tracked === undefined &&
+              payRes.exitCode !== null &&
+              trackRes.exitCode !== null &&
+              trackRes.exitCode !== 0 &&
+              /\brpc error: code = NotFound\b/.test(String(trackRes.stderr)))
           ) {
             throw new Error(
               i18n('Payment failed: ${reason}', {
@@ -260,7 +261,7 @@ export const payInvoice = sdk.Action.withInput(
               version: '1' as const,
               title: i18n('Payment pending'),
               message: i18n(
-                'LND is still trying to deliver ${amount} sats to ${destination}, and the payment can still complete. Do not pay a replacement invoice. Run Pay Invoice again with the same invoice to see its final result.',
+                'The payment of ${amount} sats to ${destination} has no confirmed final result and can still complete. Do not pay a replacement invoice. Run Pay Invoice again with the same invoice to see its final result.',
                 {
                   amount: String(amountSats),
                   destination: decoded.destination,
