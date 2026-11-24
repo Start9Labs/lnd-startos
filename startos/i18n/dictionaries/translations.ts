@@ -566,6 +566,7 @@ export default {
     669: 'Creada',
     670: 'Caduca',
     671: 'Red',
+    672: 'Fuera del intervalo de fechas admitido',
   },
   de_DE: {
     309: 'Kontinuierliche Backups',
@@ -1132,6 +1133,7 @@ export default {
     669: 'Erstellt',
     670: 'Läuft ab',
     671: 'Netzwerk',
+    672: 'Außerhalb des unterstützten Datumsbereichs',
   },
   pl_PL: {
     309: 'Kopie ciągłe',
@@ -1698,6 +1700,7 @@ export default {
     669: 'Utworzona',
     670: 'Wygasa',
     671: 'Sieć',
+    672: 'Poza obsługiwanym zakresem dat',
   },
   fr_FR: {
     309: 'Sauvegardes continues',
@@ -2264,5 +2267,6 @@ export default {
     669: 'Créée',
     670: 'Expire',
     671: 'Réseau',
+    672: 'Au-delà de la plage de dates prise en charge',
   },
 } satisfies Record<string, LangDict>

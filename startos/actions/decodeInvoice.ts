@@ -22,8 +22,13 @@ const networks: Record<string, string> = {
   bcrt: 'regtest',
 }
 
-const utc = (unix: number) =>
-  new Date(unix * 1000).toISOString().replace('T', ' ').replace('.000Z', ' UTC')
+// Valid BOLT11 expiries can exceed JavaScript's calendar range.
+const utc = (unix: number) => {
+  const date = new Date(unix * 1000)
+  return Number.isNaN(date.getTime())
+    ? i18n('Beyond the supported calendar range')
+    : date.toISOString().replace('T', ' ').replace('.000Z', ' UTC')
+}
 
 const row = (name: string, value: string, copyable = false) => ({
   name,

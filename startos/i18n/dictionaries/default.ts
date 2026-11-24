@@ -642,6 +642,7 @@ const dict = {
   Created: 669,
   Expires: 670,
   Network: 671,
+  'Beyond the supported calendar range': 672,
 } as const
 
 /**
