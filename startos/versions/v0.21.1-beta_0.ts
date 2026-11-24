@@ -73,6 +73,7 @@ export const v_0_21_1_beta_0 = VersionInfo.of({
             wtClient?.enabled === 'enabled' ? wtClient['add-watchtowers'] : [],
         })
 
+        await rm('/media/startos/volumes/main/pwd.dat', { force: true })
         await rm('/media/startos/volumes/main/start9', {
           recursive: true,
         }).catch(console.error)

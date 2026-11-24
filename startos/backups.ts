@@ -11,6 +11,7 @@ export const { createBackup, restoreInit } = sdk.setupBackups(
           // decides from files on disk — while importPending can hold an
           // origin's password in cleartext, which must not ride into backups.
           'startup-flags.json',
+          'pwd.dat',
           'data/graph',
           'data/chain/bitcoin/mainnet/channel.db',
           'data/chain/bitcoin/mainnet/sphinxreplay.db',
