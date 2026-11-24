@@ -5,6 +5,7 @@ export const { createBackup, restoreInit } = sdk.setupBackups(
   async ({ effects }) =>
     sdk.Backups.ofVolumes('main')
       .setOptions({
+        // pwd.dat must remain unexcluded for deletion from existing backup targets.
         exclude: [
           // Holds nothing a restore needs — setPostRestore and seedFiles
           // recreate it with what restore requires, and needsSqliteMigration

@@ -1,5 +1,6 @@
 import { T } from '@start9labs/start-sdk'
 import { randomBytes, scryptSync } from 'node:crypto'
+import { rm } from 'node:fs/promises'
 import { coldStorageJson } from '../fileModels/cold-storage.json'
 import { startupFlagsJson } from '../fileModels/startupFlags.json'
 import { storeJson } from '../fileModels/store.json'
@@ -272,6 +273,7 @@ async function turnOn(
     passwordHash: hashPassword(store.walletPassword, passwordSalt),
     seedChallenge: null,
   })
+  await rm(sdk.volumes.main.subpath('pwd.dat'), { force: true })
   await storeJson.merge(effects, {
     walletPassword: null,
     aezeedCipherSeed: null,
