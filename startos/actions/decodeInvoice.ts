@@ -75,7 +75,16 @@ export const decodeInvoice = sdk.Action.withInput(
           row(i18n('Amount'), amount),
           row(i18n('Destination'), decoded.destination, true),
           decoded.description || !decoded.description_hash
-            ? row(i18n('Description'), decoded.description || '-')
+            ? {
+                name: i18n('Description'),
+                description: null,
+                copyable: false,
+                qr: false,
+                masked: false,
+                type: 'multiline' as const,
+                value: decoded.description || '-',
+                filename: null,
+              }
             : row(i18n('Description hash'), decoded.description_hash, true),
           row(i18n('Created'), utc(created)),
           row(i18n('Expires'), utc(expires)),

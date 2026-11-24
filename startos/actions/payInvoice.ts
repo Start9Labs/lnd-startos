@@ -273,9 +273,9 @@ export const payInvoice = sdk.Action.withInput(
                 copyable: false,
                 qr: false,
                 masked: false,
-                type: 'single' as const,
+                type: 'multiline' as const,
                 value: decoded.description || '-',
-                launchable: false,
+                filename: null,
               },
               {
                 name: i18n('Destination'),
