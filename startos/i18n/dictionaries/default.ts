@@ -629,6 +629,20 @@ const dict = {
   "The origin's host key has not been verified. Run Initialize Wallet again.": 658,
   'This request presets the amount, fee or confirmation, which only you may set. Run Pay Invoice yourself with its invoice instead.': 659,
   'LND could not create the wallet: ${error}': 660,
+
+  // actions/decodeInvoice.ts
+  'Check them first with Decode Invoice. Lightning payments cannot be reversed.': 661,
+  'Decode Invoice': 662,
+  'Show what a Lightning invoice asks for before you pay it. Nothing is paid.': 663,
+  'Amountless: you enter the amount when you pay': 664,
+  'Invoice decoded': 665,
+  'This invoice expired on ${date}. It can no longer be paid.': 666,
+  'Nothing has been paid. Check these details before you pay.': 667,
+  'Description hash': 668,
+  Created: 669,
+  Expires: 670,
+  Network: 671,
+  'Beyond the supported calendar range': 672,
 } as const
 
 /**
